@@ -216,6 +216,7 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
+		// Handling up and down
 		case key.Matches(msg, m.keymap.Up):
 			if m.cursor > 0 {
 				m.cursor--
