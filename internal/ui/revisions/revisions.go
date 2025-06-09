@@ -57,7 +57,7 @@ type Model struct {
 	output           string
 	err              error
 	quickSearch      string
-	lastLineCount    int // total number of lines in rendered output
+	totalLines       int // total number of lines in rendered output
 }
 
 type updateRevisionsMsg struct {
@@ -230,10 +230,9 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 			}
 		case key.Matches(msg, m.keymap.ScrollUp):
 			// Scroll the screen down by one line (Alt-Down)
-			if m.viewRange.end < m.lastLineCount {
+			if m.viewRange.end < m.totalLines {
 				m.viewRange.start++
 				m.viewRange.end++
-				// If cursor is now above the screen, move it to the top visible row
 				if m.cursor < m.viewRange.start {
 					m.cursor = m.viewRange.start
 				}
@@ -243,7 +242,6 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 			if m.viewRange.start > 0 {
 				m.viewRange.start--
 				m.viewRange.end--
-				// If cursor is now below the screen, move it to the bottom visible row
 				if m.cursor >= m.viewRange.end {
 					m.cursor = m.viewRange.end - 1
 				}
@@ -391,7 +389,11 @@ func (m *Model) updateGraphRows(rows []graph.Row, selectedRevision string) {
 	if m.cursor == -1 {
 		m.cursor = 0
 	}
-	m.viewRange.reset()
+	// Instead of reset, clamp viewRange to keep cursor visible if possible
+	if m.cursor < m.viewRange.start || m.cursor >= m.viewRange.end || m.viewRange.end-m.viewRange.start != m.height {
+		m.viewRange.start = m.cursor
+		m.viewRange.end = m.cursor + m.height
+	}
 }
 
 func (m *Model) View() string {
@@ -448,7 +450,7 @@ func (m *Model) View() string {
 	}
 
 	m.viewRange.lastRowIndex = lastRenderedRowIndex
-	m.lastLineCount = w.LineCount() // update total line count
+	m.totalLines = w.LineCount() // update total line count
 	if selectedLineStart <= m.viewRange.start {
 		m.viewRange.start = selectedLineStart
 		m.viewRange.end = selectedLineStart + h
