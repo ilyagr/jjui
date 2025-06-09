@@ -32,6 +32,8 @@ var DefaultKeyMappings = KeyMappings[keys]{
 	QuickSearch:      []string{"/"},
 	QuickSearchCycle: []string{"'"},
 	CustomCommands:   []string{"x"},
+	ScrollUp:         []string{"alt+down", "shift+down", ","},
+	ScrollDown:       []string{"alt+up", "shift+up", "."},
 	Rebase: rebaseModeKeys[keys]{
 		Mode:     []string{"r"},
 		Revision: []string{"r"},
@@ -107,6 +109,8 @@ func Convert(m KeyMappings[keys]) KeyMappings[key.Binding] {
 		QuickSearch:      key.NewBinding(key.WithKeys(m.QuickSearch...), key.WithHelp(JoinKeys(m.QuickSearch), "quick search")),
 		QuickSearchCycle: key.NewBinding(key.WithKeys(m.QuickSearchCycle...), key.WithHelp(JoinKeys(m.QuickSearchCycle), "locate next match")),
 		CustomCommands:   key.NewBinding(key.WithKeys(m.CustomCommands...), key.WithHelp(JoinKeys(m.CustomCommands), "custom commands menu")),
+		ScrollUp:         key.NewBinding(key.WithKeys(m.ScrollUp...), key.WithHelp(JoinKeys(m.ScrollUp), "scroll down")),
+		ScrollDown:       key.NewBinding(key.WithKeys(m.ScrollDown...), key.WithHelp(JoinKeys(m.ScrollDown), "scroll up")),
 		Rebase: rebaseModeKeys[key.Binding]{
 			Mode:     key.NewBinding(key.WithKeys(m.Rebase.Mode...), key.WithHelp(JoinKeys(m.Rebase.Mode), "rebase")),
 			Revision: key.NewBinding(key.WithKeys(m.Rebase.Revision...), key.WithHelp(JoinKeys(m.Rebase.Revision), "revision")),
@@ -205,6 +209,8 @@ type KeyMappings[T any] struct {
 	QuickSearch      T                   `toml:"quick_search"`
 	QuickSearchCycle T                   `toml:"quick_search_cycle"`
 	CustomCommands   T                   `toml:"custom_commands"`
+	ScrollUp         T                   `toml:"scroll_up"`
+	ScrollDown       T                   `toml:"scroll_down"`
 	Rebase           rebaseModeKeys[T]   `toml:"rebase"`
 	Details          detailsModeKeys[T]  `toml:"details"`
 	Preview          previewModeKeys[T]  `toml:"preview"`

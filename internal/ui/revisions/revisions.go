@@ -57,6 +57,7 @@ type Model struct {
 	output           string
 	err              error
 	quickSearch      string
+	totalLines       int // total number of lines in rendered output
 }
 
 type updateRevisionsMsg struct {
@@ -216,6 +217,7 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
+		// Handling up and down
 		case key.Matches(msg, m.keymap.Up):
 			if m.cursor > 0 {
 				m.cursor--
@@ -225,6 +227,70 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 				m.cursor++
 			} else if m.hasMore {
 				return m, m.requestMoreRows(m.rowsChan)
+			}
+		case key.Matches(msg, m.keymap.ScrollUp):
+			// Scroll the window down by one entry (Alt-Down)
+			if m.cursor < len(m.rows)-1 {
+				// Calculate the line where the next entry starts
+				line := 0
+				i := 0
+				for i <= m.viewRange.start {
+					rowLines := len(m.rows[i].Lines)
+					if i+1 < len(m.rows) && line+rowLines <= m.viewRange.start {
+						i++
+						line += rowLines
+					} else {
+						break
+					}
+				}
+				if i < len(m.rows)-1 {
+					nextEntryStart := line + len(m.rows[i].Lines)
+					nextEntryEnd := nextEntryStart + len(m.rows[i+1].Lines)
+					if nextEntryEnd <= m.totalLines {
+						m.viewRange.start = nextEntryStart
+						m.viewRange.end = m.viewRange.start + m.height
+						// If cursor is above the new window, move it to the new top entry
+						cursorLine := 0
+						for j := 0; j < m.cursor; j++ {
+							cursorLine += len(m.rows[j].Lines)
+						}
+						if cursorLine < m.viewRange.start {
+							m.cursor = i + 1
+						}
+					}
+				}
+			}
+		case key.Matches(msg, m.keymap.ScrollDown):
+			// Scroll the window up by one entry (Alt-Up)
+			if m.viewRange.start > 0 {
+				line := 0
+				lastVisibleEntry := 0
+				i := 0
+				for ; i < len(m.rows); i++ {
+					if line+len(m.rows[i].Lines) >= m.viewRange.start {
+						break
+					}
+					line += len(m.rows[i].Lines)
+				}
+				m.viewRange.start = line
+				m.viewRange.end = m.viewRange.start + m.height
+				// Find the last visible entry in the new window
+				visibleLine := line
+				for j := i; j < len(m.rows); j++ {
+					if visibleLine+len(m.rows[j].Lines) > m.viewRange.end {
+						break
+					}
+					lastVisibleEntry = j
+					visibleLine += len(m.rows[j].Lines)
+				}
+				// If cursor is below the new window, move it to the last visible entry
+				cursorLine := 0
+				for j := 0; j < m.cursor; j++ {
+					cursorLine += len(m.rows[j].Lines)
+				}
+				if cursorLine+len(m.rows[m.cursor].Lines) > m.viewRange.end {
+					m.cursor = lastVisibleEntry
+				}
 			}
 		case key.Matches(msg, m.keymap.JumpToParent):
 			immediate, _ := m.context.RunCommandImmediate(jj.GetParent(m.SelectedRevision().GetChangeId()))
@@ -392,6 +458,7 @@ func (m *Model) updateGraphRows(rows []graph.Row, selectedRevision string) {
 	m.viewRange.reset()
 }
 
+
 func (m *Model) View() string {
 	if len(m.rows) == 0 {
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, "loading")
@@ -446,6 +513,7 @@ func (m *Model) View() string {
 	}
 
 	m.viewRange.lastRowIndex = lastRenderedRowIndex
+	m.totalLines = w.LineCount() // update total line count
 	if selectedLineStart <= m.viewRange.start {
 		m.viewRange.start = selectedLineStart
 		m.viewRange.end = selectedLineStart + h
