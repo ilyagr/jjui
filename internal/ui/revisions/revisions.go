@@ -57,6 +57,7 @@ type Model struct {
 	output           string
 	err              error
 	quickSearch      string
+	lastLineCount    int // total number of lines in rendered output
 }
 
 type updateRevisionsMsg struct {
@@ -229,7 +230,7 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 			}
 		case key.Matches(msg, m.keymap.ScrollUp):
 			// Scroll the screen down by one line (Alt-Down)
-			if m.viewRange.end < m.viewRange.lastRowIndex+1 {
+			if m.viewRange.end < m.lastLineCount {
 				m.viewRange.start++
 				m.viewRange.end++
 				// If cursor is now above the screen, move it to the top visible row
@@ -447,6 +448,7 @@ func (m *Model) View() string {
 	}
 
 	m.viewRange.lastRowIndex = lastRenderedRowIndex
+	m.lastLineCount = w.LineCount() // update total line count
 	if selectedLineStart <= m.viewRange.start {
 		m.viewRange.start = selectedLineStart
 		m.viewRange.end = selectedLineStart + h

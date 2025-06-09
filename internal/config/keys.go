@@ -32,8 +32,8 @@ var DefaultKeyMappings = KeyMappings[keys]{
 	QuickSearch:      []string{"/"},
 	QuickSearchCycle: []string{"'"},
 	CustomCommands:   []string{"x"},
-	ScrollUp:         []string{"alt+down"},
-	ScrollDown:       []string{"alt+up"},
+	ScrollUp:         []string{"alt+down", "shift+down", ","},
+	ScrollDown:       []string{"alt+up", "shift+up", "."},
 	Rebase: rebaseModeKeys[keys]{
 		Mode:     []string{"r"},
 		Revision: []string{"r"},
