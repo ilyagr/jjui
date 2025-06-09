@@ -229,21 +229,59 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 				return m, m.requestMoreRows(m.rowsChan)
 			}
 		case key.Matches(msg, m.keymap.ScrollUp):
-			// Scroll the screen down by one line (Alt-Down)
-			if m.viewRange.end < m.totalLines {
-				m.viewRange.start++
-				m.viewRange.end++
-				if m.cursor < m.viewRange.start {
-					m.cursor = m.viewRange.start
+			// Scroll the window down by one entry (Alt-Down)
+			if m.cursor < len(m.rows)-1 {
+				// Calculate the line where the next entry starts
+				line := 0
+				i := 0
+				for i <= m.viewRange.start {
+					rowLines := len(m.rows[i].Lines)
+					if i+1 < len(m.rows) && line+rowLines <= m.viewRange.start {
+						i++
+						line += rowLines
+					} else {
+						break
+					}
+				}
+				if i < len(m.rows)-1 {
+					nextEntryStart := line + len(m.rows[i].Lines)
+					nextEntryEnd := nextEntryStart + len(m.rows[i+1].Lines)
+					if nextEntryEnd <= m.totalLines {
+						m.viewRange.start = nextEntryStart
+						m.viewRange.end = m.viewRange.start + m.height
+						// If cursor is above the new window, move it to the new top entry
+						cursorLine := 0
+						for j := 0; j < m.cursor; j++ {
+							cursorLine += len(m.rows[j].Lines)
+						}
+						if cursorLine < m.viewRange.start {
+							m.cursor = i + 1
+						}
+					}
 				}
 			}
 		case key.Matches(msg, m.keymap.ScrollDown):
-			// Scroll the screen up by one line (Alt-Up)
+			// Scroll the window up by one entry (Alt-Up)
 			if m.viewRange.start > 0 {
-				m.viewRange.start--
-				m.viewRange.end--
-				if m.cursor >= m.viewRange.end {
-					m.cursor = m.viewRange.end - 1
+				line := 0
+				prevEntry := 0
+				i := 0
+				for ; i < len(m.rows); i++ {
+					if line+len(m.rows[i].Lines) >= m.viewRange.start {
+						break
+					}
+					prevEntry = i
+					line += len(m.rows[i].Lines)
+				}
+				m.viewRange.start = line
+				m.viewRange.end = m.viewRange.start + m.height
+				// If cursor is below the new window, move it to the new bottom entry
+				cursorLine := 0
+				for j := 0; j < m.cursor; j++ {
+					cursorLine += len(m.rows[j].Lines)
+				}
+				if cursorLine+len(m.rows[m.cursor].Lines) > m.viewRange.end {
+					m.cursor = prevEntry
 				}
 			}
 		case key.Matches(msg, m.keymap.JumpToParent):
