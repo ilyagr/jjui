@@ -264,24 +264,32 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 			// Scroll the window up by one entry (Alt-Up)
 			if m.viewRange.start > 0 {
 				line := 0
-				prevEntry := 0
+				lastVisibleEntry := 0
 				i := 0
 				for ; i < len(m.rows); i++ {
 					if line+len(m.rows[i].Lines) >= m.viewRange.start {
 						break
 					}
-					prevEntry = i
 					line += len(m.rows[i].Lines)
 				}
 				m.viewRange.start = line
 				m.viewRange.end = m.viewRange.start + m.height
-				// If cursor is below the new window, move it to the new bottom entry
+				// Find the last visible entry in the new window
+				visibleLine := line
+				for j := i; j < len(m.rows); j++ {
+					if visibleLine+len(m.rows[j].Lines) > m.viewRange.end {
+						break
+					}
+					lastVisibleEntry = j
+					visibleLine += len(m.rows[j].Lines)
+				}
+				// If cursor is below the new window, move it to the last visible entry
 				cursorLine := 0
 				for j := 0; j < m.cursor; j++ {
 					cursorLine += len(m.rows[j].Lines)
 				}
 				if cursorLine+len(m.rows[m.cursor].Lines) > m.viewRange.end {
-					m.cursor = prevEntry
+					m.cursor = lastVisibleEntry
 				}
 			}
 		case key.Matches(msg, m.keymap.JumpToParent):
@@ -427,10 +435,17 @@ func (m *Model) updateGraphRows(rows []graph.Row, selectedRevision string) {
 	if m.cursor == -1 {
 		m.cursor = 0
 	}
-	// Instead of reset, clamp viewRange to keep cursor visible if possible
-	if m.cursor < m.viewRange.start || m.cursor >= m.viewRange.end || m.viewRange.end-m.viewRange.start != m.height {
+	// Only clamp viewRange if cursor is actually off-screen
+	if m.cursor < m.viewRange.start {
 		m.viewRange.start = m.cursor
-		m.viewRange.end = m.cursor + m.height
+		m.viewRange.end = m.viewRange.start + m.height
+	} else if m.cursor >= m.viewRange.end {
+		m.viewRange.end = m.cursor + 1
+		m.viewRange.start = m.viewRange.end - m.height
+		if m.viewRange.start < 0 {
+			m.viewRange.start = 0
+			m.viewRange.end = m.height
+		}
 	}
 }
 
