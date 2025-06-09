@@ -357,10 +357,19 @@ func (m *Model) updateGraphRows(rows []graph.Row, selectedRevision string) {
 		return
 	}
 
-	// Save the changeId at the previous viewRange.start, if possible
-	var prevStartChangeId string
-	if m.viewRange.start >= 0 && m.viewRange.start < len(m.rows) {
-		prevStartChangeId = m.rows[m.viewRange.start].Commit.GetChangeId()
+	// Remember the changeId at the top of the screen before refresh
+	topRowIdx := -1
+	rowLineSum := 0
+	for i := 0; i < len(m.rows); i++ {
+		if rowLineSum >= m.viewRange.start {
+			topRowIdx = i
+			break
+		}
+		rowLineSum += len(m.rows[i].Lines)
+	}
+	var topRowChangeId string
+	if topRowIdx != -1 && topRowIdx < len(m.rows) {
+		topRowChangeId = m.rows[topRowIdx].Commit.GetChangeId()
 	}
 
 	currentSelectedRevision := selectedRevision
@@ -376,20 +385,25 @@ func (m *Model) updateGraphRows(rows []graph.Row, selectedRevision string) {
 		m.cursor = 0
 	}
 
-	// Try to restore the previous scroll position if possible
-	if prevStartChangeId != "" {
-		newStartIdx := slices.IndexFunc(m.rows, func(row graph.Row) bool {
-			return row.Commit.GetChangeId() == prevStartChangeId
-		})
-		if newStartIdx != -1 {
-			m.viewRange.start = newStartIdx
-			m.viewRange.end = newStartIdx + m.height
-			m.viewRange.lastRowIndex = len(m.rows) - 1
-			return
+	// Restore the scroll offset by setting viewRange.start so that the same row is at the top
+	newTopIdx := -1
+	if topRowChangeId != "" {
+		for i := 0; i < len(m.rows); i++ {
+			if m.rows[i].Commit.GetChangeId() == topRowChangeId {
+				newTopIdx = i
+				break
+			}
 		}
 	}
-	// Fallback: reset viewRange
-	m.viewRange.reset()
+	start := 0
+	if newTopIdx != -1 {
+		for i := 0; i < newTopIdx && i < len(m.rows); i++ {
+			start += len(m.rows[i].Lines)
+		}
+	}
+	m.viewRange.start = start
+	m.viewRange.end = start + m.height
+	m.viewRange.lastRowIndex = len(m.rows) - 1
 }
 
 func (m *Model) View() string {
