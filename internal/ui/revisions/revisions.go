@@ -227,6 +227,26 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 			} else if m.hasMore {
 				return m, m.requestMoreRows(m.rowsChan)
 			}
+		case key.Matches(msg, m.keymap.ScrollUp):
+			// Scroll the screen down by one line (Alt-Down)
+			if m.viewRange.end < m.viewRange.lastRowIndex+1 {
+				m.viewRange.start++
+				m.viewRange.end++
+				// If cursor is now above the screen, move it to the top visible row
+				if m.cursor < m.viewRange.start {
+					m.cursor = m.viewRange.start
+				}
+			}
+		case key.Matches(msg, m.keymap.ScrollDown):
+			// Scroll the screen up by one line (Alt-Up)
+			if m.viewRange.start > 0 {
+				m.viewRange.start--
+				m.viewRange.end--
+				// If cursor is now below the screen, move it to the bottom visible row
+				if m.cursor >= m.viewRange.end {
+					m.cursor = m.viewRange.end - 1
+				}
+			}
 		case key.Matches(msg, m.keymap.JumpToParent):
 			immediate, _ := m.context.RunCommandImmediate(jj.GetParent(m.SelectedRevision().GetChangeId()))
 			parentIndex := m.selectRevision(string(immediate))
