@@ -357,6 +357,12 @@ func (m *Model) updateGraphRows(rows []graph.Row, selectedRevision string) {
 		return
 	}
 
+	// Save the changeId at the previous viewRange.start, if possible
+	var prevStartChangeId string
+	if m.viewRange.start >= 0 && m.viewRange.start < len(m.rows) {
+		prevStartChangeId = m.rows[m.viewRange.start].Commit.GetChangeId()
+	}
+
 	currentSelectedRevision := selectedRevision
 	if cur := m.SelectedRevision(); currentSelectedRevision == "" && cur != nil {
 		currentSelectedRevision = cur.GetChangeId()
@@ -369,6 +375,20 @@ func (m *Model) updateGraphRows(rows []graph.Row, selectedRevision string) {
 	if m.cursor == -1 {
 		m.cursor = 0
 	}
+
+	// Try to restore the previous scroll position if possible
+	if prevStartChangeId != "" {
+		newStartIdx := slices.IndexFunc(m.rows, func(row graph.Row) bool {
+			return row.Commit.GetChangeId() == prevStartChangeId
+		})
+		if newStartIdx != -1 {
+			m.viewRange.start = newStartIdx
+			m.viewRange.end = newStartIdx + m.height
+			m.viewRange.lastRowIndex = len(m.rows) - 1
+			return
+		}
+	}
+	// Fallback: reset viewRange
 	m.viewRange.reset()
 }
 
