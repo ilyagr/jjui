@@ -17,6 +17,7 @@ var Current = &Config{
 	UI: UIConfig{
 		HighlightLight: "#a0a0a0",
 		HighlightDark:  "#282a36",
+		EnableMouse:    false,
 	},
 	Preview: PreviewConfig{
 		ExtraArgs:                []string{},
@@ -44,6 +45,7 @@ type UIConfig struct {
 	HighlightLight      string `toml:"highlight_light"`
 	HighlightDark       string `toml:"highlight_dark"`
 	AutoRefreshInterval int    `toml:"auto_refresh_interval"`
+	EnableMouse         bool   `toml:"enable_mouse"`
 }
 
 type PreviewConfig struct {
