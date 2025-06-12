@@ -211,6 +211,19 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		}
 
 		return m, tea.Batch(m.highlightChanges, m.updateSelection())
+	case tea.MouseMsg:
+		switch msg.Button {
+		case tea.MouseButtonWheelUp:
+			if m.cursor > 0 {
+				m.cursor--
+			}
+		case tea.MouseButtonWheelDown:
+			if m.cursor < len(m.rows)-1 {
+				m.cursor++
+			} else if m.hasMore {
+				return m, m.requestMoreRows(m.rowsChan)
+			}
+		}
 	}
 
 	if op, ok := m.op.(operations.OperationWithOverlay); ok {
