@@ -161,6 +161,21 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		m.err = msg.Err
 		return m, nil
 	case common.RefreshMsg:
+		// First, let the active operation handle the refresh message if it's an OperationWithOverlay
+		if op, ok := m.op.(operations.OperationWithOverlay); ok {
+			var cmd tea.Cmd
+			m.op, cmd = op.Update(msg)
+			// If the operation handled the message, execute its command along with the revision refresh
+			if cmd != nil {
+				if config.Current.ExperimentalLogBatchingEnabled {
+					return m, tea.Batch(cmd, m.loadStreaming(m.revsetValue, msg.SelectedRevision))
+				} else {
+					return m, tea.Batch(cmd, m.load(m.revsetValue, msg.SelectedRevision))
+				}
+			}
+		}
+		
+		// Standard refresh handling for the revisions list
 		if config.Current.ExperimentalLogBatchingEnabled {
 			return m, m.loadStreaming(m.revsetValue, msg.SelectedRevision)
 		} else {
