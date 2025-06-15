@@ -204,6 +204,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Batch(cmd, m.context.SetSelectedItem(context.SelectedFile{ChangeId: m.revision, File: curItem.fileName}))
 			}
 		}
+	case tea.MouseMsg:
+		if m.confirmation != nil {
+			model, cmd := m.confirmation.Update(msg)
+			m.confirmation = model
+			return m, cmd
+		}
+		// Only handle left click press events
+		if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft {
+			// Determine the bounds of the files list
+			filesView := m.files.View()
+			filesLines := strings.Split(filesView, "\n")
+			filesHeight := len(filesLines)
+			// The files list is always rendered at the top of the details view
+			if msg.Y < filesHeight {
+				// Click is inside the files list
+				clickedIdx := msg.Y
+				if clickedIdx >= 0 && clickedIdx < len(m.files.Items()) {
+					m.files.Select(clickedIdx)
+					curItem := m.files.SelectedItem().(item)
+					return m, m.context.SetSelectedItem(context.SelectedFile{ChangeId: m.revision, File: curItem.fileName})
+				}
+				return m, nil
+			} else {
+				// Click is outside the files list: close details view
+				return m, common.Close
+			}
+		}
+		return m, nil
 	case confirmation.CloseMsg:
 		m.confirmation = nil
 		m.files.SetDelegate(itemDelegate{})
