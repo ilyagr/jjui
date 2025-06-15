@@ -211,6 +211,27 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		}
 
 		return m, tea.Batch(m.highlightChanges, m.updateSelection())
+	case tea.MouseMsg:
+		if !config.Current.UI.EnableMouse {
+			break
+		}
+		if !m.InNormalMode() || len(m.rows) == 0 {
+			break
+		}
+		if msg.Type == tea.MouseWheelUp {
+			if m.cursor > 0 {
+				m.cursor--
+				return m, m.updateSelection()
+			}
+		} else if msg.Type == tea.MouseWheelDown {
+			if m.cursor < len(m.rows)-1 {
+				m.cursor++
+				return m, m.updateSelection()
+			} else if m.hasMore {
+				return m, m.requestMoreRows(m.rowsChan, m.tag)
+			}
+		}
+		break
 	}
 
 	if op, ok := m.op.(operations.OperationWithOverlay); ok {

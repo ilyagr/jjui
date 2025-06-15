@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -43,9 +44,15 @@ type Model struct {
 	keyMap                  config.KeyMappings[key.Binding]
 	stacked                 tea.Model
 	showUi                  bool // controls topView/footer visibility
+	spinnerIndex            int
 }
 
 type autoRefreshMsg struct{}
+
+// Spinner: 6-dot circle with one missing dot, missing dot moves in a circle
+// Unicode: ⠟, ⠯, ⠷, ⠾, ⠽, ⠻
+var spinnerFrames = []rune{'⠟', '⠯', '⠷', '⠾', '⠽', '⠻'}
+var spinnerColor = lipgloss.NewStyle().Foreground(lipgloss.Color("5")) // dark magenta
 
 func (m Model) Init() tea.Cmd {
 	return tea.Sequence(tea.SetWindowTitle(fmt.Sprintf("jjui - %s", m.context.Location())), m.revisions.Init(), m.scheduleAutoRefresh())
@@ -86,6 +93,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case tea.MouseMsg:
+		if !config.Current.UI.EnableMouse {
+			break
+		}
+		if m.previewVisible && m.previewModel != nil {
+			// Calculate preview area geometry
+			leftViewWidth := m.width
+			if m.previewVisible {
+				leftViewWidth = m.width - int(float64(m.width)*(m.previewWindowPercentage/100.0))
+			}
+			previewX := leftViewWidth
+			previewWidth := m.width - leftViewWidth
+			previewHeight := m.height - lipgloss.Height(m.status.View()) - lipgloss.Height(m.revsetModel.View())
+			if msg.X >= previewX && msg.X < m.width && msg.Y >= 0 && msg.Y < previewHeight {
+				m.previewModel.SetWidth(previewWidth)
+				m.previewModel.SetHeight(previewHeight)
+				m.previewModel, cmd = m.previewModel.Update(msg)
+				return m, cmd
+			}
+		}
+		// Otherwise, forward to revisions
+		m.revisions, cmd = m.revisions.Update(msg)
+		return m, cmd
 	case tea.KeyMsg:
 		if m.revsetModel.Editing {
 			m.revsetModel, cmd = m.revsetModel.Update(msg)
@@ -174,6 +204,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.output = msg.Output
 		m.error = msg.Err
 	case autoRefreshMsg:
+		m.spinnerIndex = (m.spinnerIndex + 1) % len(spinnerFrames) // advance spinner
 		return m, tea.Batch(m.scheduleAutoRefresh(), common.Refresh)
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -226,6 +257,16 @@ func (m Model) View() string {
 	}
 
 	topView := m.revsetModel.View()
+	if config.Current.UI.AutoRefreshInterval > 0 && config.Current.UI.AutoRefreshSpinner {
+		// Show spinner at right of top line
+		spinnerChar := spinnerFrames[m.spinnerIndex]
+		spinner := spinnerColor.Render(string(spinnerChar))
+		padding := m.width - lipgloss.Width(topView) - lipgloss.Width(spinner) - 1
+		if padding < 1 {
+			padding = 1
+		}
+		topView = fmt.Sprintf("%s%s%s", topView, strings.Repeat(" ", padding), spinner)
+	}
 	if m.state == common.Error {
 		topView += fmt.Sprintf("\n%s\n", m.output)
 	}
@@ -335,5 +376,6 @@ func New(c context.AppContext, initialRevset string) tea.Model {
 		status:                  &statusModel,
 		revsetModel:             revset.New(initialRevset),
 		showUi:                  true,
+		spinnerIndex:            0,
 	}
 }
