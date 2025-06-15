@@ -123,6 +123,26 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 			m.viewRange.start -= halfPageSize
 			m.viewRange.end -= halfPageSize
 		}
+	case tea.MouseMsg:
+		if !config.Current.UI.EnableMouse {
+			break
+		}
+		// If mouse is over the preview window, handle scroll here
+		if msg.X >= m.width-2 && msg.X < m.width && msg.Y >= 0 && msg.Y < m.height {
+			switch msg.Type {
+			case tea.MouseWheelUp:
+				if m.viewRange.start > 0 {
+					m.viewRange.start--
+					m.viewRange.end--
+				}
+			case tea.MouseWheelDown:
+				if m.viewRange.end < m.contentLineCount {
+					m.viewRange.start++
+					m.viewRange.end++
+				}
+			}
+			return m, nil
+		}
 	}
 	return m, nil
 }
