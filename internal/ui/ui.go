@@ -52,7 +52,16 @@ func (m Model) Init() tea.Cmd {
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if _, ok := msg.(common.CloseViewMsg); ok && (m.diff != nil || m.stacked != nil || m.oplog != nil) {
+	var cmd tea.Cmd
+	var cmds []tea.Cmd
+
+	// Handle ShowUi key globally
+	if keyMsg, ok := msg.(tea.KeyMsg); ok && key.Matches(keyMsg, m.keyMap.ShowUi) {
+		m.showUi = !m.showUi
+		return m, nil
+	}
+	// Handle Cancel (escape) key globally
+	if keyMsg, ok := msg.(tea.KeyMsg); ok && key.Matches(keyMsg, m.keyMap.Cancel) {
 		if m.diff != nil {
 			m.diff = nil
 			return m, nil
@@ -65,17 +74,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.oplog = nil
 			return m, common.SelectionChanged
 		}
-		m.oplog = nil
-		return m, nil
 	}
 
-	var cmd tea.Cmd
+	// If diff is open, let it handle the key for all other keys
 	if m.diff != nil {
-		m.diff, cmd = m.diff.Update(msg)
-		return m, cmd
+		newDiff, diffCmd := m.diff.Update(msg)
+		m.diff = newDiff
+		if diffCmd != nil {
+			return m, diffCmd
+		}
 	}
-
-	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -101,11 +109,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch {
-		case key.Matches(msg, m.keyMap.Cancel) && m.state == common.Error:
-			m.state = common.Ready
-			m.error = nil
-		case key.Matches(msg, m.keyMap.Cancel) && m.stacked != nil:
-			m.stacked = nil
 		case key.Matches(msg, m.keyMap.Quit) && m.isSafeToQuit():
 			return m, tea.Quit
 		case key.Matches(msg, m.keyMap.OpLog.Mode):
@@ -143,9 +146,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case key.Matches(msg, m.keyMap.Suspend):
 			return m, tea.Suspend
-		case key.Matches(msg, m.keyMap.ShowUi):
-			m.showUi = !m.showUi
-			return m, nil
 		default:
 			if matched := customcommands.Matches(msg); matched != nil {
 				command := *matched
@@ -197,7 +197,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	if m.stacked != nil {
 		m.stacked, cmd = m.stacked.Update(msg)
-		cmds = append(cmds, cmd)
+		return m, cmd
 	}
 
 	if m.oplog != nil {
