@@ -230,6 +230,7 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		if !m.InNormalMode() || len(m.rows) == 0 {
 			break
 		}
+		// Mouse wheel scrolling (legacy, for compatibility)
 		if msg.Type == tea.MouseWheelUp {
 			if m.cursor > 0 {
 				m.cursor--
@@ -241,6 +242,20 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 				return m, m.updateSelection()
 			} else if m.hasMore {
 				return m, m.requestMoreRows(m.tag)
+			}
+		}
+		// Modern Bubble Tea mouse API: left click to select
+		if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft {
+			// Map the clicked Y coordinate to the correct row, accounting for multi-line rows
+			line := m.viewRange.start + msg.Y
+			accum := 0
+			for i, row := range m.rows {
+				rowLineCount := len(row.Lines)
+				if line >= accum && line < accum+rowLineCount {
+					m.cursor = i
+					return m, m.updateSelection()
+				}
+				accum += rowLineCount
 			}
 		}
 		break
