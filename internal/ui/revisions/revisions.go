@@ -240,7 +240,7 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 				m.cursor++
 				return m, m.updateSelection()
 			} else if m.hasMore {
-				return m, m.requestMoreRows(m.rowsChan)
+				return m, m.requestMoreRows(m.tag)
 			}
 		}
 		break
