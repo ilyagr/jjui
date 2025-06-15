@@ -73,6 +73,7 @@ experimental_log_batching_enabled = false
   highlight_light = "#a0a0a0"
   highlight_dark = "#282a36"
   auto_refresh_interval = 0
+  auto_refresh_spinner = true
 
 [preview]
   extra_args = []
