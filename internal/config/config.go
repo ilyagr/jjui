@@ -15,8 +15,9 @@ import (
 var Current = &Config{
 	Keys: DefaultKeyMappings,
 	UI: UIConfig{
-		HighlightLight: "#a0a0a0",
-		HighlightDark:  "#282a36",
+		HighlightLight:     "#a0a0a0",
+		HighlightDark:      "#282a36",
+		AutoRefreshSpinner: true, // default true
 	},
 	Preview: PreviewConfig{
 		ExtraArgs:                []string{},
@@ -44,6 +45,7 @@ type UIConfig struct {
 	HighlightLight      string `toml:"highlight_light"`
 	HighlightDark       string `toml:"highlight_dark"`
 	AutoRefreshInterval int    `toml:"auto_refresh_interval"`
+	AutoRefreshSpinner  bool   `toml:"auto_refresh_spinner"`
 }
 
 type PreviewConfig struct {

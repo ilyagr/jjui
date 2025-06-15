@@ -227,7 +227,7 @@ func (m Model) View() string {
 	}
 
 	topView := m.revsetModel.View()
-	if config.Current.UI.AutoRefreshInterval > 0 {
+	if config.Current.UI.AutoRefreshInterval > 0 && config.Current.UI.AutoRefreshSpinner {
 		// Show spinner at right of top line
 		spinnerChar := spinnerFrames[m.spinnerIndex]
 		spinner := spinnerColor.Render(string(spinnerChar))
