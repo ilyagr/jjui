@@ -42,6 +42,7 @@ type Model struct {
 	context                 context.AppContext
 	keyMap                  config.KeyMappings[key.Binding]
 	stacked                 tea.Model
+	showUi                  bool // controls topView/footer visibility
 }
 
 type autoRefreshMsg struct{}
@@ -140,6 +141,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case key.Matches(msg, m.keyMap.Suspend):
 			return m, tea.Suspend
+		case key.Matches(msg, m.keyMap.ShowUi):
+			m.showUi = !m.showUi
+			return m, nil
 		default:
 			if matched := customcommands.Matches(msg); matched != nil {
 				command := *matched
@@ -214,7 +218,10 @@ func (m Model) View() string {
 		footer := m.status.View()
 		footerHeight := lipgloss.Height(footer)
 		m.diff.SetHeight(m.height - footerHeight)
-		return lipgloss.JoinVertical(0, m.diff.View(), footer)
+		if m.showUi {
+			return lipgloss.JoinVertical(0, m.diff.View(), footer)
+		}
+		return m.diff.View()
 	}
 
 	topView := m.revsetModel.View()
@@ -234,12 +241,18 @@ func (m Model) View() string {
 	footer := m.status.View()
 	footerHeight := lipgloss.Height(footer)
 
-	leftView := m.renderLeftView(footerHeight, topViewHeight)
+	var usedFooterHeight, usedTopViewHeight int
+	if m.showUi {
+		usedFooterHeight = footerHeight
+		usedTopViewHeight = topViewHeight
+	}
+
+	leftView := m.renderLeftView(usedFooterHeight, usedTopViewHeight)
 
 	previewView := ""
 	if m.previewVisible {
 		m.previewModel.SetWidth(m.width - lipgloss.Width(leftView))
-		m.previewModel.SetHeight(m.height - footerHeight - topViewHeight)
+		m.previewModel.SetHeight(m.height - usedFooterHeight - usedTopViewHeight)
 		previewView = m.previewModel.View()
 	}
 
@@ -252,7 +265,11 @@ func (m Model) View() string {
 		sy := (m.height - h) / 2
 		centerView = screen.Stacked(centerView, stackedView, sx, sy)
 	}
-	return lipgloss.JoinVertical(0, topView, centerView, footer)
+
+	if m.showUi {
+		return lipgloss.JoinVertical(0, topView, centerView, footer)
+	}
+	return centerView
 }
 
 func (m Model) renderLeftView(footerHeight int, topViewHeight int) string {
@@ -303,5 +320,6 @@ func New(c context.AppContext, initialRevset string) tea.Model {
 		previewWindowPercentage: config.Current.Preview.WidthPercentage,
 		status:                  &statusModel,
 		revsetModel:             revset.New(initialRevset),
+		showUi:                  true,
 	}
 }
