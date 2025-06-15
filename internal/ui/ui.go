@@ -48,7 +48,9 @@ type Model struct {
 
 type autoRefreshMsg struct{}
 
-var spinnerFrames = []rune{'|', '/', '-', '\\'}
+// Spinner: 6-dot circle with one missing dot, missing dot moves in a circle
+// Unicode: ⠟, ⠯, ⠷, ⠾, ⠽, ⠻
+var spinnerFrames = []rune{'⠟', '⠯', '⠷', '⠾', '⠽', '⠻'}
 var spinnerColor = lipgloss.NewStyle().Foreground(lipgloss.Color("5")) // dark magenta
 
 func (m Model) Init() tea.Cmd {
