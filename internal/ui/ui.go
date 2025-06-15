@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -42,16 +43,32 @@ type Model struct {
 	context                 context.AppContext
 	keyMap                  config.KeyMappings[key.Binding]
 	stacked                 tea.Model
+	showUi                  bool // controls topView/footer visibility
+	spinnerIndex            int
 }
 
 type autoRefreshMsg struct{}
+
+// Spinner: 6-dot circle with one missing dot, missing dot moves in a circle
+// Unicode: ⠟, ⠯, ⠷, ⠾, ⠽, ⠻
+var spinnerFrames = []rune{'⠟', '⠯', '⠷', '⠾', '⠽', '⠻'}
+var spinnerColor = lipgloss.NewStyle().Foreground(lipgloss.Color("5")) // dark magenta
 
 func (m Model) Init() tea.Cmd {
 	return tea.Sequence(tea.SetWindowTitle(fmt.Sprintf("jjui - %s", m.context.Location())), m.revisions.Init(), m.scheduleAutoRefresh())
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if _, ok := msg.(common.CloseViewMsg); ok && (m.diff != nil || m.stacked != nil || m.oplog != nil) {
+	var cmd tea.Cmd
+	var cmds []tea.Cmd
+
+	// Handle ShowUi key globally
+	if keyMsg, ok := msg.(tea.KeyMsg); ok && key.Matches(keyMsg, m.keyMap.ShowUi) {
+		m.showUi = !m.showUi
+		return m, nil
+	}
+	// Handle Cancel (escape) key globally
+	if keyMsg, ok := msg.(tea.KeyMsg); ok && key.Matches(keyMsg, m.keyMap.Cancel) {
 		if m.diff != nil {
 			m.diff = nil
 			return m, nil
@@ -64,17 +81,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.oplog = nil
 			return m, common.SelectionChanged
 		}
-		m.oplog = nil
-		return m, nil
 	}
 
-	var cmd tea.Cmd
+	// If diff is open, let it handle the key for all other keys
 	if m.diff != nil {
-		m.diff, cmd = m.diff.Update(msg)
-		return m, cmd
+		newDiff, diffCmd := m.diff.Update(msg)
+		m.diff = newDiff
+		if diffCmd != nil {
+			return m, diffCmd
+		}
 	}
-
-	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
 	case tea.MouseMsg:
@@ -123,11 +139,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch {
-		case key.Matches(msg, m.keyMap.Cancel) && m.state == common.Error:
-			m.state = common.Ready
-			m.error = nil
-		case key.Matches(msg, m.keyMap.Cancel) && m.stacked != nil:
-			m.stacked = nil
 		case key.Matches(msg, m.keyMap.Quit) && m.isSafeToQuit():
 			return m, tea.Quit
 		case key.Matches(msg, m.keyMap.OpLog.Mode):
@@ -193,6 +204,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.output = msg.Output
 		m.error = msg.Err
 	case autoRefreshMsg:
+		m.spinnerIndex = (m.spinnerIndex + 1) % len(spinnerFrames) // advance spinner
 		return m, tea.Batch(m.scheduleAutoRefresh(), common.Refresh)
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -212,7 +224,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	if m.stacked != nil {
 		m.stacked, cmd = m.stacked.Update(msg)
-		cmds = append(cmds, cmd)
+		return m, cmd
 	}
 
 	if m.oplog != nil {
@@ -238,10 +250,23 @@ func (m Model) View() string {
 		footer := m.status.View()
 		footerHeight := lipgloss.Height(footer)
 		m.diff.SetHeight(m.height - footerHeight)
-		return lipgloss.JoinVertical(0, m.diff.View(), footer)
+		if m.showUi {
+			return lipgloss.JoinVertical(0, m.diff.View(), footer)
+		}
+		return m.diff.View()
 	}
 
 	topView := m.revsetModel.View()
+	if config.Current.UI.AutoRefreshInterval > 0 && config.Current.UI.AutoRefreshSpinner {
+		// Show spinner at right of top line
+		spinnerChar := spinnerFrames[m.spinnerIndex]
+		spinner := spinnerColor.Render(string(spinnerChar))
+		padding := m.width - lipgloss.Width(topView) - lipgloss.Width(spinner) - 1
+		if padding < 1 {
+			padding = 1
+		}
+		topView = fmt.Sprintf("%s%s%s", topView, strings.Repeat(" ", padding), spinner)
+	}
 	if m.state == common.Error {
 		topView += fmt.Sprintf("\n%s\n", m.output)
 	}
@@ -258,12 +283,18 @@ func (m Model) View() string {
 	footer := m.status.View()
 	footerHeight := lipgloss.Height(footer)
 
-	leftView := m.renderLeftView(footerHeight, topViewHeight)
+	var usedFooterHeight, usedTopViewHeight int
+	if m.showUi {
+		usedFooterHeight = footerHeight
+		usedTopViewHeight = topViewHeight
+	}
+
+	leftView := m.renderLeftView(usedFooterHeight, usedTopViewHeight)
 
 	previewView := ""
 	if m.previewVisible {
 		m.previewModel.SetWidth(m.width - lipgloss.Width(leftView))
-		m.previewModel.SetHeight(m.height - footerHeight - topViewHeight)
+		m.previewModel.SetHeight(m.height - usedFooterHeight - usedTopViewHeight)
 		previewView = m.previewModel.View()
 	}
 
@@ -276,7 +307,11 @@ func (m Model) View() string {
 		sy := (m.height - h) / 2
 		centerView = screen.Stacked(centerView, stackedView, sx, sy)
 	}
-	return lipgloss.JoinVertical(0, topView, centerView, footer)
+
+	if m.showUi {
+		return lipgloss.JoinVertical(0, topView, centerView, footer)
+	}
+	return centerView
 }
 
 func (m Model) renderLeftView(footerHeight int, topViewHeight int) string {
@@ -340,5 +375,7 @@ func New(c context.AppContext, initialRevset string) tea.Model {
 		previewWindowPercentage: config.Current.Preview.WidthPercentage,
 		status:                  &statusModel,
 		revsetModel:             revset.New(initialRevset),
+		showUi:                  true,
+		spinnerIndex:            0,
 	}
 }
