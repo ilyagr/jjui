@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -42,6 +43,7 @@ type Model struct {
 	context                 context.AppContext
 	keyMap                  config.KeyMappings[key.Binding]
 	stacked                 tea.Model
+	lastRefreshTime         time.Time // add this field
 }
 
 type autoRefreshMsg struct{}
@@ -170,6 +172,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.output = msg.Output
 		m.error = msg.Err
 	case autoRefreshMsg:
+		m.lastRefreshTime = time.Now() // update on auto-refresh
 		return m, tea.Batch(m.scheduleAutoRefresh(), common.Refresh)
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -219,6 +222,15 @@ func (m Model) View() string {
 	}
 
 	topView := m.revsetModel.View()
+	if config.Current.UI.AutoRefreshInterval > 0 {
+		// Add last refresh time to the right of the top line
+		refreshTime := m.lastRefreshTime.Format("15:04:05")
+		padding := m.width - lipgloss.Width(topView) - len(refreshTime) - 1
+		if padding < 1 {
+			padding = 1
+		}
+		topView = fmt.Sprintf("%s%s%s", topView, strings.Repeat(" ", padding), refreshTime)
+	}
 	if m.state == common.Error {
 		topView += fmt.Sprintf("\n%s\n", m.output)
 	}
@@ -317,5 +329,6 @@ func New(c context.AppContext, initialRevset string) tea.Model {
 		previewWindowPercentage: config.Current.Preview.WidthPercentage,
 		status:                  &statusModel,
 		revsetModel:             revset.New(initialRevset),
+		lastRefreshTime:         time.Now(), // ensure clock is always initialized
 	}
 }
