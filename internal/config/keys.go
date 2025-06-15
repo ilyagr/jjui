@@ -80,6 +80,7 @@ var DefaultKeyMappings = KeyMappings[keys]{
 		Mode:    []string{"o"},
 		Restore: []string{"r"},
 	},
+	ShowUi: []string{"`"},
 }
 
 func Convert(m KeyMappings[keys]) KeyMappings[key.Binding] {
@@ -157,6 +158,7 @@ func Convert(m KeyMappings[keys]) KeyMappings[key.Binding] {
 			Mode:    key.NewBinding(key.WithKeys(m.OpLog.Mode...), key.WithHelp(JoinKeys(m.OpLog.Mode), "oplog")),
 			Restore: key.NewBinding(key.WithKeys(m.OpLog.Restore...), key.WithHelp(JoinKeys(m.OpLog.Restore), "restore")),
 		},
+		ShowUi: key.NewBinding(key.WithKeys(m.ShowUi...), key.WithHelp(JoinKeys(m.ShowUi), "toggle UI")),
 	}
 }
 
@@ -217,6 +219,7 @@ type KeyMappings[T any] struct {
 	Bookmark          bookmarkModeKeys[T] `toml:"bookmark"`
 	Git               gitModeKeys[T]      `toml:"git"`
 	OpLog             opLogModeKeys[T]    `toml:"oplog"`
+	ShowUi            T                   `toml:"show_ui"`
 }
 
 type bookmarkModeKeys[T any] struct {
