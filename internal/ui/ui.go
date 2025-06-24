@@ -86,6 +86,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case tea.MouseMsg:
+		if !config.Current.UI.EnableMouse {
+			break
+		}
+		if m.previewVisible && m.previewModel != nil {
+			// Calculate preview area geometry
+			leftViewWidth := m.width
+			if m.previewVisible {
+				leftViewWidth = m.width - int(float64(m.width)*(m.previewWindowPercentage/100.0))
+			}
+			previewX := leftViewWidth
+			previewWidth := m.width - leftViewWidth
+			previewHeight := m.height - lipgloss.Height(m.status.View()) - lipgloss.Height(m.revsetModel.View())
+			if msg.X >= previewX && msg.X < m.width && msg.Y >= 0 && msg.Y < previewHeight {
+				m.previewModel.SetWidth(previewWidth)
+				m.previewModel.SetHeight(previewHeight)
+				m.previewModel, cmd = m.previewModel.Update(msg)
+				return m, cmd
+			}
+		}
+		// Otherwise, forward to revisions
+		m.revisions, cmd = m.revisions.Update(msg)
+		return m, cmd
 	case tea.KeyMsg:
 		if m.revsetModel.Editing {
 			m.revsetModel, cmd = m.revsetModel.Update(msg)

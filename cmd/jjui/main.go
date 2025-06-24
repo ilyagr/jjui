@@ -103,7 +103,11 @@ func main() {
 		log.SetOutput(io.Discard)
 	}
 
-	p := tea.NewProgram(ui.New(appContext, revset), tea.WithAltScreen())
+	pOpts := []tea.ProgramOption{tea.WithAltScreen()}
+	if config.Current.UI.EnableMouse {
+		pOpts = append(pOpts, tea.WithMouseCellMotion())
+	}
+	p := tea.NewProgram(ui.New(appContext, revset), pOpts...)
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error running program: %v\n", err)
 		os.Exit(1)
