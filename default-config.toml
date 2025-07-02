@@ -87,6 +87,8 @@ Limit = 0
   highlight_light = "#a0a0a0"
   highlight_dark = "#282a36"
   auto_refresh_interval = 0
+  mouse_events = false
+
   [ui.colors]
     [ui.colors.border]
       fg = "bright white"
