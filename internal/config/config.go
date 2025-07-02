@@ -12,7 +12,9 @@ import (
 
 var Current = &Config{
 	Keys: DefaultKeyMappings,
-	UI:   UIConfig{},
+	UI: UIConfig{
+		MouseEvents: false,
+	},
 	Preview: PreviewConfig{
 		OplogCommand:             []string{"op", "show", jj.OperationIdPlaceholder, "--color", "always"},
 		FileCommand:              []string{"diff", "--color", "always", "-r", jj.ChangeIdPlaceholder, jj.FilePlaceholder},
@@ -81,7 +83,8 @@ type UIConfig struct {
 	Colors map[string]Color `toml:"colors"`
 	// TODO(ilyagr): It might make sense to rename this to `auto_refresh_period` to match `--period` option
 	// once we have a mechanism to deprecate the old name softly.
-	AutoRefreshInterval int `toml:"auto_refresh_interval"`
+	AutoRefreshInterval int  `toml:"auto_refresh_interval"`
+	MouseEvents         bool `toml:"mouse_events"`
 }
 
 type PreviewConfig struct {

@@ -249,14 +249,10 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keymap.Up):
-			if m.cursor > 0 {
-				m.cursor--
-			}
+			m.moveCursorUp()
 		case key.Matches(msg, m.keymap.Down):
-			if m.cursor < len(m.rows)-1 {
-				m.cursor++
-			} else if m.hasMore {
-				return m, m.requestMoreRows(m.tag)
+			if cmd := m.moveCursorDown(); cmd != nil {
+				return m, cmd
 			}
 		case key.Matches(msg, m.keymap.JumpToParent):
 			immediate, _ := m.context.RunCommandImmediate(jj.GetParent(m.SelectedRevisions()))
@@ -344,6 +340,15 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 				m.op = rebase.NewOperation(m.context, m.SelectedRevisions(), rebase.SourceRevision, rebase.TargetDestination)
 			case key.Matches(msg, m.keymap.Duplicate.Mode):
 				m.op = duplicate.NewOperation(m.context, m.SelectedRevisions(), duplicate.TargetDestination)
+			}
+		}
+	case tea.MouseMsg:
+		switch {
+		case msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonWheelUp:
+			m.moveCursorUp()
+		case msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonWheelDown:
+			if cmd := m.moveCursorDown(); cmd != nil {
+				return m, cmd
 			}
 		}
 	}
@@ -536,6 +541,22 @@ func (m *Model) GetCommitIds() []string {
 		commitIds = append(commitIds, row.Commit.CommitId)
 	}
 	return commitIds
+}
+
+func (m *Model) moveCursorUp() {
+	if m.cursor > 0 {
+		m.cursor--
+	}
+}
+
+func (m *Model) moveCursorDown() tea.Cmd {
+	if m.cursor < len(m.rows)-1 {
+		m.cursor++
+		return nil
+	} else if m.hasMore {
+		return m.requestMoreRows(m.tag)
+	}
+	return nil
 }
 
 func New(c *appContext.MainContext) Model {

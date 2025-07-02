@@ -176,7 +176,13 @@ func main() {
 	}
 	appContext.CurrentRevset = appContext.DefaultRevset
 
-	p := tea.NewProgram(ui.New(appContext), tea.WithAltScreen())
+	var programOptions []tea.ProgramOption
+	programOptions = append(programOptions, tea.WithAltScreen())
+	if config.Current.UI.MouseEvents {
+		programOptions = append(programOptions, tea.WithMouseCellMotion())
+	}
+
+	p := tea.NewProgram(ui.New(appContext), programOptions...)
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error running program: %v\n", err)
 		os.Exit(1)
