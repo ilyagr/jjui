@@ -109,7 +109,13 @@ func main() {
 
 	appContext := context.NewAppContext(rootLocation)
 
-	p := tea.NewProgram(ui.New(appContext, revset), tea.WithAltScreen(), tea.WithMouseCellMotion())
+	var programOptions []tea.ProgramOption
+	programOptions = append(programOptions, tea.WithAltScreen())
+	if config.Current.UI.MouseEvents {
+		programOptions = append(programOptions, tea.WithMouseCellMotion())
+	}
+
+	p := tea.NewProgram(ui.New(appContext, revset), programOptions...)
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error running program: %v\n", err)
 		os.Exit(1)

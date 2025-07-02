@@ -27,6 +27,7 @@ var Current = &Config{
 			Dimmed:   Color{Fg: "bright black"},
 			Shortcut: Color{Fg: "magenta"},
 		},
+		MouseEvents: false,
 	},
 	Preview: PreviewConfig{
 		ExtraArgs:                []string{},
@@ -70,6 +71,7 @@ type UIConfig struct {
 	HighlightDark       string `toml:"highlight_dark"`
 	Colors              colors `toml:"colors"`
 	AutoRefreshInterval int    `toml:"auto_refresh_interval"`
+	MouseEvents         bool   `toml:"mouse_events"`
 }
 
 type PreviewConfig struct {
