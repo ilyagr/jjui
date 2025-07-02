@@ -109,7 +109,7 @@ func main() {
 
 	appContext := context.NewAppContext(rootLocation)
 
-	p := tea.NewProgram(ui.New(appContext, revset), tea.WithAltScreen())
+	p := tea.NewProgram(ui.New(appContext, revset), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error running program: %v\n", err)
 		os.Exit(1)
