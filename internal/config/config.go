@@ -21,6 +21,7 @@ var Current = &Config{
 			Dimmed:   Color{Fg: "bright black"},
 			Shortcut: Color{Fg: "magenta"},
 		},
+		MouseEvents: false,
 	},
 	Preview: PreviewConfig{
 		ExtraArgs:                []string{},
@@ -64,7 +65,8 @@ type UIConfig struct {
 	Colors         colors `toml:"colors"`
 	// TODO(ilyagr): It might make sense to rename this to `auto_refresh_period` to match `--period` option
 	// once we have a mechanism to deprecate the old name softly.
-	AutoRefreshInterval int `toml:"auto_refresh_interval"`
+	AutoRefreshInterval int  `toml:"auto_refresh_interval"`
+	MouseEvents         bool `toml:"mouse_events"`
 }
 
 type PreviewConfig struct {
