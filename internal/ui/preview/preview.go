@@ -149,6 +149,19 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 			m.viewRange.start -= halfPageSize
 			m.viewRange.end -= halfPageSize
 		}
+	case tea.MouseMsg:
+		switch {
+		case msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonWheelUp:
+			if m.viewRange.start > 0 {
+				m.viewRange.start--
+				m.viewRange.end--
+			}
+		case msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonWheelDown:
+			if m.viewRange.end < m.contentLineCount {
+				m.viewRange.start++
+				m.viewRange.end++
+			}
+		}
 	}
 	return m, nil
 }

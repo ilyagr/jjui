@@ -85,6 +85,30 @@ func (m Model) handleFocusInputMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		return m, cmd, true
 	}
 
+	// --- Mouse wheel routing for preview window ---
+	if mouseMsg, ok := msg.(tea.MouseMsg); ok && m.previewVisible {
+		// Calculate preview window position and size
+		topView := m.revsetModel.View()
+		topViewHeight := lipgloss.Height(topView)
+		footer := m.status.View()
+		footerHeight := lipgloss.Height(footer)
+		leftView := m.renderLeftView(footerHeight, topViewHeight)
+		previewX := lipgloss.Width(leftView)
+		previewY := topViewHeight
+		previewWidth := m.width - previewX
+		previewHeight := m.height - footerHeight - topViewHeight
+
+		// Only handle mouse wheel events in preview if mouse is over preview area
+		if mouseMsg.Action == tea.MouseActionPress &&
+			(mouseMsg.Button == tea.MouseButtonWheelUp || mouseMsg.Button == tea.MouseButtonWheelDown) {
+			if mouseMsg.X >= previewX && mouseMsg.X < previewX+previewWidth &&
+				mouseMsg.Y >= previewY && mouseMsg.Y < previewY+previewHeight {
+				m.previewModel, cmd = m.previewModel.Update(msg)
+				return m, cmd, true
+			}
+		}
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if m.diff != nil {
