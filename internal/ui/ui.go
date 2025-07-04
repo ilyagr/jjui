@@ -85,8 +85,8 @@ func (m Model) handleFocusInputMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		return m, cmd, true
 	}
 
-	// --- Mouse wheel routing for preview window ---
-	if mouseMsg, ok := msg.(tea.MouseMsg); ok && m.previewVisible {
+	// --- Mouse event routing for preview window and right-click toggling ---
+	if mouseMsg, ok := msg.(tea.MouseMsg); ok {
 		// Calculate preview window position and size
 		topView := m.revsetModel.View()
 		topViewHeight := lipgloss.Height(topView)
@@ -98,13 +98,33 @@ func (m Model) handleFocusInputMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		previewWidth := m.width - previewX
 		previewHeight := m.height - footerHeight - topViewHeight
 
-		// Only handle mouse wheel events in preview if mouse is over preview area
-		if mouseMsg.Action == tea.MouseActionPress &&
-			(mouseMsg.Button == tea.MouseButtonWheelUp || mouseMsg.Button == tea.MouseButtonWheelDown) {
-			if mouseMsg.X >= previewX && mouseMsg.X < previewX+previewWidth &&
-				mouseMsg.Y >= previewY && mouseMsg.Y < previewY+previewHeight {
-				m.previewModel, cmd = m.previewModel.Update(msg)
-				return m, cmd, true
+		inPreview := m.previewVisible &&
+			mouseMsg.X >= previewX && mouseMsg.X < previewX+previewWidth &&
+			mouseMsg.Y >= previewY && mouseMsg.Y < previewY+previewHeight
+
+		// Mouse wheel in preview
+		if m.previewVisible && mouseMsg.Action == tea.MouseActionPress &&
+			(mouseMsg.Button == tea.MouseButtonWheelUp || mouseMsg.Button == tea.MouseButtonWheelDown) && inPreview {
+			m.previewModel, cmd = m.previewModel.Update(msg)
+			return m, cmd, true
+		}
+
+		// Right-click logic
+		if mouseMsg.Action == tea.MouseActionPress && mouseMsg.Button == tea.MouseButtonRight {
+			if inPreview {
+				// Toggle preview width between default and maximized (screen width - 5)
+				maxWidthPct := 100.0 * float64(m.width-5) / float64(m.width)
+				defaultPct := config.Current.Preview.WidthPercentage
+				if absf(m.previewWindowPercentage-maxWidthPct) > 0.01 {
+					m.previewWindowPercentage = maxWidthPct
+				} else {
+					m.previewWindowPercentage = defaultPct
+				}
+				return m, nil, true
+			} else {
+				// Always show preview for the selected commit
+				m.previewVisible = !m.previewVisible
+				return m, common.SelectionChanged, true
 			}
 		}
 	}
@@ -380,6 +400,13 @@ func (m Model) scheduleAutoRefresh() tea.Cmd {
 		})
 	}
 	return nil
+}
+
+func absf(a float64) float64 {
+	if a < 0 {
+		return -a
+	}
+	return a
 }
 
 func (m Model) isSafeToQuit() bool {
