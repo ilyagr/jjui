@@ -1,9 +1,13 @@
 package revisions
 
 import (
-	"bytes"
+	"io"
+	"strconv"
 	"testing"
 
+	"github.com/charmbracelet/bubbles/key"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/idursun/jjui/internal/config"
 	"github.com/idursun/jjui/internal/jj"
 	"github.com/idursun/jjui/internal/ui/graph"
 	"github.com/knz/catwalk"
@@ -36,52 +40,97 @@ func TestRevisions_CursorAndRefreshBehavior_Catwalk(t *testing.T) {
 		{Commit: &jj.Commit{ChangeId: "b", CommitId: "b"}},
 		{Commit: &jj.Commit{ChangeId: "c", CommitId: "c"}},
 	}
+	// Use the actual keymap type expected by Model
+	testKeymap := getTestKeyMap()
+
 	model := &Model{
 		rows:              rows,
 		cursor:            0,
 		selectedRevisions: make(map[string]bool),
 		viewRange:         &viewRange{start: 0, end: 0, lastRowIndex: -1},
-		keymap:            getTestKeyMap(),
+		keymap:            testKeymap,
 	}
 
-	cw := catwalk.New(t, model)
-	cw.Step("initial", func() {
-		cw.Require().Contains(cw.View(), "a")
-		cw.Require().Contains(cw.View(), "b")
-		cw.Require().Contains(cw.View(), "c")
-		cw.Require().Contains(cw.View(), "a") // cursor at 0
-	})
+	// Wrap Model to implement tea.Model interface
+	wrapped := &modelTeaWrapper{Model: model}
 
-	cw.Step("press down", func() {
-		cw.SendKey("down")
-		cw.Require().Equal(1, model.cursor)
-	})
+	catwalk.RunModelFromString(t, `
+run
+----
+-- view:
+a
+b
+c
 
-	cw.Step("refresh with ctrl+r", func() {
-		// Simulate a refresh message (should not move cursor)
-		cw.SendMsg(struct{ KeepSelections bool }{})
-		cw.Require().Equal(1, model.cursor)
-	})
+run
+key down
+----
+-- gostruct:
+cursor: 1
 
-	cw.Step("press down again", func() {
-		cw.SendKey("down")
-		cw.Require().Equal(2, model.cursor)
-	})
+run
+msg refresh
+----
+-- gostruct:
+cursor: 1
 
-	cw.Step("refresh again", func() {
-		cw.SendMsg(struct{ KeepSelections bool }{})
-		cw.Require().Equal(2, model.cursor)
-	})
+run
+key down
+----
+-- gostruct:
+cursor: 2
 
-	// Optionally, print the view for debugging
-	_ = bytes.NewBufferString(cw.View())
+run
+msg refresh
+----
+-- gostruct:
+cursor: 2
+`, wrapped,
+		catwalk.WithObserver("gostruct", func(out io.Writer, m tea.Model) error {
+			if mm, ok := m.(*modelTeaWrapper); ok {
+				_, _ = out.Write([]byte(
+					"cursor: " + itoa(mm.Model.cursor) + "\n",
+				))
+			}
+			return nil
+		}),
+		catwalk.WithUpdater(func(m tea.Model, cmd string, args ...string) (bool, tea.Model, tea.Cmd, error) {
+			if cmd == "msg" && len(args) == 1 && args[0] == "refresh" {
+				if mm, ok := m.(*modelTeaWrapper); ok {
+					return true, mm, func() tea.Msg { return struct{ KeepSelections bool }{} }, nil
+				}
+			}
+			return false, nil, nil, nil
+		}),
+	)
+}
+
+// modelTeaWrapper wraps *Model to implement tea.Model interface for catwalk.
+type modelTeaWrapper struct {
+	Model *Model
+}
+
+func (w *modelTeaWrapper) Init() tea.Cmd {
+	return nil
+}
+
+func (w *modelTeaWrapper) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	m, cmd := w.Model.Update(msg)
+	w.Model = m
+	return w, cmd
+}
+
+func (w *modelTeaWrapper) View() string {
+	return w.Model.View()
+}
+
+// itoa is a minimal int to string for small ints (0-9)
+func itoa(i int) string {
+	return strconv.Itoa(i)
 }
 
 // getTestKeyMap returns a minimal keymap for testing.
-func getTestKeyMap() map[string]string {
-	return map[string]string{
-		"up":      "up",
-		"down":    "down",
-		"refresh": "ctrl+r",
-	}
+func getTestKeyMap() config.KeyMappings[key.Binding] {
+	// Use the real config.Convert to get a KeyMappings[key.Binding]
+	return config.Convert(config.DefaultKeyMappings)
 }
