@@ -9,7 +9,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/idursun/jjui/internal/config"
 	"github.com/idursun/jjui/internal/jj"
+	appContext "github.com/idursun/jjui/internal/ui/context"
 	"github.com/idursun/jjui/internal/ui/graph"
+	operations "github.com/idursun/jjui/internal/ui/operations"
 	"github.com/knz/catwalk"
 	"github.com/stretchr/testify/assert"
 )
@@ -49,6 +51,10 @@ func TestRevisions_CursorAndRefreshBehavior_Catwalk(t *testing.T) {
 		selectedRevisions: make(map[string]bool),
 		viewRange:         &viewRange{start: 0, end: 0, lastRowIndex: -1},
 		keymap:            testKeymap,
+		op:                operations.NewDefault(),
+		context:           appContext.NewAppContext("test"),
+		width:             80,
+		height:            24,
 	}
 
 	// Wrap Model to implement tea.Model interface
