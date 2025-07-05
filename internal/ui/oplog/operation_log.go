@@ -59,7 +59,7 @@ func (m *Model) Init() tea.Cmd {
 	return m.load()
 }
 
-func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
+func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case updateOpLogMsg:
 		m.rows = msg.Rows

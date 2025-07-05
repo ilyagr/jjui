@@ -65,7 +65,7 @@ func (m *Model) Init() tea.Cmd {
 	return nil
 }
 
-func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
+func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case updatePreviewContentMsg:
 		m.content = msg.Content
@@ -125,7 +125,6 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 			if halfPageSize+m.viewRange.end > contentHeight {
 				halfPageSize = contentHeight - m.viewRange.end
 			}
-
 			m.viewRange.start += halfPageSize
 			m.viewRange.end += halfPageSize
 		case key.Matches(msg, m.keyMap.Preview.HalfPageUp):

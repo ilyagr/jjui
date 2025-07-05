@@ -82,18 +82,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if m.revsetModel.Editing {
-			m.revsetModel, cmd = m.revsetModel.Update(msg)
+			updated, cmd := m.revsetModel.Update(msg)
+			m.revsetModel = updated.(*revset.Model)
 			m.state = common.Loading
 			return m, cmd
 		}
 
 		if m.status.IsFocused() {
-			m.status, cmd = m.status.Update(msg)
+			updated, cmd := m.status.Update(msg)
+			m.status = updated.(*status.Model)
 			return m, cmd
 		}
 
 		if m.revisions.IsFocused() {
-			m.revisions, cmd = m.revisions.Update(msg)
+			updated, cmd := m.revisions.Update(msg)
+			m.revisions = updated.(*revisions.Model)
 			return m, cmd
 		}
 
@@ -114,7 +117,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.oplog = oplog.New(m.context, m.width, m.height)
 			return m, m.oplog.Init()
 		case key.Matches(msg, m.keyMap.Revset) && m.revisions.InNormalMode():
-			m.revsetModel, _ = m.revsetModel.Update(revset.EditRevSetMsg{Clear: m.state != common.Error})
+			updated, _ := m.revsetModel.Update(revset.EditRevSetMsg{Clear: m.state != common.Error})
+			m.revsetModel = updated.(*revset.Model)
 			return m, nil
 		case key.Matches(msg, m.keyMap.Git.Mode) && m.revisions.InNormalMode():
 			m.stacked = git.NewModel(m.context, m.revisions.SelectedRevision(), m.width, m.height)
@@ -180,9 +184,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		})
 	case revset.UpdateRevSetMsg:
 		var revsetCmd tea.Cmd
-		m.revsetModel, revsetCmd = m.revsetModel.Update(msg)
+		updatedRevset, revsetCmd := m.revsetModel.Update(msg)
+		m.revsetModel = updatedRevset.(*revset.Model)
 		var revisionsCmd tea.Cmd
-		m.revisions, revisionsCmd = m.revisions.Update(msg)
+		updatedRevisions, revisionsCmd := m.revisions.Update(msg)
+		m.revisions = updatedRevisions.(*revisions.Model)
 		return m, tea.Batch(revsetCmd, revisionsCmd)
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -195,28 +201,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	if m.revsetModel.Editing {
-		m.revsetModel, cmd = m.revsetModel.Update(msg)
+		updated, cmd := m.revsetModel.Update(msg)
+		m.revsetModel = updated.(*revset.Model)
 		cmds = append(cmds, cmd)
 	}
 
-	m.status, cmd = m.status.Update(msg)
+	updatedStatus, cmd := m.status.Update(msg)
+	m.status = updatedStatus.(*status.Model)
 	cmds = append(cmds, cmd)
 
 	if m.stacked != nil {
-		m.stacked, cmd = m.stacked.Update(msg)
+		updated, cmd := m.stacked.Update(msg)
+		m.stacked = updated
 		cmds = append(cmds, cmd)
 	}
 
 	if m.oplog != nil {
-		m.oplog, cmd = m.oplog.Update(msg)
+		updated, cmd := m.oplog.Update(msg)
+		m.oplog = updated.(*oplog.Model)
 		cmds = append(cmds, cmd)
 	} else {
-		m.revisions, cmd = m.revisions.Update(msg)
+		updated, cmd := m.revisions.Update(msg)
+		m.revisions = updated.(*revisions.Model)
 		cmds = append(cmds, cmd)
 	}
 
 	if m.previewVisible {
-		m.previewModel, cmd = m.previewModel.Update(msg)
+		updated, cmd := m.previewModel.Update(msg)
+		m.previewModel = updated.(*preview.Model)
 		cmds = append(cmds, cmd)
 	}
 
