@@ -69,7 +69,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	var cmd tea.Cmd
 	if m.diff != nil {
-		m.diff, cmd = m.diff.Update(msg)
+		var updated tea.Model
+		updated, cmd = m.diff.Update(msg)
+		if diffModel, ok := updated.(*diff.Model); ok {
+			m.diff = diffModel
+		}
 		return m, cmd
 	}
 
