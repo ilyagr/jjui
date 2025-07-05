@@ -12,6 +12,7 @@ import (
 	appContext "github.com/idursun/jjui/internal/ui/context"
 	"github.com/idursun/jjui/internal/ui/graph"
 	operations "github.com/idursun/jjui/internal/ui/operations"
+	"github.com/idursun/jjui/internal/ui/testutil"
 	"github.com/knz/catwalk"
 	"github.com/stretchr/testify/assert"
 )
@@ -58,7 +59,7 @@ func TestRevisions_CursorAndRefreshBehavior_Catwalk(t *testing.T) {
 	}
 
 	// Wrap Model to implement tea.Model interface
-	wrapped := &modelTeaWrapper{Model: model}
+	wrapped := &testutil.TeaModelWrapper{Model: model}
 
 	catwalk.RunModelFromString(t, `
 run observe=gostruct
@@ -109,24 +110,7 @@ cursor: 2
 	)
 }
 
-// modelTeaWrapper wraps *Model to implement tea.Model interface for catwalk.
-type modelTeaWrapper struct {
-	Model *Model
-}
-
-func (w *modelTeaWrapper) Init() tea.Cmd {
-	return nil
-}
-
-func (w *modelTeaWrapper) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	m, cmd := w.Model.Update(msg)
-	w.Model = m
-	return w, cmd
-}
-
-func (w *modelTeaWrapper) View() string {
-	return w.Model.View()
-}
+// (TeaModelWrapper is now used from testutil; old modelTeaWrapper removed)
 
 // itoa is a minimal int to string for small ints (0-9)
 func itoa(i int) string {
