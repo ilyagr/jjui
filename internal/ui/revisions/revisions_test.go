@@ -61,32 +61,30 @@ func TestRevisions_CursorAndRefreshBehavior_Catwalk(t *testing.T) {
 	wrapped := &modelTeaWrapper{Model: model}
 
 	catwalk.RunModelFromString(t, `
-run
+run observe=gostruct
 ----
--- view:
-a
-b
-c
+-- gostruct:
+cursor: 0
 
-run
+run observe=gostruct
 key down
 ----
 -- gostruct:
 cursor: 1
 
-run
+run observe=gostruct
 msg refresh
 ----
 -- gostruct:
 cursor: 1
 
-run
+run observe=gostruct
 key down
 ----
 -- gostruct:
 cursor: 2
 
-run
+run observe=gostruct
 msg refresh
 ----
 -- gostruct:

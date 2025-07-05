@@ -404,20 +404,10 @@ func (m *Model) updateGraphRows(rows []graph.Row, selectedRevision string) {
 }
 
 func (m *Model) View() string {
-	fmt.Println("DEBUG: Entering Model.View()")
-	fmt.Printf("DEBUG: m.rows: %#v\n", m.rows)
-	fmt.Printf("DEBUG: m.op: %#v\n", m.op)
-	fmt.Printf("DEBUG: m.viewRange: %#v\n", m.viewRange)
-	fmt.Printf("DEBUG: m.selectedRevisions: %#v\n", m.selectedRevisions)
-	fmt.Printf("DEBUG: m.width: %d, m.height: %d\n", m.width, m.height)
-	fmt.Printf("DEBUG: m.cursor: %d\n", m.cursor)
-
 	if len(m.rows) == 0 {
 		if m.isLoading {
-			fmt.Println("DEBUG: isLoading branch")
 			return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, "loading")
 		}
-		fmt.Println("DEBUG: no matching revisions branch")
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, "(no matching revisions)")
 	}
 
@@ -437,7 +427,6 @@ func (m *Model) View() string {
 	selectedLineEnd := -1
 	lastRenderedRowIndex := -1
 	for i, row := range m.rows {
-		fmt.Printf("DEBUG: Rendering row %d: %#v\n", i, row)
 		if i == m.cursor {
 			selectedLineStart = w.LineCount()
 		} else {
@@ -456,7 +445,6 @@ func (m *Model) View() string {
 			IsSelected:          m.selectedRevisions[row.Commit.GetChangeId()],
 			Width:               m.width,
 		}
-		fmt.Printf("DEBUG: nodeRenderer: %#v\n", nodeRenderer)
 
 		graph.RenderRow(&w, row, nodeRenderer)
 		if i == m.cursor {
@@ -483,7 +471,6 @@ func (m *Model) View() string {
 	content := w.String(m.viewRange.start, m.viewRange.end)
 	content = lipgloss.PlaceHorizontal(m.Width(), lipgloss.Left, content)
 
-	fmt.Println("DEBUG: Exiting Model.View()")
 	return common.DefaultPalette.Normal.MaxWidth(m.width).Render(content)
 }
 
