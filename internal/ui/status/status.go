@@ -9,7 +9,6 @@ import (
 	"github.com/idursun/jjui/internal/config"
 
 	"github.com/charmbracelet/bubbles/help"
-	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -23,10 +22,10 @@ var accept = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "accept
 
 type Model struct {
 	context      *context.MainContext
-	refreshBar   progress.Model // Progress bar for refresh spinner
-	refreshCount int            // Number of refreshes that have occurred
-	lastTicked   int            // Last refresh count for which spinner was ticked
-	spinner      spinner.Model  // Existing spinner for external commands (deprecated for refresh)
+	refreshCount int           // Number of refreshes that have occurred
+	spinnerChars []rune        // Spinner characters for single-cell spinner
+	spinnerIdx   int           // Current spinner index
+	spinner      spinner.Model // Existing spinner for external commands (deprecated for refresh)
 	input        textinput.Model
 	help         help.Model
 	keyMap       help.KeyMap
@@ -99,14 +98,10 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 			})
 		}
 		return m, nil
-	case common.RefreshMsg, common.AutoRefreshMsg:
-		// Advance refresh bar by one tick immediately
+	case common.UpdateRevisionsSuccessMsg:
+		// Advance spinner by one tick when refresh is done
 		m.refreshCount++
-		// Simulate a spinner: only one block filled at a time
-		width := m.refreshBar.Width
-		pos := m.refreshCount % width
-		newPercent := float64(pos) / float64(width)
-		m.refreshBar.SetPercent(newPercent)
+		m.spinnerIdx = m.refreshCount % len(m.spinnerChars)
 		return m, nil
 	case tea.KeyMsg:
 		switch {
@@ -170,18 +165,9 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 }
 
 func (m *Model) View() string {
-	// Manually render a spinner bar: one filled block, rest empty
-	width := m.refreshBar.Width
-	pos := m.refreshCount % width
-	barRunes := make([]rune, width)
-	for i := 0; i < width; i++ {
-		if i == pos {
-			barRunes[i] = '█'
-		} else {
-			barRunes[i] = ' '
-		}
-	}
-	refreshBarMark := m.styles.title.Render(string(barRunes))
+	// Single-cell spinner using spinnerChars
+	spinnerChar := m.spinnerChars[m.spinnerIdx]
+	refreshSpinnerMark := m.styles.title.Render(string(spinnerChar))
 
 	commandStatusMark := m.styles.text.Render(" ")
 	if m.running {
@@ -199,8 +185,8 @@ func (m *Model) View() string {
 		ret = m.input.View()
 	}
 	mode := m.styles.title.Width(10).Render("", m.mode)
-	// Place refresh progress bar to the left of the mode indicator
-	ret = lipgloss.JoinHorizontal(lipgloss.Left, refreshBarMark, mode, " ", commandStatusMark, ret)
+	// Place refresh spinner to the left of the mode indicator
+	ret = lipgloss.JoinHorizontal(lipgloss.Left, refreshSpinnerMark, mode, " ", commandStatusMark, ret)
 	if m.error != nil {
 		k := cancel.Help().Key
 		return lipgloss.JoinVertical(0,
@@ -232,14 +218,6 @@ func New(context *context.MainContext) Model {
 		error:    common.DefaultPalette.Get("status error"),
 	}
 
-	// Progress bar for refresh spinner
-	refreshBar := progress.New(
-		progress.WithFillCharacters('█', ' '), // Only one block filled at a time
-	)
-
-	refreshBar.Width = 8
-	refreshBar.ShowPercentage = false
-
 	// Spinner for external commands (legacy, not used for refresh)
 	s := spinner.New()
 	s.Spinner = spinner.Dot
@@ -256,11 +234,14 @@ func New(context *context.MainContext) Model {
 	t := textinput.New()
 	t.Width = 50
 
+	// Spinner characters for single-cell spinner (use spinner.Dot frames)
+	spinChars := []rune{'⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷'}
+
 	return Model{
 		context:      context,
-		refreshBar:   refreshBar,
 		refreshCount: 0,
-		lastTicked:   0,
+		spinnerChars: spinChars,
+		spinnerIdx:   0,
 		spinner:      s,
 		help:         h,
 		command:      "",
