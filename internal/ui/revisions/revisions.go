@@ -175,6 +175,9 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		if currentOperationId != m.previousOpLogId {
 			m.previousOpLogId = currentOperationId
 			return m, common.RefreshAndKeepSelections
+		} else {
+			// No change, send NoopMsg so spinner can advance
+			return m, func() tea.Msg { return common.UpdateRevisionsNoopMsg{} }
 		}
 	case common.RefreshMsg:
 		if !msg.KeepSelections {
