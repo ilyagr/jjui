@@ -1,11 +1,12 @@
 package status
 
 import (
+	"strings"
+	"time"
+
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/idursun/jjui/internal/config"
-	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -19,18 +20,21 @@ var cancel = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "dismiss"))
 var accept = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "accept"))
 
 type Model struct {
-	context *context.MainContext
-	spinner spinner.Model
-	input   textinput.Model
-	help    help.Model
-	keyMap  help.KeyMap
-	command string
-	running bool
-	output  string
-	error   error
-	width   int
-	mode    string
-	editing bool
+	context        *context.MainContext
+	refreshSpinner spinner.Model // Spinner for refresh events only
+	refreshCount   int           // Number of refreshes that have occurred
+	lastTicked     int           // Last refresh count for which spinner was ticked
+	spinner        spinner.Model // Existing spinner for external commands (deprecated for refresh)
+	input          textinput.Model
+	help           help.Model
+	keyMap         help.KeyMap
+	command        string
+	running        bool
+	output         string
+	error          error
+	width          int
+	mode           string
+	editing        bool
 }
 
 func (m *Model) IsFocused() bool {
@@ -83,6 +87,11 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 			})
 		}
 		return m, nil
+	case common.RefreshMsg, common.AutoRefreshMsg:
+		// Advance refresh spinner by one tick immediately
+		m.refreshCount++
+		m.refreshSpinner, _ = m.refreshSpinner.Update(spinner.TickMsg{})
+		return m, nil
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, km.Cancel) && m.error != nil:
@@ -119,14 +128,23 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		return m, nil
 	default:
 		var cmd tea.Cmd
+		// Always show refresh spinner, but only advance on refresh event
+		if m.refreshCount != m.lastTicked {
+			m.refreshSpinner, cmd = m.refreshSpinner.Update(msg)
+			m.lastTicked = m.refreshCount
+		}
+		// Still update command spinner for legacy/external commands
 		if m.running {
-			m.spinner, cmd = m.spinner.Update(msg)
+			m.spinner, _ = m.spinner.Update(msg)
 		}
 		return m, cmd
 	}
 }
 
 func (m *Model) View() string {
+	// Always show refresh spinner, holding its state until ticked
+	refreshSpinnerMark := common.DefaultPalette.StatusMode.Render(m.refreshSpinner.View())
+
 	commandStatusMark := common.DefaultPalette.Normal.Render(" ")
 	if m.running {
 		commandStatusMark = common.DefaultPalette.Normal.Render(m.spinner.View())
@@ -143,7 +161,8 @@ func (m *Model) View() string {
 		ret = m.input.View()
 	}
 	mode := common.DefaultPalette.StatusMode.Width(10).Render("", m.mode)
-	ret = lipgloss.JoinHorizontal(lipgloss.Left, mode, " ", commandStatusMark, ret)
+	// Place refresh spinner to the left of the mode indicator
+	ret = lipgloss.JoinHorizontal(lipgloss.Left, refreshSpinnerMark, mode, " ", commandStatusMark, ret)
 	if m.error != nil {
 		k := cancel.Help().Key
 		return lipgloss.JoinVertical(0,
@@ -167,6 +186,11 @@ func (m *Model) SetMode(mode string) {
 }
 
 func New(context *context.MainContext) Model {
+	// Spinner for refresh events
+	refreshSpinner := spinner.New()
+	refreshSpinner.Spinner = spinner.Dot
+
+	// Spinner for external commands (legacy, not used for refresh)
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 
@@ -180,13 +204,16 @@ func New(context *context.MainContext) Model {
 	t.Width = 50
 
 	return Model{
-		context: context,
-		spinner: s,
-		help:    h,
-		command: "",
-		running: false,
-		output:  "",
-		input:   t,
-		keyMap:  nil,
+		context:        context,
+		refreshSpinner: refreshSpinner,
+		refreshCount:   0,
+		lastTicked:     0,
+		spinner:        s,
+		help:           h,
+		command:        "",
+		running:        false,
+		output:         "",
+		input:          t,
+		keyMap:         nil,
 	}
 }
