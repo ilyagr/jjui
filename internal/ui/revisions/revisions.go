@@ -3,12 +3,12 @@ package revisions
 import (
 	"bytes"
 	"fmt"
+	"github.com/idursun/jjui/internal/parser"
+	"github.com/idursun/jjui/internal/ui/operations/describe"
+
 	"log"
 	"slices"
 	"strings"
-
-	"github.com/idursun/jjui/internal/parser"
-	"github.com/idursun/jjui/internal/ui/operations/describe"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
@@ -162,6 +162,9 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		if currentOperationId != m.previousOpLogId {
 			m.previousOpLogId = currentOperationId
 			return m, common.RefreshAndKeepSelections
+		} else {
+			// No change, send NoopMsg so spinner can advance
+			return m, func() tea.Msg { return common.UpdateRevisionsNoopMsg{} }
 		}
 	case common.RefreshMsg:
 		if !msg.KeepSelections {
