@@ -11,54 +11,23 @@ func TestRefreshBarAdvancesOnRefreshEvent(t *testing.T) {
 	m := New(&context.MainContext{})
 	mPtr := &m
 
-	// Manually render the bar as in View()
-	width := mPtr.refreshBar.Width
-	pos := mPtr.refreshCount % width
-	barRunes := make([]rune, width)
-	for i := 0; i < width; i++ {
-		if i == pos {
-			barRunes[i] = '█'
-		} else {
-			barRunes[i] = ' '
-		}
-	}
-	initial := string(barRunes)
+	// Get initial spinner character
+	initial := mPtr.spinnerChars[mPtr.spinnerIdx]
 
-	// Simulate a refresh event
-	mPtr, _ = mPtr.Update(common.RefreshMsg{})
+	// Simulate a refresh completion event
+	mPtr, _ = mPtr.Update(common.UpdateRevisionsSuccessMsg{})
 
-	// Render again
-	width = mPtr.refreshBar.Width
-	pos = mPtr.refreshCount % width
-	barRunes = make([]rune, width)
-	for i := 0; i < width; i++ {
-		if i == pos {
-			barRunes[i] = '█'
-		} else {
-			barRunes[i] = ' '
-		}
-	}
-	after := string(barRunes)
-
+	// Get spinner character after refresh completion
+	after := mPtr.spinnerChars[mPtr.spinnerIdx]
 	if initial == after {
-		t.Errorf("Progress bar did not advance after refresh event: got %q, want different frame", after)
+		t.Errorf("Spinner did not advance after refresh completion event: got %q, want different frame", string(after))
 	}
 
-	// Simulate another refresh event and check again
+	// Simulate another refresh completion event and check again
 	initial = after
-	mPtr, _ = mPtr.Update(common.RefreshMsg{})
-	width = mPtr.refreshBar.Width
-	pos = mPtr.refreshCount % width
-	barRunes = make([]rune, width)
-	for i := 0; i < width; i++ {
-		if i == pos {
-			barRunes[i] = '█'
-		} else {
-			barRunes[i] = ' '
-		}
-	}
-	after = string(barRunes)
+	mPtr, _ = mPtr.Update(common.UpdateRevisionsSuccessMsg{})
+	after = mPtr.spinnerChars[mPtr.spinnerIdx]
 	if initial == after {
-		t.Errorf("Progress bar did not advance after second refresh event: got %q, want different frame", after)
+		t.Errorf("Spinner did not advance after second refresh completion event: got %q, want different frame", string(after))
 	}
 }
