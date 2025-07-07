@@ -21,19 +21,23 @@ var cancel = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "dismiss"))
 var accept = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "accept"))
 
 type Model struct {
-	context *context.MainContext
-	spinner spinner.Model
-	input   textinput.Model
-	help    help.Model
-	keyMap  help.KeyMap
-	command string
-	running bool
-	output  string
-	error   error
-	width   int
-	mode    string
-	editing bool
-	styles  styles
+	context      *context.MainContext
+	refreshCount int           // Number of refreshes that have occurred
+	spinnerChars []rune        // Spinner characters for single-cell spinner
+	spinnerIdx   int           // Current spinner index
+	showCheck    bool          // Show checkmark after success
+	spinner      spinner.Model // Existing spinner for external commands (deprecated for refresh)
+	input        textinput.Model
+	help         help.Model
+	keyMap       help.KeyMap
+	command      string
+	running      bool
+	output       string
+	error        error
+	width        int
+	mode         string
+	editing      bool
+	styles       styles
 }
 
 type styles struct {
@@ -74,6 +78,10 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 	km := config.Current.GetKeyMap()
 	switch msg := msg.(type) {
 	case clearMsg:
+		if string(msg) == "__hide_checkmark__" {
+			m.showCheck = false
+			return m, nil
+		}
 		if m.command == string(msg) {
 			m.command = ""
 			m.error = nil
@@ -94,6 +102,19 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 				return clearMsg(commandToBeCleared)
 			})
 		}
+		return m, nil
+	case common.UpdateRevisionsSuccessMsg:
+		// Advance spinner by one tick when refresh is done
+		m.refreshCount++
+		m.spinnerIdx = m.refreshCount % len(m.spinnerChars)
+		m.showCheck = true
+		return m, tea.Tick(4*time.Second, func(time.Time) tea.Msg {
+			return clearMsg("__hide_checkmark__")
+		})
+	case common.UpdateRevisionsNoopMsg:
+		// Advance spinner by one tick when refresh is noop
+		m.refreshCount++
+		m.spinnerIdx = m.refreshCount % len(m.spinnerChars)
 		return m, nil
 	case tea.KeyMsg:
 		switch {
@@ -147,14 +168,24 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		return m, nil
 	default:
 		var cmd tea.Cmd
+		// Still update command spinner for legacy/external commands
 		if m.running {
-			m.spinner, cmd = m.spinner.Update(msg)
+			m.spinner, _ = m.spinner.Update(msg)
 		}
 		return m, cmd
 	}
 }
 
 func (m *Model) View() string {
+	// Single-cell spinner using spinnerChars
+	spinnerChar := m.spinnerChars[m.spinnerIdx]
+	refreshSpinnerMark := m.styles.title.Render(string(spinnerChar))
+
+	checkMark := m.styles.title.Render(" ")
+	if m.showCheck {
+		checkMark = m.styles.title.Render("✓")
+	}
+
 	commandStatusMark := m.styles.text.Render(" ")
 	if m.running {
 		commandStatusMark = m.styles.text.Render(m.spinner.View())
@@ -171,7 +202,8 @@ func (m *Model) View() string {
 		ret = m.input.View()
 	}
 	mode := m.styles.title.Width(10).Render("", m.mode)
-	ret = lipgloss.JoinHorizontal(lipgloss.Left, mode, " ", commandStatusMark, ret)
+	// Place refresh spinner and checkmark tightly to the left of the mode indicator
+	ret = lipgloss.JoinHorizontal(lipgloss.Left, refreshSpinnerMark+checkMark, mode, " ", commandStatusMark, ret)
 	if m.error != nil {
 		k := cancel.Help().Key
 		return lipgloss.JoinVertical(0,
@@ -202,6 +234,8 @@ func New(context *context.MainContext) Model {
 		success:  common.DefaultPalette.Get("status success"),
 		error:    common.DefaultPalette.Get("status error"),
 	}
+
+	// Spinner for external commands (legacy, not used for refresh)
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 
@@ -217,15 +251,21 @@ func New(context *context.MainContext) Model {
 	t := textinput.New()
 	t.Width = 50
 
+	// Spinner characters for single-cell spinner (use spinner.Dot frames)
+	spinChars := []rune{'⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷'}
+
 	return Model{
-		context: context,
-		spinner: s,
-		help:    h,
-		command: "",
-		running: false,
-		output:  "",
-		input:   t,
-		keyMap:  nil,
-		styles:  styles,
+		context:      context,
+		refreshCount: 0,
+		spinnerChars: spinChars,
+		spinnerIdx:   0,
+		spinner:      s,
+		help:         h,
+		command:      "",
+		running:      false,
+		output:       "",
+		input:        t,
+		keyMap:       nil,
+		styles:       styles,
 	}
 }
