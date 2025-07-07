@@ -9,6 +9,7 @@ import (
 	"github.com/idursun/jjui/internal/config"
 
 	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -20,21 +21,21 @@ var cancel = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "dismiss"))
 var accept = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "accept"))
 
 type Model struct {
-	context        *context.MainContext
-	refreshSpinner spinner.Model // Spinner for refresh events only
-	refreshCount   int           // Number of refreshes that have occurred
-	lastTicked     int           // Last refresh count for which spinner was ticked
-	spinner        spinner.Model // Existing spinner for external commands (deprecated for refresh)
-	input          textinput.Model
-	help           help.Model
-	keyMap         help.KeyMap
-	command        string
-	running        bool
-	output         string
-	error          error
-	width          int
-	mode           string
-	editing        bool
+	context      *context.MainContext
+	refreshBar   progress.Model // Progress bar for refresh spinner
+	refreshCount int            // Number of refreshes that have occurred
+	lastTicked   int            // Last refresh count for which spinner was ticked
+	spinner      spinner.Model  // Existing spinner for external commands (deprecated for refresh)
+	input        textinput.Model
+	help         help.Model
+	keyMap       help.KeyMap
+	command      string
+	running      bool
+	output       string
+	error        error
+	width        int
+	mode         string
+	editing      bool
 }
 
 func (m *Model) IsFocused() bool {
@@ -88,9 +89,13 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		}
 		return m, nil
 	case common.RefreshMsg, common.AutoRefreshMsg:
-		// Advance refresh spinner by one tick immediately
+		// Advance refresh bar by one tick immediately
 		m.refreshCount++
-		m.refreshSpinner, _ = m.refreshSpinner.Update(spinner.TickMsg{})
+		// Simulate a spinner: only one block filled at a time
+		width := m.refreshBar.Width
+		pos := m.refreshCount % width
+		newPercent := float64(pos) / float64(width)
+		m.refreshBar.SetPercent(newPercent)
 		return m, nil
 	case tea.KeyMsg:
 		switch {
@@ -128,11 +133,7 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		return m, nil
 	default:
 		var cmd tea.Cmd
-		// Always show refresh spinner, but only advance on refresh event
-		if m.refreshCount != m.lastTicked {
-			m.refreshSpinner, cmd = m.refreshSpinner.Update(msg)
-			m.lastTicked = m.refreshCount
-		}
+		// No-op for progress bar unless we want to animate it (we don't)
 		// Still update command spinner for legacy/external commands
 		if m.running {
 			m.spinner, _ = m.spinner.Update(msg)
@@ -142,8 +143,18 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 }
 
 func (m *Model) View() string {
-	// Always show refresh spinner, holding its state until ticked
-	refreshSpinnerMark := common.DefaultPalette.StatusMode.Render(m.refreshSpinner.View())
+	// Manually render a spinner bar: one filled block, rest empty
+	width := m.refreshBar.Width
+	pos := m.refreshCount % width
+	barRunes := make([]rune, width)
+	for i := 0; i < width; i++ {
+		if i == pos {
+			barRunes[i] = '█'
+		} else {
+			barRunes[i] = ' '
+		}
+	}
+	refreshBarMark := common.DefaultPalette.StatusMode.Render(string(barRunes))
 
 	commandStatusMark := common.DefaultPalette.Normal.Render(" ")
 	if m.running {
@@ -161,8 +172,8 @@ func (m *Model) View() string {
 		ret = m.input.View()
 	}
 	mode := common.DefaultPalette.StatusMode.Width(10).Render("", m.mode)
-	// Place refresh spinner to the left of the mode indicator
-	ret = lipgloss.JoinHorizontal(lipgloss.Left, refreshSpinnerMark, mode, " ", commandStatusMark, ret)
+	// Place refresh progress bar to the left of the mode indicator
+	ret = lipgloss.JoinHorizontal(lipgloss.Left, refreshBarMark, mode, " ", commandStatusMark, ret)
 	if m.error != nil {
 		k := cancel.Help().Key
 		return lipgloss.JoinVertical(0,
@@ -186,9 +197,13 @@ func (m *Model) SetMode(mode string) {
 }
 
 func New(context *context.MainContext) Model {
-	// Spinner for refresh events
-	refreshSpinner := spinner.New()
-	refreshSpinner.Spinner = spinner.Dot
+	// Progress bar for refresh spinner
+	refreshBar := progress.New(
+		progress.WithFillCharacters('█', ' '), // Only one block filled at a time
+	)
+
+	refreshBar.Width = 8
+	refreshBar.ShowPercentage = false
 
 	// Spinner for external commands (legacy, not used for refresh)
 	s := spinner.New()
@@ -204,16 +219,16 @@ func New(context *context.MainContext) Model {
 	t.Width = 50
 
 	return Model{
-		context:        context,
-		refreshSpinner: refreshSpinner,
-		refreshCount:   0,
-		lastTicked:     0,
-		spinner:        s,
-		help:           h,
-		command:        "",
-		running:        false,
-		output:         "",
-		input:          t,
-		keyMap:         nil,
+		context:      context,
+		refreshBar:   refreshBar,
+		refreshCount: 0,
+		lastTicked:   0,
+		spinner:      s,
+		help:         h,
+		command:      "",
+		running:      false,
+		output:       "",
+		input:        t,
+		keyMap:       nil,
 	}
 }
