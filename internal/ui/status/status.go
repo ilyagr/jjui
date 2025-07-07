@@ -31,19 +31,22 @@ const (
 )
 
 type Model struct {
-	context *context.MainContext
-	spinner spinner.Model
-	input   textinput.Model
-	keyMap  help.KeyMap
-	command string
+	context      *context.MainContext
+	refreshCount int           // Number of refreshes that have occurred
+	spinnerChars []rune        // Spinner characters for single-cell spinner
+	spinnerIdx   int           // Current spinner index
+	spinner      spinner.Model // Existing spinner for external commands (deprecated for refresh)
+	input        textinput.Model
+	keyMap       help.KeyMap
+	command      string
 	status  commandStatus
-	running bool
-	width   int
-	mode    string
-	editing bool
-	history map[string][]string
+	running      bool
+	width        int
+	mode         string
+	editing      bool
+	history      map[string][]string
 	fuzzy   fuzzy_search.Model
-	styles  styles
+	styles       styles
 }
 
 type styles struct {
@@ -117,6 +120,11 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		m.loadEditingSuggestions()
 		m.fuzzy = fuzzy_files.NewModel(msg)
 		return m, tea.Batch(m.fuzzy.Init(), m.input.Focus())
+	case common.UpdateRevisionsSuccessMsg:
+		// Advance spinner by one tick when refresh is done
+		m.refreshCount++
+		m.spinnerIdx = m.refreshCount % len(m.spinnerChars)
+		return m, nil
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, km.Cancel) && m.editing:
@@ -179,8 +187,10 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		return m, nil
 	default:
 		var cmd tea.Cmd
+		// No-op for progress bar unless we want to animate it (we don't)
+		// Still update command spinner for legacy/external commands
 		if m.status == commandRunning {
-			m.spinner, cmd = m.spinner.Update(msg)
+			m.spinner, _ = m.spinner.Update(msg)
 		}
 		if m.fuzzy != nil {
 			m.fuzzy, cmd = fuzzy_search.Update(m.fuzzy, msg)
@@ -208,6 +218,10 @@ func (m *Model) loadEditingSuggestions() {
 }
 
 func (m *Model) View() string {
+	// Single-cell spinner using spinnerChars
+	spinnerChar := m.spinnerChars[m.spinnerIdx]
+	refreshSpinnerMark := m.styles.title.Render(string(spinnerChar))
+
 	commandStatusMark := m.styles.text.Render(" ")
 	if m.status == commandRunning {
 		commandStatusMark = m.styles.text.Render(m.spinner.View())
@@ -224,7 +238,8 @@ func (m *Model) View() string {
 		ret = m.input.View()
 	}
 	mode := m.styles.title.Width(10).Render("", m.mode)
-	ret = lipgloss.JoinHorizontal(lipgloss.Left, mode, m.styles.text.Render(" "), commandStatusMark, ret)
+	// Place refresh spinner to the left of the mode indicator
+	ret = lipgloss.JoinHorizontal(lipgloss.Left, refreshSpinnerMark, mode,  m.styles.text.Render(" "), commandStatusMark, ret)
 	height := lipgloss.Height(ret)
 	return lipgloss.Place(m.width, height, 0, 0, ret, lipgloss.WithWhitespaceBackground(m.styles.text.GetBackground()))
 }
@@ -261,6 +276,8 @@ func New(context *context.MainContext) Model {
 		success:  common.DefaultPalette.Get("status success"),
 		error:    common.DefaultPalette.Get("status error"),
 	}
+
+	// Spinner for external commands (legacy, not used for refresh)
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 
@@ -270,14 +287,20 @@ func New(context *context.MainContext) Model {
 	t.CompletionStyle = styles.dimmed
 	t.PlaceholderStyle = styles.dimmed
 
+	// Spinner characters for single-cell spinner (use spinner.Dot frames)
+	spinChars := []rune{'⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷'}
+
 	return Model{
-		context: context,
-		spinner: s,
-		command: "",
+		context:      context,
+		refreshCount: 0,
+		spinnerChars: spinChars,
+		spinnerIdx:   0,
+		spinner:      s,
+		command:      "",
 		status:  none,
-		input:   t,
-		keyMap:  nil,
-		styles:  styles,
-		history: make(map[string][]string),
+		input:        t,
+		keyMap:       nil,
+		styles:       styles,
+		history:      make(map[string][]string),
 	}
 }
