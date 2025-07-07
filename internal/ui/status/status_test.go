@@ -3,36 +3,62 @@ package status
 import (
 	"testing"
 
-	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/context"
 )
 
-type dummyContext struct{}
-
-func TestRefreshSpinnerAdvancesOnRefreshEvent(t *testing.T) {
-	// Use a simple spinner with known frames for deterministic test
-	testSpinner := spinner.New()
-	testSpinner.Spinner = spinner.Line
-	testSpinner.Style = testSpinner.Style // no-op, just to avoid nil
-
-	// Create status model with dummy context
+func TestRefreshBarAdvancesOnRefreshEvent(t *testing.T) {
 	m := New(&context.MainContext{})
-	m.refreshSpinner = testSpinner
-
-	// Use pointer receiver for Model
 	mPtr := &m
 
-	// Capture initial spinner frame
-	initial := mPtr.refreshSpinner.View()
+	// Manually render the bar as in View()
+	width := mPtr.refreshBar.Width
+	pos := mPtr.refreshCount % width
+	barRunes := make([]rune, width)
+	for i := 0; i < width; i++ {
+		if i == pos {
+			barRunes[i] = '█'
+		} else {
+			barRunes[i] = ' '
+		}
+	}
+	initial := string(barRunes)
 
 	// Simulate a refresh event
-	// Bubble Tea Update returns (*Model, tea.Cmd)
 	mPtr, _ = mPtr.Update(common.RefreshMsg{})
 
-	// Spinner should have advanced by one frame
-	after := mPtr.refreshSpinner.View()
+	// Render again
+	width = mPtr.refreshBar.Width
+	pos = mPtr.refreshCount % width
+	barRunes = make([]rune, width)
+	for i := 0; i < width; i++ {
+		if i == pos {
+			barRunes[i] = '█'
+		} else {
+			barRunes[i] = ' '
+		}
+	}
+	after := string(barRunes)
+
 	if initial == after {
-		t.Errorf("Spinner did not advance after refresh event: got %q, want different frame", after)
+		t.Errorf("Progress bar did not advance after refresh event: got %q, want different frame", after)
+	}
+
+	// Simulate another refresh event and check again
+	initial = after
+	mPtr, _ = mPtr.Update(common.RefreshMsg{})
+	width = mPtr.refreshBar.Width
+	pos = mPtr.refreshCount % width
+	barRunes = make([]rune, width)
+	for i := 0; i < width; i++ {
+		if i == pos {
+			barRunes[i] = '█'
+		} else {
+			barRunes[i] = ' '
+		}
+	}
+	after = string(barRunes)
+	if initial == after {
+		t.Errorf("Progress bar did not advance after second refresh event: got %q, want different frame", after)
 	}
 }
