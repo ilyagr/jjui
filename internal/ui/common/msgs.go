@@ -1,8 +1,9 @@
 package common
 
 import (
-	tea "github.com/charmbracelet/bubbletea"
 	"strings"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 type (
@@ -19,6 +20,7 @@ type (
 		Err    error
 	}
 	UpdateRevisionsSuccessMsg struct{}
+	UpdateRevisionsNoopMsg    struct{}
 	UpdateBookmarksMsg        struct {
 		Bookmarks []string
 		Revision  string

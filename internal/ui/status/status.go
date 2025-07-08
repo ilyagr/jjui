@@ -87,8 +87,8 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 			})
 		}
 		return m, nil
-	case common.UpdateRevisionsSuccessMsg:
-		// Advance spinner by one tick when refresh is done
+	case common.UpdateRevisionsSuccessMsg, common.UpdateRevisionsNoopMsg:
+		// Advance spinner by one tick when refresh is done or noop
 		m.refreshCount++
 		m.spinnerIdx = m.refreshCount % len(m.spinnerChars)
 		return m, nil
