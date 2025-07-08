@@ -120,8 +120,8 @@ func (m *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		m.loadEditingSuggestions()
 		m.fuzzy = fuzzy_files.NewModel(msg)
 		return m, tea.Batch(m.fuzzy.Init(), m.input.Focus())
-	case common.UpdateRevisionsSuccessMsg:
-		// Advance spinner by one tick when refresh is done
+	case common.UpdateRevisionsSuccessMsg, common.UpdateRevisionsNoopMsg:
+		// Advance spinner by one tick when refresh is done or noop
 		m.refreshCount++
 		m.spinnerIdx = m.refreshCount % len(m.spinnerChars)
 		return m, nil
