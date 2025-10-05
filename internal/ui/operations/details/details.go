@@ -25,7 +25,8 @@ type updateCommitStatusMsg struct {
 }
 
 var _ operations.Operation = (*Operation)(nil)
-var _ common.Editable = (*Operation)(nil)
+var _ common.Focusable = (*Operation)(nil)
+var _ common.Overlay = (*Operation)(nil)
 
 type Operation struct {
 	*DetailsList
@@ -40,7 +41,11 @@ type Operation struct {
 	styles            styles
 }
 
-func (s *Operation) IsEditing() bool {
+func (s *Operation) IsOverlay() bool {
+	return true
+}
+
+func (s *Operation) IsFocused() bool {
 	return true
 }
 

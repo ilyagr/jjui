@@ -99,7 +99,7 @@ func (m Model) handleFocusInputMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 			return m, cmd, true
 		}
 
-		if m.revisions.IsFocused() || m.revisions.IsEditing() {
+		if m.revisions.IsEditing() {
 			m.revisions, cmd = m.revisions.Update(msg)
 			return m, cmd, true
 		}

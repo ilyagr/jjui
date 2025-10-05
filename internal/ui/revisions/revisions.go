@@ -341,6 +341,12 @@ func (m *Model) internalUpdate(msg tea.Msg) (*Model, tea.Cmd) {
 		return m, cmd
 	}
 
+	if op, ok := m.op.(common.Overlay); ok && op.IsOverlay() {
+		var cmd tea.Cmd
+		m.op, cmd = m.op.Update(msg)
+		return m, cmd
+	}
+
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -382,7 +388,7 @@ func (m *Model) internalUpdate(msg tea.Msg) (*Model, tea.Cmd) {
 		default:
 			if op, ok := m.op.(common.Focusable); ok && op.IsFocused() {
 				m.op, cmd = m.op.Update(msg)
-				break
+				return m, cmd
 			}
 
 			switch {

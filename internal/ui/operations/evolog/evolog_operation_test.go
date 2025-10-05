@@ -22,19 +22,19 @@ func TestNewOperation_Mode(t *testing.T) {
 		name      string
 		mode      mode
 		isFocused bool
-		isEditing bool
+		isOverlay bool
 	}{
 		{
 			name:      "select mode is editing",
 			mode:      selectMode,
 			isFocused: true,
-			isEditing: true,
+			isOverlay: true,
 		},
 		{
 			name:      "restore mode is not editing",
 			mode:      restoreMode,
 			isFocused: true,
-			isEditing: false,
+			isOverlay: false,
 		},
 	}
 	for _, args := range tests {
@@ -45,7 +45,7 @@ func TestNewOperation_Mode(t *testing.T) {
 			operation.mode = args.mode
 
 			assert.Equal(t, args.isFocused, operation.IsFocused())
-			assert.Equal(t, args.isEditing, operation.IsEditing())
+			assert.Equal(t, args.isOverlay, operation.IsOverlay())
 		})
 	}
 }
