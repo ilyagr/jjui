@@ -54,13 +54,20 @@ func ParseRowsStreaming(reader io.Reader, controlChannel <-chan ControlMsg, batc
 					row.Indent += utf8.RuneCountInString(rowLine.Segments[j].Text)
 				}
 				row.Commit.ChangeId = rowLine.Segments[changeIdIdx].Text
+				fullChangeId := row.Commit.ChangeId
 				for nextIdx := changeIdIdx + 1; nextIdx < len(rowLine.Segments); nextIdx++ {
 					nextSegment := rowLine.Segments[nextIdx]
 					if strings.TrimSpace(nextSegment.Text) == "" || strings.ContainsAny(nextSegment.Text, "\n\t\r ") {
 						break
 					}
-					row.Commit.ChangeId += nextSegment.Text
+					fullChangeId += nextSegment.Text
 				}
+
+				// get only if it contains conflicted "??" suffix
+				if strings.HasSuffix(fullChangeId, "??") {
+					row.Commit.ChangeId = fullChangeId
+				}
+
 				if commitIdIdx := rowLine.FindPossibleCommitIdIdx(changeIdIdx); commitIdIdx != -1 {
 					row.Commit.CommitId = rowLine.Segments[commitIdIdx].Text
 				}
