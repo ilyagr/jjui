@@ -73,7 +73,7 @@ func (h *Model) FullHelp() [][]key.Binding {
 }
 
 func (h *Model) Init() tea.Cmd {
-	return textinput.Blink
+	return nil
 }
 
 func (h *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
