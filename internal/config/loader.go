@@ -16,7 +16,7 @@ func getConfigFilePath() string {
 	// useful during development or other non-standard setups.
 	if dir := os.Getenv("JJUI_CONFIG_DIR"); dir != "" {
 		if s, err := os.Stat(dir); err == nil && s.IsDir() {
-			configDirs = append(configDirs, dir)
+			return filepath.Join(dir, "config.toml")
 		}
 	}
 
@@ -29,11 +29,9 @@ func getConfigFilePath() string {
 		}
 	}
 
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		return ""
+	if configDir, err := os.UserConfigDir(); err == nil {
+		configDirs = append(configDirs, configDir)
 	}
-	configDirs = append(configDirs, configDir)
 
 	for _, dir := range configDirs {
 		configPath := filepath.Join(dir, "jjui", "config.toml")
