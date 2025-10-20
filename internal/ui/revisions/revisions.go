@@ -41,6 +41,9 @@ var _ list.IListCursor = (*Model)(nil)
 var _ common.Focusable = (*Model)(nil)
 var _ common.Editable = (*Model)(nil)
 
+var pageDownKey = key.NewBinding(key.WithKeys("pgdown"))
+var pageUpKey = key.NewBinding(key.WithKeys("pgup"))
+
 type Model struct {
 	*common.Sizeable
 	rows             []parser.Row
@@ -351,14 +354,22 @@ func (m *Model) internalUpdate(msg tea.Msg) (*Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
-		case key.Matches(msg, m.keymap.Up):
-			if m.cursor > 0 {
-				m.cursor--
+		case key.Matches(msg, m.keymap.Up, pageUpKey):
+			amount := 1
+			if key.Matches(msg, pageUpKey) && m.renderer.LastRowIndex > m.renderer.FirstRowIndex {
+				amount = m.renderer.LastRowIndex - m.renderer.FirstRowIndex - 1
+			}
+			if m.cursor-amount >= 0 {
+				m.cursor = m.cursor - amount
 			}
 			return m, m.updateSelection()
-		case key.Matches(msg, m.keymap.Down):
-			if m.cursor < len(m.rows)-1 {
-				m.cursor++
+		case key.Matches(msg, m.keymap.Down, pageDownKey):
+			amount := 1
+			if key.Matches(msg, pageDownKey) && m.renderer.LastRowIndex > m.renderer.FirstRowIndex {
+				amount = m.renderer.LastRowIndex - m.renderer.FirstRowIndex - 1
+			}
+			if m.cursor < len(m.rows)-amount {
+				m.cursor = m.cursor + amount
 			} else if m.hasMore {
 				return m, m.requestMoreRows(m.tag.Load())
 			}
