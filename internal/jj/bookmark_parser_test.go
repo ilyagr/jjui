@@ -86,6 +86,30 @@ feature;origin;true;false;false;b`,
 				},
 			},
 		},
+		{
+			name: "quoted bookmarks",
+			args: args{
+				output: `"test--bookmark";.;false;false;false;7
+"test--bookmark";git;true;false;false;7
+"test--bookmark";origin;true;false;false;6`,
+			},
+			want: []Bookmark{
+				{
+					Name: "test--bookmark",
+					Remotes: []BookmarkRemote{
+						{"origin", "6", true},
+					},
+					Local: &BookmarkRemote{
+						Remote:   ".",
+						CommitId: "7",
+						Tracked:  false,
+					},
+					Conflict:  false,
+					Backwards: false,
+					CommitId:  "7",
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

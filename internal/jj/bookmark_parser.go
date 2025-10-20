@@ -44,6 +44,7 @@ func ParseBookmarkListOutput(output string) []Bookmark {
 		}
 
 		name := parts[0]
+		name = strings.Trim(name, "\"")
 		remoteName := parts[1]
 		tracked := parts[2] == "true"
 		conflict := parts[3] == "true"
