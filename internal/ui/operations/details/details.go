@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path"
 	"reflect"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -24,9 +25,11 @@ type updateCommitStatusMsg struct {
 	selectedFiles []string
 }
 
-var _ operations.Operation = (*Operation)(nil)
-var _ common.Focusable = (*Operation)(nil)
-var _ common.Overlay = (*Operation)(nil)
+var (
+	_ operations.Operation = (*Operation)(nil)
+	_ common.Focusable     = (*Operation)(nil)
+	_ common.Overlay       = (*Operation)(nil)
+)
 
 type Operation struct {
 	*DetailsList
@@ -322,22 +325,15 @@ func (s *Operation) createListItems(content string, selectedFiles []string) []*i
 			status = Modified
 		case 'R':
 			status = Renamed
+		case 'C':
+			status = Copied
 		}
 		fileName := file[2:]
 
 		actualFileName := fileName
-		if status == Renamed && strings.Contains(actualFileName, "{") {
-			for strings.Contains(actualFileName, "{") {
-				start := strings.Index(actualFileName, "{")
-				end := strings.Index(actualFileName, "}")
-				if end == -1 {
-					break
-				}
-				replacement := actualFileName[start+1 : end]
-				parts := strings.Split(replacement, " => ")
-				replacement = parts[1]
-				actualFileName = path.Clean(actualFileName[:start] + replacement + actualFileName[end+1:])
-			}
+		if (status == Renamed || status == Copied) && strings.Contains(actualFileName, "{") {
+			re := regexp.MustCompile(`\{[^}]*? => \s*([^}]*?)\s*\}`)
+			actualFileName = path.Clean(re.ReplaceAllString(actualFileName, "$1"))
 		}
 		items = append(items, &item{
 			status:   status,
@@ -379,6 +375,7 @@ func NewOperation(context *context.MainContext, selected *jj.Commit, height int)
 		Deleted:  common.DefaultPalette.Get("revisions details deleted"),
 		Modified: common.DefaultPalette.Get("revisions details modified"),
 		Renamed:  common.DefaultPalette.Get("revisions details renamed"),
+		Copied:   common.DefaultPalette.Get("revisions details copied"),
 		Selected: common.DefaultPalette.Get("revisions details selected"),
 		Dimmed:   common.DefaultPalette.Get("revisions details dimmed"),
 		Text:     common.DefaultPalette.Get("revisions details text"),
