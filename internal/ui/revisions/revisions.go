@@ -524,7 +524,7 @@ func (m *Model) highlightChanges() tea.Msg {
 		if len(parts) > 0 {
 			for i := range m.rows {
 				row := &m.rows[i]
-				if row.Commit.GetChangeId() == parts[0] {
+				if strings.HasPrefix(parts[0], row.Commit.GetChangeId()) {
 					row.IsAffected = true
 					break
 				}
