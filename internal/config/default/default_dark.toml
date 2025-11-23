@@ -7,7 +7,6 @@ target_marker = { fg = "black", bg = "red", bold = true }
 source_marker = { fg = "black", bg = "cyan" }
 success = "green"
 error = "red"
-border = "bright white"
 "confirmation text" = { fg = "magenta", bold = true }
 "confirmation selected" = { fg = "bright white", bg = "blue", bold = true }
 "confirmation dimmed" = "white"

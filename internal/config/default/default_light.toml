@@ -7,7 +7,6 @@ target_marker = { fg = "black", bg = "red", bold = true }
 source_marker = { fg = "black", bg = "cyan" }
 success = "green"
 error = "red"
-border = "bright white"
 "confirmation text" = { fg = "magenta", bold = true }
 "confirmation selected" = { fg = "bright white", bg = "blue", bold = true }
 "confirmation dimmed" = "white"
@@ -20,7 +19,7 @@ border = "bright white"
 "revset completion matched" = { fg = "cyan", bold = true }
 "revset completion selected" = { fg = "cyan", bg = "bright black" }
 "status title" = { fg = "black", bg = "magenta", bold = true }
-"menu title" = { fg = "230", bg = "62", bold = true }
-"menu subtitle" = { fg = "230", bold = true }
+"menu title" = { fg = "62", bg = "230", bold = true }
+"menu subtitle" = { fg = "62", bold = true }
 "menu matched" = { fg = "magenta", bold = true }
 "menu selected" = { fg = "cyan", bold = true, underline = false }
