@@ -3,6 +3,7 @@ package details
 import (
 	"testing"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/idursun/jjui/internal/jj"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/stretchr/testify/assert"
@@ -148,7 +149,7 @@ func TestModel_Update_HandlesFilenamesWithBraces(t *testing.T) {
 	test.SimulateModel(model, test.Press(tea.KeyEnter))
 }
 
-func TestModel_Refresh_IgnoredVirtuallySelectedFiles(t *testing.T) {
+func TestModel_Refresh_IgnoreVirtuallySelectedFiles(t *testing.T) {
 	commandRunner := test.NewTestCommandRunner(t)
 	commandRunner.Expect(jj.Snapshot())
 	commandRunner.Expect(jj.Status(Revision)).SetOutput([]byte(StatusOutput))
@@ -159,5 +160,42 @@ func TestModel_Refresh_IgnoredVirtuallySelectedFiles(t *testing.T) {
 	test.SimulateModel(model, common.Refresh)
 	for _, file := range model.files {
 		assert.False(t, file.selected)
+	}
+}
+
+func TestModel_Update_Quit(t *testing.T) {
+	tests := []struct {
+		name        string
+		interaction tea.Cmd
+		shouldQuit  bool
+	}{
+		{
+			name:        "pressing q",
+			interaction: test.Type("q"),
+			shouldQuit:  true,
+		},
+		{
+			name:        "pressing esc",
+			interaction: test.Press(tea.KeyEscape),
+			shouldQuit:  false,
+		},
+	}
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			commandRunner := test.NewTestCommandRunner(t)
+
+			model := NewOperation(test.NewTestContext(commandRunner), Commit, 10)
+			model.keymap.Quit = key.NewBinding(key.WithKeys("esc", "q"))
+			var msgs []tea.Msg
+			test.SimulateModel(model, testCase.interaction, func(msg tea.Msg) {
+				msgs = append(msgs, msg)
+			})
+
+			if testCase.shouldQuit {
+				assert.Contains(t, msgs, tea.QuitMsg{})
+			} else {
+				assert.NotContains(t, msgs, tea.QuitMsg{})
+			}
+		})
 	}
 }
