@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/idursun/jjui/internal/jj"
+	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/idursun/jjui/test"
@@ -145,4 +146,18 @@ func TestModel_Update_HandlesFilenamesWithBraces(t *testing.T) {
 	test.SimulateModel(model, test.Press(tea.KeySpace))
 	test.SimulateModel(model, test.Type("r"))
 	test.SimulateModel(model, test.Press(tea.KeyEnter))
+}
+
+func TestModel_Refresh_IgnoredVirtuallySelectedFiles(t *testing.T) {
+	commandRunner := test.NewTestCommandRunner(t)
+	commandRunner.Expect(jj.Snapshot())
+	commandRunner.Expect(jj.Status(Revision)).SetOutput([]byte(StatusOutput))
+	defer commandRunner.Verify()
+
+	model := NewOperation(test.NewTestContext(commandRunner), Commit, 10)
+	test.SimulateModel(model, model.Init())
+	test.SimulateModel(model, common.Refresh)
+	for _, file := range model.files {
+		assert.False(t, file.selected)
+	}
 }

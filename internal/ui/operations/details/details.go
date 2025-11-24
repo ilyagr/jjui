@@ -134,7 +134,7 @@ func (s *Operation) internalUpdate(msg tea.Msg) (*Operation, tea.Cmd) {
 			}
 		case key.Matches(msg, s.keyMap.Details.Split, s.keyMap.Details.SplitParallel):
 			isParallel := key.Matches(msg, s.keyMap.Details.SplitParallel)
-			selectedFiles := s.getSelectedFiles()
+			selectedFiles := s.getSelectedFiles(true)
 			s.selectedHint = "stays as is"
 			s.unselectedHint = "moves to the new revision"
 			model := confirmation.New(
@@ -151,10 +151,10 @@ func (s *Operation) internalUpdate(msg tea.Msg) (*Operation, tea.Cmd) {
 			return s, s.confirmation.Init()
 		case key.Matches(msg, s.keyMap.Details.Squash):
 			return s, func() tea.Msg {
-				return common.StartSquashOperationMsg{Revision: s.revision, Files: s.getSelectedFiles()}
+				return common.StartSquashOperationMsg{Revision: s.revision, Files: s.getSelectedFiles(true)}
 			}
 		case key.Matches(msg, s.keyMap.Details.Restore):
-			selectedFiles := s.getSelectedFiles()
+			selectedFiles := s.getSelectedFiles(true)
 			selected := s.current()
 			s.selectedHint = "gets restored"
 			s.unselectedHint = "stays as is"
@@ -174,7 +174,7 @@ func (s *Operation) internalUpdate(msg tea.Msg) (*Operation, tea.Cmd) {
 			s.confirmation = model
 			return s, s.confirmation.Init()
 		case key.Matches(msg, s.keyMap.Details.Absorb):
-			selectedFiles := s.getSelectedFiles()
+			selectedFiles := s.getSelectedFiles(true)
 			s.selectedHint = "might get absorbed into parents"
 			s.unselectedHint = "stays as is"
 			model := confirmation.New(
@@ -282,7 +282,7 @@ func (s *Operation) Name() string {
 	return "details"
 }
 
-func (s *Operation) getSelectedFiles() []string {
+func (s *Operation) getSelectedFiles(allowVirtualSelection bool) []string {
 	selectedFiles := make([]string, 0)
 	if len(s.files) == 0 {
 		return selectedFiles
@@ -293,7 +293,7 @@ func (s *Operation) getSelectedFiles() []string {
 			selectedFiles = append(selectedFiles, f.fileName)
 		}
 	}
-	if len(selectedFiles) == 0 {
+	if len(selectedFiles) == 0 && allowVirtualSelection {
 		selectedFiles = append(selectedFiles, s.current().fileName)
 		return selectedFiles
 	}
@@ -358,7 +358,7 @@ func (s *Operation) load(revision string) tea.Cmd {
 		if err == nil {
 			return func() tea.Msg {
 				summary := string(output)
-				selectedFiles := s.getSelectedFiles()
+				selectedFiles := s.getSelectedFiles(false)
 				return updateCommitStatusMsg{summary, selectedFiles}
 			}
 		}
