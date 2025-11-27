@@ -26,6 +26,9 @@ var _ common.Model = (*Model)(nil)
 
 type Model struct {
 	*common.Sizeable
+	*common.MouseAware
+	*common.DragAware
+	parentContainer         *common.Sizeable
 	tag                     atomic.Uint64
 	previewVisible          bool
 	previewAutoPosition     bool
@@ -106,11 +109,68 @@ func (m *Model) WindowPercentage() float64 {
 	return m.previewWindowPercentage
 }
 
+func (m *Model) Scroll(delta int) tea.Cmd {
+	if delta < 0 && m.viewRange.start == 0 {
+		return nil
+	}
+	if delta > 0 && m.viewRange.end >= m.contentLineCount {
+		return nil
+	}
+	m.viewRange.start = m.viewRange.start + delta
+	m.viewRange.end = m.viewRange.end + delta
+	return nil
+}
+
+func (m *Model) DragStart(x, y int) bool {
+	if !m.previewVisible {
+		return false
+	}
+
+	if m.parentContainer.Width == 0 || m.parentContainer.Height == 0 {
+		return false
+	}
+
+	if m.AtBottom() {
+		if y != m.Frame.Min.Y {
+			return false
+		}
+	} else {
+		if x != m.Frame.Min.X {
+			return false
+		}
+	}
+
+	m.BeginDrag(x, y)
+	return true
+}
+
+func (m *Model) DragMove(x, y int) tea.Cmd {
+	if !m.IsDragging() {
+		return nil
+	}
+
+	var percentage float64
+	if m.AtBottom() {
+		percentage = float64((m.parentContainer.Height-y)*100) / float64(m.parentContainer.Height)
+	} else {
+		percentage = float64((m.parentContainer.Width-x)*100) / float64(m.parentContainer.Width)
+	}
+
+	m.SetWindowPercentage(percentage)
+	return nil
+}
+
 func (m *Model) Update(msg tea.Msg) tea.Cmd {
 	if k, ok := msg.(previewMsg); ok {
 		msg = k.msg
 	}
 	switch msg := msg.(type) {
+	case tea.MouseMsg:
+		if msg.Button == tea.MouseButtonWheelUp {
+			m.Scroll(-3)
+		} else if msg.Button == tea.MouseButtonWheelDown {
+			m.Scroll(3)
+		}
 	case common.SelectionChangedMsg, common.RefreshMsg:
 		tag := m.tag.Add(1)
 		return tea.Tick(DebounceTime, func(t time.Time) tea.Msg {
@@ -218,21 +278,24 @@ func (m *Model) reset() {
 	m.viewRange.start, m.viewRange.end = 0, m.Height
 }
 
-func (m *Model) Expand() {
-	m.previewWindowPercentage += config.Current.Preview.WidthIncrementPercentage
-	if m.previewWindowPercentage > 95 {
+func (m *Model) SetWindowPercentage(percentage float64) {
+	m.previewWindowPercentage = percentage
+	if m.previewWindowPercentage < 10 {
+		m.previewWindowPercentage = 10
+	} else if m.previewWindowPercentage > 95 {
 		m.previewWindowPercentage = 95
 	}
 }
 
-func (m *Model) Shrink() {
-	m.previewWindowPercentage -= config.Current.Preview.WidthIncrementPercentage
-	if m.previewWindowPercentage < 10 {
-		m.previewWindowPercentage = 10
-	}
+func (m *Model) Expand() {
+	m.SetWindowPercentage(m.previewWindowPercentage + config.Current.Preview.WidthIncrementPercentage)
 }
 
-func New(context *context.MainContext) Model {
+func (m *Model) Shrink() {
+	m.SetWindowPercentage(m.previewWindowPercentage - config.Current.Preview.WidthIncrementPercentage)
+}
+
+func New(context *context.MainContext, container *common.Sizeable) *Model {
 	borderStyle := common.DefaultPalette.GetBorder("preview border", lipgloss.NormalBorder())
 	borderStyle = borderStyle.Inherit(common.DefaultPalette.Get("preview text"))
 
@@ -249,8 +312,11 @@ func New(context *context.MainContext) Model {
 		previewAtBottom = true
 	}
 
-	return Model{
+	return &Model{
 		Sizeable:                &common.Sizeable{Width: 0, Height: 0},
+		parentContainer:         container,
+		MouseAware:              common.NewMouseAware(),
+		DragAware:               common.NewDragAware(),
 		viewRange:               &viewRange{start: 0, end: 0},
 		context:                 context,
 		keyMap:                  config.Current.GetKeyMap(),

@@ -50,6 +50,7 @@ type Model struct {
 	context      *context.MainContext
 	keyMap       config.KeyMappings[key.Binding]
 	stacked      common.Model
+	dragTarget   common.Draggable
 }
 
 type triggerAutoRefreshMsg struct{}
@@ -119,7 +120,35 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 
 	switch msg := msg.(type) {
 	case tea.FocusMsg:
-		return common.RefreshAndKeepSelections
+		return tea.Batch(common.RefreshAndKeepSelections, tea.EnableMouseAllMotion)
+	case tea.MouseMsg:
+		if m.stacked != nil {
+			// for now, stacked windows don't respond to mouse events
+			return nil
+		}
+		if m.dragTarget != nil && m.dragTarget.IsDragging() {
+			switch msg.Action {
+			case tea.MouseActionRelease:
+				cmd := m.dragTarget.DragEnd(msg.X, msg.Y)
+				m.dragTarget = nil
+				return cmd
+			case tea.MouseActionMotion:
+				return m.dragTarget.DragMove(msg.X, msg.Y)
+			}
+		} else if m.dragTarget != nil && !m.dragTarget.IsDragging() {
+			m.dragTarget = nil
+		}
+
+		if model := m.findViewAt(msg.X, msg.Y); model != nil {
+			if draggable, ok := model.(common.Draggable); ok && msg.Action == tea.MouseActionPress {
+				if draggable.DragStart(msg.X, msg.Y) {
+					m.dragTarget = draggable
+					return nil
+				}
+			}
+			return model.Update(msg)
+		}
+		return nil
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keyMap.Cancel) && m.state == common.Error:
@@ -314,7 +343,7 @@ func (m *Model) View() string {
 	footerHeight := lipgloss.Height(footer)
 
 	if m.diff != nil {
-		m.diff.SetHeight(m.Height - footerHeight)
+		m.diff.SetFrame(cellbuf.Rect(0, footerHeight, m.Width, m.Height-footerHeight))
 		return lipgloss.JoinVertical(0, m.diff.View(), footer)
 	}
 
@@ -344,7 +373,6 @@ func (m *Model) View() string {
 	if m.oplog != nil {
 		m.oplog.SetFrame(centerArea)
 		leftView = m.oplog.View()
-
 	} else {
 		m.revisions.SetFrame(centerArea)
 		leftView = m.revisions.View()
@@ -374,6 +402,7 @@ func (m *Model) View() string {
 		_, mh := lipgloss.Size(statusFuzzyView)
 		cellbuf.SetContentRect(screenBuf, statusFuzzyView, cellbuf.Rect(0, m.Height-mh-1, m.Width, mh))
 	}
+
 	finalView := cellbuf.Render(screenBuf)
 	return strings.ReplaceAll(finalView, "\r", "")
 }
@@ -401,6 +430,21 @@ func (m *Model) isSafeToQuit() bool {
 	return false
 }
 
+func (m *Model) findViewAt(x, y int) common.IMouseAware {
+	// well, these are all the views that can receive mouse input for now
+	pt := cellbuf.Pos(x, y)
+	if m.diff != nil && pt.In(m.diff.Frame) {
+		return m.diff
+	}
+	if m.oplog == nil && pt.In(m.revisions.Frame) {
+		return m.revisions
+	}
+	if m.previewModel.Visible() && pt.In(m.previewModel.Frame) {
+		return m.previewModel
+	}
+	return nil
+}
+
 var _ tea.Model = (*wrapper)(nil)
 
 type wrapper struct {
@@ -420,16 +464,16 @@ func (w wrapper) View() string {
 }
 
 func NewUI(c *context.MainContext) *Model {
+	frame := common.NewSizeable(0, 0)
 	revisionsModel := revisions.New(c)
-	previewModel := preview.New(c)
 	statusModel := status.New(c)
 	return &Model{
-		Sizeable:     &common.Sizeable{Width: 0, Height: 0},
+		Sizeable:     frame,
 		context:      c,
 		keyMap:       config.Current.GetKeyMap(),
 		state:        common.Loading,
 		revisions:    revisionsModel,
-		previewModel: &previewModel,
+		previewModel: preview.New(c, frame),
 		status:       &statusModel,
 		revsetModel:  revset.New(c),
 		flash:        flash.New(c),
