@@ -35,9 +35,6 @@ func (r *ListRenderer) String(start, end int) string {
 	start = start - r.skippedLineCount
 	end = end - r.skippedLineCount
 	lines := strings.Split(r.buffer.String(), "\n")
-	for i, line := range lines {
-		lines[i] = strings.TrimSpace(line)
-	}
 	if start < 0 {
 		start = 0
 	}
