@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -72,6 +73,12 @@ type Operation struct {
 	SkipEmptied    bool
 }
 
+type updateHighlightedIdsMsg struct {
+	ids []string
+}
+
+const debounceDuration = 250 * time.Millisecond
+
 func (r *Operation) IsFocused() bool {
 	return true
 }
@@ -81,6 +88,11 @@ func (r *Operation) Init() tea.Cmd {
 }
 
 func (r *Operation) Update(msg tea.Msg) tea.Cmd {
+	if msg, ok := msg.(updateHighlightedIdsMsg); ok {
+		r.highlightedIds = msg.ids
+		return nil
+	}
+
 	if msg, ok := msg.(tea.KeyMsg); ok {
 		return r.HandleKey(msg)
 	}
@@ -129,23 +141,35 @@ func (r *Operation) HandleKey(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-func (r *Operation) SetSelectedRevision(commit *jj.Commit) {
+func (r *Operation) SetSelectedRevision(commit *jj.Commit) tea.Cmd {
 	r.highlightedIds = nil
 	r.To = commit
+	identifier := fmt.Sprintf("rebase-highlight-%p", r)
+
 	revset := ""
 	switch r.Source {
 	case SourceRevision:
 		r.highlightedIds = r.From.GetIds()
-		return
+		return nil
 	case SourceBranch:
 		revset = fmt.Sprintf("(%s..(%s))::", r.To.GetChangeId(), strings.Join(r.From.GetIds(), "|"))
 	case SourceDescendants:
 		revset = fmt.Sprintf("(%s)::", strings.Join(r.From.GetIds(), "|"))
 	}
-	if output, err := r.context.RunCommandImmediate(jj.GetIdsFromRevset(revset)); err == nil {
+
+	return common.Debounce(identifier, debounceDuration, func() tea.Msg {
+		output, err := r.context.RunCommandImmediate(jj.GetIdsFromRevset(revset))
+		if err != nil {
+			return nil
+		}
 		ids := strings.Split(strings.TrimSpace(string(output)), "\n")
-		r.highlightedIds = ids
-	}
+		if len(ids) == 1 && ids[0] == "" {
+			ids = nil
+		}
+		return common.DeferredUpdateMsg{Fn: func() tea.Cmd {
+			return r.Update(updateHighlightedIdsMsg{ids: ids})
+		}}
+	})
 }
 
 func (r *Operation) ShortHelp() []key.Binding {

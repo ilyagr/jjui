@@ -133,8 +133,9 @@ type styles struct {
 	selectedStyle lipgloss.Style
 }
 
-func (o *Operation) SetSelectedRevision(commit *jj.Commit) {
+func (o *Operation) SetSelectedRevision(commit *jj.Commit) tea.Cmd {
 	o.target = commit
+	return nil
 }
 
 func (o *Operation) ShortHelp() []key.Binding {

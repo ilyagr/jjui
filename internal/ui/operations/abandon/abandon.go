@@ -53,8 +53,9 @@ func (a *Operation) FullHelp() [][]key.Binding {
 	return [][]key.Binding{a.ShortHelp()}
 }
 
-func (a *Operation) SetSelectedRevision(commit *jj.Commit) {
+func (a *Operation) SetSelectedRevision(commit *jj.Commit) tea.Cmd {
 	a.current = commit
+	return nil
 }
 
 func (a *Operation) Render(commit *jj.Commit, pos operations.RenderPosition) string {

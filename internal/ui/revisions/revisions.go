@@ -289,7 +289,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 
 	if curSelected := m.SelectedRevision(); curSelected != nil {
 		if op, ok := m.op.(operations.TracksSelectedRevision); ok {
-			op.SetSelectedRevision(curSelected)
+			cmd = tea.Batch(cmd, op.SetSelectedRevision(curSelected))
 		}
 	}
 
@@ -298,6 +298,8 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 
 func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
+	//case rebase.updateHighlightedIdsMsg:
+	//	return m.op.Update(msg)
 	case tea.MouseMsg:
 		switch msg.Action {
 		case tea.MouseActionPress:

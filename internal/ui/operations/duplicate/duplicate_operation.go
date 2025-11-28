@@ -86,8 +86,9 @@ func (r *Operation) HandleKey(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-func (r *Operation) SetSelectedRevision(commit *jj.Commit) {
+func (r *Operation) SetSelectedRevision(commit *jj.Commit) tea.Cmd {
 	r.To = commit
+	return nil
 }
 
 func (r *Operation) ShortHelp() []key.Binding {

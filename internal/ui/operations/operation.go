@@ -1,6 +1,7 @@
 package operations
 
 import (
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/idursun/jjui/internal/jj"
 	"github.com/idursun/jjui/internal/parser"
@@ -26,7 +27,7 @@ type Operation interface {
 }
 
 type TracksSelectedRevision interface {
-	SetSelectedRevision(commit *jj.Commit)
+	SetSelectedRevision(commit *jj.Commit) tea.Cmd
 }
 
 type SegmentRenderer interface {

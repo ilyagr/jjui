@@ -244,8 +244,9 @@ func (s *Operation) View() string {
 	return lipgloss.Place(w, h, 0, 0, view, lipgloss.WithWhitespaceBackground(s.styles.Text.GetBackground()))
 }
 
-func (s *Operation) SetSelectedRevision(commit *jj.Commit) {
+func (s *Operation) SetSelectedRevision(commit *jj.Commit) tea.Cmd {
 	s.Current = commit
+	return nil
 }
 
 func (s *Operation) ShortHelp() []key.Binding {

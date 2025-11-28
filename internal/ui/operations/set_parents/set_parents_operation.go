@@ -68,8 +68,9 @@ type styles struct {
 	dimmed       lipgloss.Style
 }
 
-func (m *Model) SetSelectedRevision(commit *jj.Commit) {
+func (m *Model) SetSelectedRevision(commit *jj.Commit) tea.Cmd {
 	m.current = commit
+	return nil
 }
 
 func (m *Model) HandleKey(msg tea.KeyMsg) tea.Cmd {

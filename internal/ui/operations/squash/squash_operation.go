@@ -68,8 +68,9 @@ func (s *Operation) HandleKey(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-func (s *Operation) SetSelectedRevision(commit *jj.Commit) {
+func (s *Operation) SetSelectedRevision(commit *jj.Commit) tea.Cmd {
 	s.current = commit
+	return nil
 }
 
 func (s *Operation) Render(commit *jj.Commit, pos operations.RenderPosition) string {
