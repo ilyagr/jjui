@@ -18,6 +18,7 @@ import (
 )
 
 const scrollAmount = 3
+const handleSize = 3
 
 var _ common.Model = (*Model)(nil)
 
@@ -140,11 +141,11 @@ func (m *Model) DragStart(x, y int) bool {
 	}
 
 	if m.AtBottom() {
-		if y != m.Frame.Min.Y {
+		if m.Frame.Min.Y-y > handleSize {
 			return false
 		}
 	} else {
-		if x != m.Frame.Min.X {
+		if m.Frame.Min.X-x > handleSize {
 			return false
 		}
 	}

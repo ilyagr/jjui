@@ -140,7 +140,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		}
 
 		if model := m.findViewAt(msg.X, msg.Y); model != nil {
-			if draggable, ok := model.(common.Draggable); ok && msg.Action == tea.MouseActionPress {
+			if draggable, ok := model.(common.Draggable); ok && msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft {
 				if draggable.DragStart(msg.X, msg.Y) {
 					m.dragTarget = draggable
 					return nil
