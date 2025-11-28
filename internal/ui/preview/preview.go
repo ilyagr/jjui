@@ -3,7 +3,6 @@ package preview
 import (
 	"log"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -28,7 +27,6 @@ type Model struct {
 	*common.DragAware
 	view                    viewport.Model
 	parentContainer         *common.Sizeable
-	tag                     atomic.Uint64
 	previewVisible          bool
 	previewAutoPosition     bool
 	previewAtBottom         bool
@@ -40,7 +38,8 @@ type Model struct {
 	keyMap                  config.KeyMappings[key.Binding]
 }
 
-const DebounceTime = 200 * time.Millisecond
+const debounceId = "preview-refresh"
+const debounceDuration = 200 * time.Millisecond
 
 type previewMsg struct {
 	msg tea.Msg
@@ -53,12 +52,7 @@ func PreviewCmd(msg tea.Msg) tea.Cmd {
 	}
 }
 
-type refreshPreviewContentMsg struct {
-	Tag uint64
-}
-
 type updatePreviewContentMsg struct {
-	Tag     uint64
 	Content string
 }
 
@@ -186,53 +180,36 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			m.ScrollHorizontal(scrollAmount)
 		}
 	case common.SelectionChangedMsg, common.RefreshMsg:
-		tag := m.tag.Add(1)
-		return tea.Tick(DebounceTime, func(t time.Time) tea.Msg {
-			if tag != m.tag.Load() {
-				return nil
+		return common.Debounce(debounceId, debounceDuration, func() tea.Msg {
+			var args []string
+			switch msg := m.context.SelectedItem.(type) {
+			case context.SelectedFile:
+				args = jj.TemplatedArgs(config.Current.Preview.FileCommand, map[string]string{
+					jj.RevsetPlaceholder:   m.context.CurrentRevset,
+					jj.ChangeIdPlaceholder: msg.ChangeId,
+					jj.CommitIdPlaceholder: msg.CommitId,
+					jj.FilePlaceholder:     msg.File,
+				})
+			case context.SelectedRevision:
+				args = jj.TemplatedArgs(config.Current.Preview.RevisionCommand, map[string]string{
+					jj.RevsetPlaceholder:   m.context.CurrentRevset,
+					jj.ChangeIdPlaceholder: msg.ChangeId,
+					jj.CommitIdPlaceholder: msg.CommitId,
+				})
+			case context.SelectedOperation:
+				args = jj.TemplatedArgs(config.Current.Preview.OplogCommand, map[string]string{
+					jj.RevsetPlaceholder:      m.context.CurrentRevset,
+					jj.OperationIdPlaceholder: msg.OperationId,
+				})
 			}
-			return refreshPreviewContentMsg{Tag: tag}
-		})
-	case refreshPreviewContentMsg:
-		if m.tag.Load() == msg.Tag {
-			tag := msg.Tag
-			return func() tea.Msg {
-				var args []string
-				switch msg := m.context.SelectedItem.(type) {
-				case context.SelectedFile:
-					args = jj.TemplatedArgs(config.Current.Preview.FileCommand, map[string]string{
-						jj.RevsetPlaceholder:   m.context.CurrentRevset,
-						jj.ChangeIdPlaceholder: msg.ChangeId,
-						jj.CommitIdPlaceholder: msg.CommitId,
-						jj.FilePlaceholder:     msg.File,
-					})
-				case context.SelectedRevision:
-					args = jj.TemplatedArgs(config.Current.Preview.RevisionCommand, map[string]string{
-						jj.RevsetPlaceholder:   m.context.CurrentRevset,
-						jj.ChangeIdPlaceholder: msg.ChangeId,
-						jj.CommitIdPlaceholder: msg.CommitId,
-					})
-				case context.SelectedOperation:
-					args = jj.TemplatedArgs(config.Current.Preview.OplogCommand, map[string]string{
-						jj.RevsetPlaceholder:      m.context.CurrentRevset,
-						jj.OperationIdPlaceholder: msg.OperationId,
-					})
-				}
 
-				output, _ := m.context.RunCommandImmediate(args)
-				if tag != m.tag.Load() {
-					return nil
-				}
-				return updatePreviewContentMsg{
-					Tag:     tag,
-					Content: string(output),
-				}
+			output, _ := m.context.RunCommandImmediate(args)
+			return updatePreviewContentMsg{
+				Content: string(output),
 			}
-		}
+		})
 	case updatePreviewContentMsg:
-		if m.tag.Load() == msg.Tag {
-			m.SetContent(msg.Content)
-		}
+		m.SetContent(msg.Content)
 		return nil
 	case tea.KeyMsg:
 		switch {
