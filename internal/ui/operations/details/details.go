@@ -302,16 +302,18 @@ func (s *Operation) getSelectedFiles(allowVirtualSelection bool) []string {
 func (s *Operation) createListItems(content string, selectedFiles []string) []*item {
 	var items []*item
 	scanner := bufio.NewScanner(strings.NewReader(content))
+	scanner.Split(bufio.ScanWords)
 	var conflicts []bool
-	if scanner.Scan() {
-		conflictsLine := strings.Split(scanner.Text(), " ")
-		for _, c := range conflictsLine {
-			conflicts = append(conflicts, c == "true")
+	for scanner.Scan() {
+		field := scanner.Text()
+		if field == "$" {
+			break
 		}
-	} else {
-		return items
+		conflicts = append(conflicts, field == "true")
 	}
 
+	start := strings.IndexByte(content, '$')
+	scanner = bufio.NewScanner(strings.NewReader(content[start+1:]))
 	index := 0
 	for scanner.Scan() {
 		file := strings.TrimSpace(scanner.Text())

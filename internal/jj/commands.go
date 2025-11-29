@@ -167,7 +167,7 @@ func Snapshot() CommandArgs {
 }
 
 func Status(revision string) CommandArgs {
-	template := `separate(";", diff.files().map(|x| x.target().conflict())) ++ "\n"`
+	template := `separate(";", diff.files().map(|x| x.target().conflict())) ++ " $\n"`
 	return []string{"log", "-r", revision, "--summary", "--no-graph", "--color", "never", "--quiet", "--template", template, "--ignore-working-copy"}
 }
 

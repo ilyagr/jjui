@@ -15,7 +15,7 @@ import (
 
 const (
 	Revision     = "ignored"
-	StatusOutput = "false false\nM file.txt\nA newfile.txt\n"
+	StatusOutput = "false false $\nM file.txt\nA newfile.txt\n"
 )
 
 var Commit = &jj.Commit{
@@ -100,7 +100,7 @@ func TestModel_Update_ParallelSplitsSelectedFiles(t *testing.T) {
 func TestModel_Update_HandlesMovedFiles(t *testing.T) {
 	commandRunner := test.NewTestCommandRunner(t)
 	commandRunner.Expect(jj.Snapshot())
-	commandRunner.Expect(jj.Status(Revision)).SetOutput([]byte("false false\nR internal/ui/{revisions => }/file.go\nR {file => sub/newfile}\n"))
+	commandRunner.Expect(jj.Status(Revision)).SetOutput([]byte("false false $\nR internal/ui/{revisions => }/file.go\nR {file => sub/newfile}\n"))
 	commandRunner.Expect(jj.Restore(Revision, []string{"internal/ui/file.go", "sub/newfile"}))
 	defer commandRunner.Verify()
 
@@ -117,7 +117,7 @@ func TestModel_Update_HandlesMovedFiles(t *testing.T) {
 func TestModel_Update_HandlesMovedFilesInDeepDirectories(t *testing.T) {
 	commandRunner := test.NewTestCommandRunner(t)
 	commandRunner.Expect(jj.Snapshot())
-	commandRunner.Expect(jj.Status(Revision)).SetOutput([]byte("false false false\nR {src/new_file_3.md => new_file.md}\nR src/{new_file.py => renamed_py.py}\nR {src1/to_be_renamed.md => src2/renamed.md}\n"))
+	commandRunner.Expect(jj.Status(Revision)).SetOutput([]byte("false false false $\nR {src/new_file_3.md => new_file.md}\nR src/{new_file.py => renamed_py.py}\nR {src1/to_be_renamed.md => src2/renamed.md}\n"))
 	commandRunner.Expect(jj.Restore(Revision, []string{"new_file.md", "src/renamed_py.py", "src2/renamed.md"}))
 	defer commandRunner.Verify()
 
@@ -135,7 +135,7 @@ func TestModel_Update_HandlesMovedFilesInDeepDirectories(t *testing.T) {
 func TestModel_Update_HandlesFilenamesWithBraces(t *testing.T) {
 	commandRunner := test.NewTestCommandRunner(t)
 	commandRunner.Expect(jj.Snapshot())
-	commandRunner.Expect(jj.Status(Revision)).SetOutput([]byte("false false\nM file{with}braces.txt\nA another{test}.go\n"))
+	commandRunner.Expect(jj.Status(Revision)).SetOutput([]byte("false false $\nM file{with}braces.txt\nA another{test}.go\n"))
 	commandRunner.Expect(jj.Restore(Revision, []string{"file{with}braces.txt", "another{test}.go"}))
 	defer commandRunner.Verify()
 
@@ -198,4 +198,17 @@ func TestModel_Update_Quit(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestModel_createListItems(t *testing.T) {
+	content := `false false false
+false $
+A test/file1
+A test/file2
+A test/file3
+A test/file4`
+
+	model := NewOperation(test.NewTestContext(test.NewTestCommandRunner(t)), Commit, 10)
+	files := model.createListItems(content, nil)
+	assert.Len(t, files, 4)
 }
