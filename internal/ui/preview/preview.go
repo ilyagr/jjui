@@ -141,16 +141,16 @@ func (m *Model) DragStart(x, y int) bool {
 	}
 
 	if m.AtBottom() {
-		if m.Frame.Min.Y-y > handleSize {
+		if y-m.Frame.Min.Y > handleSize {
 			return false
 		}
 	} else {
-		if m.Frame.Min.X-x > handleSize {
+		if x-m.Frame.Min.X > handleSize {
 			return false
 		}
 	}
 
-	m.BeginDrag(x, y)
+	m.BeginDrag(m.Frame.Min.X, y)
 	return true
 }
 
