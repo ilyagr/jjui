@@ -8,6 +8,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/idursun/jjui/internal/config"
 	appContext "github.com/idursun/jjui/internal/ui/context"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -123,6 +124,7 @@ func NewTestCommandRunner(t *testing.T) *CommandRunner {
 func NewTestContext(commandRunner appContext.CommandRunner) *appContext.MainContext {
 	return &appContext.MainContext{
 		CommandRunner: commandRunner,
+		JJConfig:      &config.JJConfig{},
 		SelectedItem:  nil,
 	}
 }

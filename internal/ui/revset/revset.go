@@ -142,8 +142,11 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 					m.autoComplete.SetValue(m.History[m.historyIndex])
 					m.autoComplete.CursorEnd()
 				}
-				return nil
+			} else {
+				m.autoComplete.SetValue(m.context.CurrentRevset)
 			}
+
+			return nil
 		case tea.KeyDown:
 			if m.historyActive {
 				if m.historyIndex > 0 {
