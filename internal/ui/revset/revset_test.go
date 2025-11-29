@@ -29,3 +29,14 @@ func TestModel_Update_Up_SetsCurrentRevset(t *testing.T) {
 	test.SimulateModel(model, test.Press(tea.KeyUp))
 	assert.Contains(t, model.View(), "current")
 }
+
+func TestModel_View_DisplaysCurrentRevset(t *testing.T) {
+	commandRunner := test.NewTestCommandRunner(t)
+	defer commandRunner.Verify()
+
+	ctx := test.NewTestContext(commandRunner)
+	ctx.CurrentRevset = "current"
+	ctx.DefaultRevset = "default"
+	model := New(ctx)
+	assert.Contains(t, model.View(), ctx.CurrentRevset)
+}

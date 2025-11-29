@@ -192,11 +192,7 @@ func (m *Model) View() string {
 	if m.Editing {
 		w.WriteString(m.autoComplete.View())
 	} else {
-		revset := m.context.DefaultRevset
-		if m.context.CurrentRevset != "" {
-			revset = m.context.CurrentRevset
-		}
-		w.WriteString(m.styles.textStyle.Render(revset))
+		w.WriteString(m.styles.textStyle.Render(m.context.CurrentRevset))
 	}
 	return lipgloss.Place(m.Width, m.Height, 0, 0, w.String(), lipgloss.WithWhitespaceBackground(m.styles.textStyle.GetBackground()))
 }

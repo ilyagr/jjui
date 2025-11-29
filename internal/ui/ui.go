@@ -265,6 +265,9 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		})
 	case common.UpdateRevSetMsg:
 		m.context.CurrentRevset = string(msg)
+		if m.context.CurrentRevset == "" {
+			m.context.CurrentRevset = m.context.DefaultRevset
+		}
 		m.revsetModel.AddToHistory(m.context.CurrentRevset)
 		return common.Refresh
 	case common.ShowPreview:
