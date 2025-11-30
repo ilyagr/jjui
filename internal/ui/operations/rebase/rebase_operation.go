@@ -142,7 +142,6 @@ func (r *Operation) HandleKey(msg tea.KeyMsg) tea.Cmd {
 }
 
 func (r *Operation) SetSelectedRevision(commit *jj.Commit) tea.Cmd {
-	r.highlightedIds = nil
 	r.To = commit
 	identifier := fmt.Sprintf("rebase-highlight-%p", r)
 
