@@ -175,35 +175,18 @@ func (m *Model) Len() int {
 }
 
 func (m *Model) GetItemRenderer(index int) list.IItemRenderer {
-	var before, after, renderOverDescription, beforeCommitId, beforeChangeId string
 	row := m.rows[index]
 	inLane := m.renderer.tracer.IsInSameLane(index)
 	isHighlighted := index == m.cursor
 
-	if op, ok := m.op.(operations.Operation); ok {
-		before = op.Render(row.Commit, operations.RenderPositionBefore)
-		after = op.Render(row.Commit, operations.RenderPositionAfter)
-		renderOverDescription = ""
-		if isHighlighted {
-			renderOverDescription = op.Render(row.Commit, operations.RenderOverDescription)
-		}
-		beforeCommitId = op.Render(row.Commit, operations.RenderBeforeCommitId)
-		beforeChangeId = op.Render(row.Commit, operations.RenderBeforeChangeId)
-	}
-
 	return &itemRenderer{
-		row:            row,
-		before:         before,
-		after:          after,
-		description:    renderOverDescription,
-		beforeChangeId: beforeChangeId,
-		beforeCommitId: beforeCommitId,
-		isHighlighted:  isHighlighted,
-		SearchText:     m.quickSearch,
-		textStyle:      m.textStyle,
-		dimmedStyle:    m.dimmedStyle,
-		selectedStyle:  m.selectedStyle,
-		isChecked:      m.renderer.selections[row.Commit.GetChangeId()],
+		row:           row,
+		isHighlighted: isHighlighted,
+		SearchText:    m.quickSearch,
+		textStyle:     m.textStyle,
+		dimmedStyle:   m.dimmedStyle,
+		selectedStyle: m.selectedStyle,
+		isChecked:     m.renderer.selections[row.Commit.GetChangeId()],
 		isGutterInLane: func(lineIndex, segmentIndex int) bool {
 			return m.renderer.tracer.IsGutterInLane(index, lineIndex, segmentIndex)
 		},

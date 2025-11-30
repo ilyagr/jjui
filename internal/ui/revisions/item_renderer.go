@@ -16,11 +16,6 @@ var _ list.IItemRenderer = (*itemRenderer)(nil)
 
 type itemRenderer struct {
 	row              parser.Row
-	before           string
-	after            string
-	description      string
-	beforeChangeId   string
-	beforeCommitId   string
 	isHighlighted    bool
 	selectedStyle    lipgloss.Style
 	textStyle        lipgloss.Style
@@ -61,16 +56,21 @@ func (ir itemRenderer) Render(w io.Writer, width int) {
 	inLane := ir.inLane
 
 	// will render by extending the previous connections
-	if ir.before != "" {
+	before := ir.op.Render(row.Commit, operations.RenderPositionBefore)
+	if before != "" {
 		extended := parser.GraphGutter{}
 		if row.Previous != nil {
 			extended = row.Previous.Extend()
 		}
-		ir.writeSection(w, extended, extended, false, ir.before, width)
+		ir.writeSection(w, extended, extended, false, before, width)
 	}
 
-	descriptionOverlay := ir.description
-	requiresDescriptionRendering := ir.description != ""
+	descriptionOverlay := ""
+	if ir.isHighlighted {
+		descriptionOverlay = ir.op.Render(row.Commit, operations.RenderOverDescription)
+	}
+
+	requiresDescriptionRendering := descriptionOverlay != ""
 	descriptionRendered := false
 
 	// Each line has a flag:
@@ -112,20 +112,23 @@ func (ir itemRenderer) Render(w io.Writer, width int) {
 			fmt.Fprint(&lw, style.Render(text))
 		}
 
+		beforeChangeId := ir.op.Render(row.Commit, operations.RenderBeforeChangeId)
+		beforeCommitId := ir.op.Render(row.Commit, operations.RenderBeforeCommitId)
+
 		// render: before change id
 		if segmentedLine.Flags&parser.Revision == parser.Revision {
 			if ir.isChecked {
 				fmt.Fprint(&lw, ir.selectedStyle.Render("✓ "))
 			}
-			if ir.beforeChangeId != "" {
-				fmt.Fprint(&lw, ir.beforeChangeId)
+			if beforeChangeId != "" {
+				fmt.Fprint(&lw, beforeChangeId)
 			}
 		}
 
 		for _, segment := range segmentedLine.Segments {
 			// render: after change id
-			if ir.beforeCommitId != "" && segment.Text == row.Commit.CommitId {
-				fmt.Fprint(&lw, ir.beforeCommitId)
+			if beforeCommitId != "" && segment.Text == row.Commit.CommitId {
+				fmt.Fprint(&lw, beforeCommitId)
 			}
 
 			style := segment.Style
@@ -175,9 +178,10 @@ func (ir itemRenderer) Render(w io.Writer, width int) {
 		return
 	}
 
-	if ir.after != "" {
+	after := ir.op.Render(row.Commit, operations.RenderPositionAfter)
+	if after != "" {
 		extended := row.Extend()
-		ir.writeSection(w, extended, extended, false, ir.after, width)
+		ir.writeSection(w, extended, extended, false, after, width)
 	}
 
 	for lineIndex, segmentedLine := range row.RowLinesIter(parser.Excluding(parser.Highlightable)) {
