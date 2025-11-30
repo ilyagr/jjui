@@ -153,7 +153,7 @@ func (m *Model) Scroll(delta int) tea.Cmd {
 		desiredStart = 0
 	}
 
-	totalLines := m.renderer.TotalLineCount()
+	totalLines := m.renderer.AbsoluteLineCount()
 	maxStart := totalLines - m.Height
 	if maxStart < 0 {
 		maxStart = 0
@@ -163,7 +163,6 @@ func (m *Model) Scroll(delta int) tea.Cmd {
 		newStart = maxStart
 	}
 	m.renderer.ViewRange.Start = newStart
-	m.renderer.ViewRange.End = newStart + m.Height
 
 	if m.hasMore && (desiredStart > maxStart || newStart+m.Height >= totalLines-1) {
 		return m.requestMoreRows(m.tag.Load())

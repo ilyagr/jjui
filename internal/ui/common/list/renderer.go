@@ -2,7 +2,7 @@ package list
 
 import (
 	"bytes"
-	"strings"
+	"io"
 
 	"github.com/idursun/jjui/internal/ui/common"
 )
@@ -11,14 +11,15 @@ type ListRenderer struct {
 	*common.ViewRange
 	list             IList
 	buffer           bytes.Buffer
-	skippedLineCount int
-	lineCount        int
+	skippedLineCount int // lines skipped before the rendered window
+	lineCount        int // number of lines we actually rendered (post-skipping)
 	rowRanges        []RowRange
+	absoluteLines    int // total lines including skipped content (for scrolling/clicks)
 }
 
 func NewRenderer(list IList, size *common.ViewNode) *ListRenderer {
 	return &ListRenderer{
-		ViewRange: &common.ViewRange{ViewNode: size, Start: 0, End: size.Height, FirstRowIndex: -1, LastRowIndex: -1},
+		ViewRange: &common.ViewRange{ViewNode: size, Start: 0, FirstRowIndex: -1, LastRowIndex: -1},
 		list:      list,
 		buffer:    bytes.Buffer{},
 	}
@@ -28,30 +29,21 @@ func (r *ListRenderer) Write(p []byte) (n int, err error) {
 	if len(p) == 0 {
 		return 0, nil
 	}
-	r.lineCount += bytes.Count(p, []byte("\n"))
+	lines := bytes.Count(p, []byte("\n"))
+	r.lineCount += lines
+	r.absoluteLines += lines
 	return r.buffer.Write(p)
 }
 
-func (r *ListRenderer) String(start, end int) string {
-	start = start - r.skippedLineCount
-	end = end - r.skippedLineCount
-	lines := strings.Split(r.buffer.String(), "\n")
-	if start < 0 {
-		start = 0
-	}
-	if end < start {
-		end = start
-	}
-	for end > len(lines) {
-		lines = append(lines, "")
-	}
-	return strings.Join(lines[start:end], "\n")
+func (r *ListRenderer) String() string {
+	return r.buffer.String()
 }
 
 func (r *ListRenderer) Reset() {
 	r.buffer.Reset()
 	r.lineCount = 0
 	r.skippedLineCount = 0
+	r.absoluteLines = 0
 }
 
 type RenderOptions struct {
@@ -66,91 +58,146 @@ func (r *ListRenderer) Render(focusIndex int) string {
 func (r *ListRenderer) RenderWithOptions(opts RenderOptions) string {
 	r.Reset()
 	r.rowRanges = r.rowRanges[:0]
+	r.absoluteLines = 0
+	listLen := r.list.Len()
+	if listLen == 0 || r.Height <= 0 {
+		return ""
+	}
+
 	if opts.FocusIndex < 0 {
 		opts.FocusIndex = 0
 	}
-	viewHeight := r.End - r.Start
-	if viewHeight != r.Height {
-		r.End = r.Start + r.Height
-	}
-	if r.Start < 0 {
-		r.Start = 0
+	if opts.FocusIndex >= listLen {
+		opts.FocusIndex = listLen - 1
 	}
 
-	selectedLineStart := -1
-	selectedLineEnd := -1
+	start := r.Start
+	if start < 0 {
+		start = 0
+	}
+	if opts.EnsureFocusVisible {
+		focusStart := 0
+		focusHeight := 0
+		for i := 0; i <= opts.FocusIndex && i < listLen; i++ {
+			h := r.list.GetItemRenderer(i).Height()
+			if i == opts.FocusIndex {
+				focusHeight = h
+				break
+			}
+			focusStart += h
+		}
+		focusEnd := focusStart + focusHeight
+		if focusStart < start {
+			start = focusStart
+		}
+		if focusEnd > start+r.Height {
+			start = focusEnd - r.Height
+		}
+		if start < 0 {
+			start = 0
+		}
+	}
+
+	r.Start = start
+
 	firstRenderedRowIndex := -1
 	lastRenderedRowIndex := -1
-	for i := range r.list.Len() {
-		isFocused := i == opts.FocusIndex
+	focusRendered := false
+
+	for i := 0; i < listLen; i++ {
 		itemRenderer := r.list.GetItemRenderer(i)
-		if isFocused {
-			selectedLineStart = r.TotalLineCount()
-			if opts.EnsureFocusVisible && selectedLineStart < r.Start {
-				r.Start = selectedLineStart
+		rowHeight := itemRenderer.Height()
+
+		rowStart := r.absoluteLines
+		rowEnd := rowStart + rowHeight
+
+		overlaps := rowEnd > r.Start && rowStart < r.Start+r.Height
+		if !overlaps {
+			if rowEnd <= r.Start {
+				r.skipLines(rowHeight)
+			} else {
+				r.addAbsolute(rowHeight)
 			}
 		} else {
-			rowLineCount := itemRenderer.Height()
-			if rowLineCount+r.TotalLineCount() < r.Start {
-				r.skipLines(rowLineCount)
-				continue
+			preSkip := 0
+			if rowStart < r.Start {
+				preSkip = r.Start - rowStart
 			}
-		}
-		rowStart := r.TotalLineCount()
-		itemRenderer.Render(r, r.ViewRange.Width)
-		rowEnd := r.TotalLineCount()
-		if rowEnd > rowStart {
-			r.rowRanges = append(r.rowRanges, RowRange{Row: i, StartLine: rowStart, EndLine: rowEnd})
-		}
-		if firstRenderedRowIndex == -1 {
-			firstRenderedRowIndex = i
+			overlapStart := rowStart + preSkip
+			overlapEnd := min(rowEnd, r.Start+r.Height)
+			renderLines := overlapEnd - overlapStart
+			postSkip := rowEnd - overlapEnd
+
+			if preSkip > 0 {
+				r.skipLines(preSkip)
+			}
+
+			if renderLines > 0 {
+				writer := io.Writer(r)
+				writer = &limitWriter{dst: writer, remaining: renderLines}
+				if preSkip > 0 {
+					writer = &skipWriter{dst: writer, linesToSkip: preSkip}
+				}
+				itemRenderer.Render(writer, r.ViewRange.Width)
+
+				if firstRenderedRowIndex == -1 {
+					firstRenderedRowIndex = i
+				}
+				lastRenderedRowIndex = i
+				r.rowRanges = append(r.rowRanges, RowRange{
+					Row:       i,
+					StartLine: overlapStart,
+					EndLine:   overlapEnd,
+				})
+
+				if opts.EnsureFocusVisible && i == opts.FocusIndex {
+					focusRendered = true
+				}
+			}
+
+			if postSkip > 0 {
+				r.addAbsolute(postSkip)
+			}
 		}
 
-		if isFocused {
-			selectedLineEnd = r.TotalLineCount()
-		}
-		// If EnsureFocusVisible is true and we haven't rendered the focused item yet, continue
-		// Otherwise, break when we exceed the viewport
-		if r.TotalLineCount() > r.End {
-			if opts.EnsureFocusVisible && selectedLineEnd == -1 {
-				// continue rendering to reach the focused item
-				lastRenderedRowIndex = i
-				continue
+		if r.lineCount >= r.Height && (!opts.EnsureFocusVisible || focusRendered) {
+			for j := i + 1; j < listLen; j++ {
+				r.addAbsolute(r.list.GetItemRenderer(j).Height())
 			}
-			lastRenderedRowIndex = i
 			break
 		}
 	}
 
 	if lastRenderedRowIndex == -1 {
-		lastRenderedRowIndex = r.list.Len() - 1
+		lastRenderedRowIndex = listLen - 1
 	}
 
 	r.FirstRowIndex = firstRenderedRowIndex
 	r.LastRowIndex = lastRenderedRowIndex
-	if opts.EnsureFocusVisible && selectedLineStart >= 0 {
-		if selectedLineStart <= r.Start {
-			r.Start = selectedLineStart
-			r.End = selectedLineStart + r.Height
-		} else if selectedLineEnd > r.End {
-			r.End = selectedLineEnd
-			r.Start = selectedLineEnd - r.Height
-		}
+
+	visibleHeight := r.Height
+	if r.lineCount < visibleHeight {
+		visibleHeight = r.lineCount
 	}
 
-	if maxStart := r.TotalLineCount() - r.Height; r.Start > maxStart && maxStart >= 0 {
-		r.Start = maxStart
-		r.End = r.Start + r.Height
-	}
-	return r.String(r.Start, r.End)
+	return r.String()
 }
 
 func (r *ListRenderer) skipLines(amount int) {
 	r.skippedLineCount = r.skippedLineCount + amount
+	r.absoluteLines += amount
+}
+
+func (r *ListRenderer) addAbsolute(amount int) {
+	r.absoluteLines += amount
 }
 
 func (r *ListRenderer) TotalLineCount() int {
-	return r.lineCount + r.skippedLineCount
+	return r.lineCount
+}
+
+func (r *ListRenderer) AbsoluteLineCount() int {
+	return r.absoluteLines
 }
 
 type RowRange struct {
@@ -161,4 +208,67 @@ type RowRange struct {
 
 func (r *ListRenderer) RowRanges() []RowRange {
 	return r.rowRanges
+}
+
+// skipWriter discards the first N lines before forwarding to the underlying writer.
+type skipWriter struct {
+	dst         io.Writer
+	linesToSkip int
+}
+
+// limitWriter stops forwarding after a fixed number of lines to keep rendered output within the viewport.
+type limitWriter struct {
+	dst       io.Writer
+	remaining int
+}
+
+func (l *limitWriter) Write(p []byte) (n int, err error) {
+	if l.remaining <= 0 {
+		return len(p), nil
+	}
+
+	start := 0
+	lines := 0
+	for i, b := range p {
+		if b == '\n' {
+			lines++
+			if lines > l.remaining {
+				if i > start {
+					_, err = l.dst.Write(p[start:i])
+				}
+				l.remaining = 0
+				return len(p), err
+			}
+		}
+	}
+	if len(p) > start {
+		_, err = l.dst.Write(p[start:])
+	}
+	l.remaining -= lines
+	return len(p), err
+}
+
+func (s *skipWriter) Write(p []byte) (n int, err error) {
+	n = len(p)
+	if s.linesToSkip <= 0 {
+		_, err = s.dst.Write(p)
+		return
+	}
+
+	start := 0
+	for i, b := range p {
+		if s.linesToSkip == 0 {
+			start = i
+			break
+		}
+		if b == '\n' {
+			s.linesToSkip--
+		}
+		start = i + 1
+	}
+
+	if s.linesToSkip == 0 && start < len(p) {
+		_, err = s.dst.Write(p[start:])
+	}
+	return
 }

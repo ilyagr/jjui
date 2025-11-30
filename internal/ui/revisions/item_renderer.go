@@ -275,5 +275,51 @@ func (ir itemRenderer) renderNonHighlightableLines(w io.Writer, width int) {
 }
 
 func (ir itemRenderer) Height() int {
-	return len(ir.row.Lines)
+	h := 0
+
+	// Before section
+	before := ir.op.Render(ir.row.Commit, operations.RenderPositionBefore)
+	if before != "" {
+		h += strings.Count(before, "\n") + 1
+	}
+
+	// Main content
+	descriptionOverlay := ""
+	if ir.isHighlighted {
+		descriptionOverlay = ir.op.Render(ir.row.Commit, operations.RenderOverDescription)
+	}
+	requiresDescriptionRendering := descriptionOverlay != ""
+
+	if requiresDescriptionRendering {
+		h += strings.Count(descriptionOverlay, "\n") + 1
+		for _, line := range ir.row.Lines {
+			// Revision line is always kept
+			if line.Flags&parser.Revision == parser.Revision {
+				h++
+				continue
+			}
+			// Highlightable lines are replaced by overlay
+			if line.Flags&parser.Highlightable == parser.Highlightable {
+				continue
+			}
+			// Elided lines are hidden when overlay is present
+			if line.Flags&parser.Elided == parser.Elided {
+				continue
+			}
+			// Keep other lines
+			h++
+		}
+	} else {
+		h += len(ir.row.Lines)
+	}
+
+	// After section
+	if !ir.row.Commit.IsRoot() {
+		after := ir.op.Render(ir.row.Commit, operations.RenderPositionAfter)
+		if after != "" {
+			h += strings.Count(after, "\n") + 1
+		}
+	}
+
+	return h
 }
