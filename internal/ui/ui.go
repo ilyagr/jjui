@@ -455,20 +455,41 @@ func (m *Model) findViewAt(x, y int) common.IMouseAware {
 
 var _ tea.Model = (*wrapper)(nil)
 
+type frameTickMsg struct{}
 type wrapper struct {
-	ui *Model
+	ui                 *Model
+	scheduledNextFrame bool
+	render             bool
+	cachedFrame        string
 }
 
-func (w wrapper) Init() tea.Cmd {
+func (w *wrapper) Init() tea.Cmd {
 	return w.ui.Init()
 }
 
-func (w wrapper) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	return w, w.ui.Update(msg)
+func (w *wrapper) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if _, ok := msg.(frameTickMsg); ok {
+		w.render = true
+		return w, nil
+	}
+	var cmd tea.Cmd
+	cmd = w.ui.Update(msg)
+	if !w.scheduledNextFrame {
+		w.scheduledNextFrame = true
+		return w, tea.Batch(cmd, tea.Tick(time.Millisecond*16, func(t time.Time) tea.Msg {
+			w.scheduledNextFrame = false
+			return frameTickMsg{}
+		}))
+	}
+	return w, cmd
 }
 
-func (w wrapper) View() string {
-	return w.ui.View()
+func (w *wrapper) View() string {
+	if w.render {
+		w.cachedFrame = w.ui.View()
+		w.render = false
+	}
+	return w.cachedFrame
 }
 
 func NewUI(c *context.MainContext) *Model {
@@ -489,5 +510,5 @@ func NewUI(c *context.MainContext) *Model {
 }
 
 func New(c *context.MainContext) tea.Model {
-	return wrapper{ui: NewUI(c)}
+	return &wrapper{ui: NewUI(c)}
 }
