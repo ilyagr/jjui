@@ -85,20 +85,20 @@ func (r *ListRenderer) RenderWithOptions(opts RenderOptions) string {
 		isFocused := i == opts.FocusIndex
 		itemRenderer := r.list.GetItemRenderer(i)
 		if isFocused {
-			selectedLineStart = r.totalLineCount()
+			selectedLineStart = r.TotalLineCount()
 			if opts.EnsureFocusVisible && selectedLineStart < r.Start {
 				r.Start = selectedLineStart
 			}
 		} else {
 			rowLineCount := itemRenderer.Height()
-			if rowLineCount+r.totalLineCount() < r.Start {
+			if rowLineCount+r.TotalLineCount() < r.Start {
 				r.skipLines(rowLineCount)
 				continue
 			}
 		}
-		rowStart := r.totalLineCount()
+		rowStart := r.TotalLineCount()
 		itemRenderer.Render(r, r.ViewRange.Width)
-		rowEnd := r.totalLineCount()
+		rowEnd := r.TotalLineCount()
 		if rowEnd > rowStart {
 			r.rowRanges = append(r.rowRanges, RowRange{Row: i, StartLine: rowStart, EndLine: rowEnd})
 		}
@@ -107,11 +107,11 @@ func (r *ListRenderer) RenderWithOptions(opts RenderOptions) string {
 		}
 
 		if isFocused {
-			selectedLineEnd = r.totalLineCount()
+			selectedLineEnd = r.TotalLineCount()
 		}
 		// If EnsureFocusVisible is true and we haven't rendered the focused item yet, continue
 		// Otherwise, break when we exceed the viewport
-		if r.totalLineCount() > r.End {
+		if r.TotalLineCount() > r.End {
 			if opts.EnsureFocusVisible && selectedLineEnd == -1 {
 				// continue rendering to reach the focused item
 				lastRenderedRowIndex = i
@@ -138,7 +138,7 @@ func (r *ListRenderer) RenderWithOptions(opts RenderOptions) string {
 		}
 	}
 
-	if maxStart := r.totalLineCount() - r.Height; r.Start > maxStart && maxStart >= 0 {
+	if maxStart := r.TotalLineCount() - r.Height; r.Start > maxStart && maxStart >= 0 {
 		r.Start = maxStart
 		r.End = r.Start + r.Height
 	}
@@ -149,17 +149,8 @@ func (r *ListRenderer) skipLines(amount int) {
 	r.skippedLineCount = r.skippedLineCount + amount
 }
 
-func (r *ListRenderer) totalLineCount() int {
-	return r.lineCount + r.skippedLineCount
-}
-
 func (r *ListRenderer) TotalLineCount() int {
-	// Walk all rows to avoid depending on a prior render's buffer state.
-	total := 0
-	for i := range r.list.Len() {
-		total += r.list.GetItemRenderer(i).Height()
-	}
-	return total
+	return r.lineCount + r.skippedLineCount
 }
 
 type RowRange struct {
