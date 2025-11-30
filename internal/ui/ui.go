@@ -470,14 +470,14 @@ func (w *wrapper) Init() tea.Cmd {
 func (w *wrapper) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if _, ok := msg.(frameTickMsg); ok {
 		w.render = true
+		w.scheduledNextFrame = false
 		return w, nil
 	}
 	var cmd tea.Cmd
 	cmd = w.ui.Update(msg)
 	if !w.scheduledNextFrame {
 		w.scheduledNextFrame = true
-		return w, tea.Batch(cmd, tea.Tick(time.Millisecond*16, func(t time.Time) tea.Msg {
-			w.scheduledNextFrame = false
+		return w, tea.Batch(cmd, tea.Tick(time.Millisecond*8, func(t time.Time) tea.Msg {
 			return frameTickMsg{}
 		}))
 	}
