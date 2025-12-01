@@ -72,6 +72,7 @@ type Model struct {
 	dimmedStyle      lipgloss.Style
 	selectedStyle    lipgloss.Style
 	ensureCursorView bool
+	requestInFlight  bool
 }
 
 type revisionsMsg struct {
@@ -356,8 +357,10 @@ func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 		return m.requestMoreRows(msg.tag)
 	case appendRowsBatchMsg:
 		if msg.tag != m.tag.Load() {
+			m.requestInFlight = false
 			return nil
 		}
+		m.requestInFlight = false
 		m.offScreenRows = append(m.offScreenRows, msg.rows...)
 		m.hasMore = msg.hasMore
 		m.isLoading = m.hasMore && len(m.offScreenRows) > 0
@@ -681,6 +684,7 @@ func (m *Model) loadStreaming(revset string, selectedRevision string, tag uint64
 	}
 
 	m.hasMore = false
+	m.requestInFlight = false
 
 	var notifyErrorCmd tea.Cmd
 	streamer, err := graph.NewGraphStreamer(m.context, revset, m.context.JJConfig.Templates.Log)
@@ -704,15 +708,14 @@ func (m *Model) loadStreaming(revset string, selectedRevision string, tag uint64
 }
 
 func (m *Model) requestMoreRows(tag uint64) tea.Cmd {
-	return func() tea.Msg {
-		if m.streamer == nil || !m.hasMore {
-			return nil
-		}
-		if tag == m.tag.Load() {
-			batch := m.streamer.RequestMore()
-			return appendRowsBatchMsg{batch.Rows, batch.HasMore, tag}
-		}
+	if m.requestInFlight || m.streamer == nil || !m.hasMore || tag != m.tag.Load() {
 		return nil
+	}
+
+	m.requestInFlight = true
+	return func() tea.Msg {
+		batch := m.streamer.RequestMore()
+		return appendRowsBatchMsg{batch.Rows, batch.HasMore, tag}
 	}
 }
 
