@@ -22,11 +22,10 @@ const handleSize = 3
 var _ common.Model = (*Model)(nil)
 
 type Model struct {
-	*common.Sizeable
+	*common.ViewNode
 	*common.MouseAware
 	*common.DragAware
 	view                    viewport.Model
-	parentContainer         *common.Sizeable
 	previewVisible          bool
 	previewAutoPosition     bool
 	previewAtBottom         bool
@@ -61,7 +60,7 @@ func (m *Model) Init() tea.Cmd {
 }
 
 func (m *Model) SetFrame(frame cellbuf.Rectangle) {
-	m.Sizeable.SetFrame(frame)
+	m.ViewNode.SetFrame(frame)
 	if m.AtBottom() {
 		m.view.Width = frame.Dx()
 		m.view.Height = frame.Dy() - 1
@@ -130,7 +129,7 @@ func (m *Model) DragStart(x, y int) bool {
 		return false
 	}
 
-	if m.parentContainer.Width == 0 || m.parentContainer.Height == 0 {
+	if m.Parent.Width == 0 || m.Parent.Height == 0 {
 		return false
 	}
 
@@ -155,9 +154,9 @@ func (m *Model) DragMove(x, y int) tea.Cmd {
 
 	var percentage float64
 	if m.AtBottom() {
-		percentage = float64((m.parentContainer.Height-y)*100) / float64(m.parentContainer.Height)
+		percentage = float64((m.Parent.Height-y)*100) / float64(m.Parent.Height)
 	} else {
-		percentage = float64((m.parentContainer.Width-x)*100) / float64(m.parentContainer.Width)
+		percentage = float64((m.Parent.Width-x)*100) / float64(m.Parent.Width)
 	}
 
 	m.SetWindowPercentage(percentage)
@@ -258,7 +257,7 @@ func (m *Model) Shrink() {
 	m.SetWindowPercentage(m.previewWindowPercentage - config.Current.Preview.WidthIncrementPercentage)
 }
 
-func New(context *context.MainContext, container *common.Sizeable) *Model {
+func New(context *context.MainContext) *Model {
 	previewAutoPosition := false
 	previewAtBottom := false
 	previewPositionCfg, err := config.GetPreviewPosition(config.Current)
@@ -273,8 +272,7 @@ func New(context *context.MainContext, container *common.Sizeable) *Model {
 	}
 
 	return &Model{
-		Sizeable:                &common.Sizeable{Width: 0, Height: 0},
-		parentContainer:         container,
+		ViewNode:                &common.ViewNode{Width: 0, Height: 0},
 		MouseAware:              common.NewMouseAware(),
 		DragAware:               common.NewDragAware(),
 		context:                 context,

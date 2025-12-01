@@ -36,8 +36,13 @@ import (
 
 var _ common.Model = (*Model)(nil)
 
+type SizableModel interface {
+	common.Model
+	common.IViewNode
+}
+
 type Model struct {
-	*common.Sizeable
+	*common.ViewNode
 	revisions    *revisions.Model
 	oplog        *oplog.Model
 	revsetModel  *revset.Model
@@ -49,7 +54,7 @@ type Model struct {
 	status       *status.Model
 	context      *context.MainContext
 	keyMap       config.KeyMappings[key.Binding]
-	stacked      common.Model
+	stacked      SizableModel
 	dragTarget   common.Draggable
 }
 
@@ -168,24 +173,33 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		case key.Matches(msg, m.keyMap.Quit) && m.isSafeToQuit():
 			return tea.Quit
 		case key.Matches(msg, m.keyMap.OpLog.Mode):
-			m.oplog = oplog.New(m.context, m.Width, m.Height)
+			m.oplog = oplog.New(m.context)
+			m.oplog.Parent = m.ViewNode
 			return m.oplog.Init()
 		case key.Matches(msg, m.keyMap.Revset) && m.revisions.InNormalMode():
 			return m.revsetModel.Update(revset.EditRevSetMsg{Clear: m.state != common.Error})
 		case key.Matches(msg, m.keyMap.Git.Mode) && m.revisions.InNormalMode():
-			m.stacked = git.NewModel(m.context, m.revisions.SelectedRevisions(), m.Width, m.Height)
+			model := git.NewModel(m.context, m.revisions.SelectedRevisions())
+			model.Parent = m.ViewNode
+			m.stacked = model
 			return m.stacked.Init()
 		case key.Matches(msg, m.keyMap.Undo) && m.revisions.InNormalMode():
-			m.stacked = undo.NewModel(m.context)
+			model := undo.NewModel(m.context)
+			model.Parent = m.ViewNode
+			m.stacked = model
 			cmds = append(cmds, m.stacked.Init())
 			return tea.Batch(cmds...)
 		case key.Matches(msg, m.keyMap.Redo) && m.revisions.InNormalMode():
-			m.stacked = redo.NewModel(m.context)
+			model := redo.NewModel(m.context)
+			model.Parent = m.ViewNode
+			m.stacked = model
 			cmds = append(cmds, m.stacked.Init())
 			return tea.Batch(cmds...)
 		case key.Matches(msg, m.keyMap.Bookmark.Mode) && m.revisions.InNormalMode():
 			changeIds := m.revisions.GetCommitIds()
-			m.stacked = bookmarks.NewModel(m.context, m.revisions.SelectedRevision(), changeIds, m.Width, m.Height)
+			model := bookmarks.NewModel(m.context, m.revisions.SelectedRevision(), changeIds)
+			model.Parent = m.ViewNode
+			m.stacked = model
 			cmds = append(cmds, m.stacked.Init())
 			return tea.Batch(cmds...)
 		case key.Matches(msg, m.keyMap.Help):
@@ -209,7 +223,9 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			m.previewModel.Shrink()
 			return tea.Batch(cmds...)
 		case key.Matches(msg, m.keyMap.CustomCommands):
-			m.stacked = customcommands.NewModel(m.context, m.Width, m.Height)
+			model := customcommands.NewModel(m.context)
+			model.Parent = m.ViewNode
+			m.stacked = model
 			cmds = append(cmds, m.stacked.Init())
 			return tea.Batch(cmds...)
 		case key.Matches(msg, m.keyMap.Leader):
@@ -245,17 +261,15 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		cmds = append(cmds, common.Refresh)
 	case common.ToggleHelpMsg:
 		if m.stacked == nil {
-			m.stacked = helppage.New(m.context)
-			if p, ok := m.stacked.(common.ISizeable); ok {
-				p.SetHeight(m.Height - 2)
-				p.SetWidth(m.Width)
-			}
+			h := helppage.New(m.context)
+			h.Parent = m.ViewNode
+			m.stacked = h
 		} else {
 			m.stacked = nil
 		}
 		return nil
 	case common.ShowDiffMsg:
-		m.diff = diff.New(string(msg), m.Width, m.Height)
+		m.diff = diff.New(string(msg))
 		return m.diff.Init()
 	case common.UpdateRevisionsSuccessMsg:
 		m.state = common.Ready
@@ -275,17 +289,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		cmds = append(cmds, common.SelectionChanged)
 		return tea.Batch(cmds...)
 	case tea.WindowSizeMsg:
-		m.Width = msg.Width
-		m.Height = msg.Height
-		if s, ok := m.stacked.(common.ISizeable); ok {
-			s.SetWidth(m.Width - 2)
-			s.SetHeight(m.Height - 2)
-		}
-		m.status.SetWidth(m.Width)
-		m.revisions.SetHeight(m.Height)
-		m.revisions.SetWidth(m.Width)
-		m.revsetModel.SetWidth(m.Width)
-		m.revsetModel.SetHeight(1)
+		m.SetFrame(cellbuf.Rect(0, 0, msg.Width, msg.Height))
 		m.flash.SetWidth(m.Width)
 		m.flash.SetHeight(m.Height)
 	}
@@ -347,6 +351,7 @@ func (m *Model) View() string {
 		return ""
 	}
 	m.updateStatus()
+	m.status.SetWidth(m.Width)
 	footer := m.status.View()
 	footerHeight := lipgloss.Height(footer)
 
@@ -393,10 +398,7 @@ func (m *Model) View() string {
 
 	if m.stacked != nil {
 		stackedView := m.stacked.View()
-		w, h := lipgloss.Size(stackedView)
-		sx := (m.Width - w) / 2
-		sy := (m.Height - h) / 2
-		cellbuf.SetContentRect(screenBuf, stackedView, cellbuf.Rect(sx, sy, w, h))
+		cellbuf.SetContentRect(screenBuf, stackedView, m.stacked.GetViewNode().Frame)
 	}
 
 	flashMessageView := m.flash.View()
@@ -493,19 +495,33 @@ func (w *wrapper) View() string {
 }
 
 func NewUI(c *context.MainContext) *Model {
-	frame := common.NewSizeable(0, 0)
+	frame := common.NewViewNode(0, 0)
+
 	revisionsModel := revisions.New(c)
+	revisionsModel.Parent = frame
+
 	statusModel := status.New(c)
+	statusModel.Parent = frame
+
+	flashView := flash.New(c)
+	flashView.Parent = frame
+
+	previewModel := preview.New(c)
+	previewModel.Parent = frame
+
+	revsetModel := revset.New(c)
+	revsetModel.Parent = frame
+
 	return &Model{
-		Sizeable:     frame,
+		ViewNode:     frame,
 		context:      c,
 		keyMap:       config.Current.GetKeyMap(),
 		state:        common.Loading,
 		revisions:    revisionsModel,
-		previewModel: preview.New(c, frame),
-		status:       &statusModel,
-		revsetModel:  revset.New(c),
-		flash:        flash.New(c),
+		previewModel: previewModel,
+		status:       statusModel,
+		revsetModel:  revsetModel,
+		flash:        flashView,
 	}
 }
 

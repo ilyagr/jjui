@@ -13,7 +13,7 @@ import (
 var _ common.Model = (*Model)(nil)
 
 type Model struct {
-	*common.Sizeable
+	*common.ViewNode
 	*common.MouseAware
 	view   viewport.Model
 	keymap config.KeyMappings[key.Binding]
@@ -61,18 +61,20 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 }
 
 func (m *Model) View() string {
+	m.view.Height = m.Height
+	m.view.Width = m.Width
 	return m.view.View()
 }
 
-func New(output string, width int, height int) *Model {
-	view := viewport.New(width, height)
+func New(output string) *Model {
+	view := viewport.New(0, 0)
 	content := strings.ReplaceAll(output, "\r", "")
 	if content == "" {
 		content = "(empty)"
 	}
 	view.SetContent(content)
 	return &Model{
-		Sizeable:   common.NewSizeable(width, height),
+		ViewNode:   common.NewViewNode(0, 0),
 		MouseAware: common.NewMouseAware(),
 		view:       view,
 		keymap:     config.Current.GetKeyMap(),

@@ -50,7 +50,7 @@ var (
 )
 
 type Model struct {
-	*common.Sizeable
+	*common.ViewNode
 	*common.MouseAware
 	rows             []parser.Row
 	tag              atomic.Uint64
@@ -498,10 +498,14 @@ func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 				m.renderer.Reset()
 				return nil
 			case key.Matches(msg, m.keymap.Details.Mode):
-				m.op = details.NewOperation(m.context, m.SelectedRevision(), m.Height)
+				model := details.NewOperation(m.context, m.SelectedRevision())
+				model.Parent = m.ViewNode
+				m.op = model
 				return m.op.Init()
 			case key.Matches(msg, m.keymap.InlineDescribe.Mode):
-				m.op = describe.NewOperation(m.context, m.SelectedRevision().GetChangeId(), m.Width)
+				model := describe.NewOperation(m.context, m.SelectedRevision().GetChangeId())
+				model.Parent = m.ViewNode
+				m.op = model
 				return m.op.Init()
 			case key.Matches(msg, m.keymap.New):
 				return m.context.RunCommand(jj.New(m.SelectedRevisions()), common.RefreshAndSelect("@"))
@@ -531,7 +535,9 @@ func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 				selections := m.SelectedRevisions()
 				return m.context.RunInteractiveCommand(jj.Describe(selections), common.Refresh)
 			case key.Matches(msg, m.keymap.Evolog.Mode):
-				m.op = evolog.NewOperation(m.context, m.SelectedRevision(), m.Width, m.Height)
+				model := evolog.NewOperation(m.context, m.SelectedRevision())
+				model.Parent = m.ViewNode
+				m.op = model
 				return m.op.Init()
 			case key.Matches(msg, m.keymap.Diff):
 				return func() tea.Msg {
@@ -655,8 +661,7 @@ func (m *Model) View() string {
 	m.renderer.selections = m.context.GetSelectedRevisions()
 
 	output := m.renderer.RenderWithOptions(list.RenderOptions{FocusIndex: m.cursor, EnsureFocusVisible: m.ensureCursorView})
-	output = m.textStyle.MaxWidth(m.Width).Render(output)
-	return lipgloss.Place(m.Width, m.Height, 0, 0, output)
+	return output
 }
 
 func (m *Model) load(revset string, selectedRevision string) tea.Cmd {
@@ -768,7 +773,7 @@ func (m *Model) GetCommitIds() []string {
 func New(c *appContext.MainContext) *Model {
 	keymap := config.Current.GetKeyMap()
 	m := Model{
-		Sizeable:      &common.Sizeable{Width: 0, Height: 0},
+		ViewNode:      common.NewViewNode(0, 0),
 		MouseAware:    common.NewMouseAware(),
 		context:       c,
 		keymap:        keymap,
@@ -780,7 +785,7 @@ func New(c *appContext.MainContext) *Model {
 		dimmedStyle:   common.DefaultPalette.Get("revisions dimmed"),
 		selectedStyle: common.DefaultPalette.Get("revisions selected"),
 	}
-	m.renderer = newRevisionListRenderer(&m, m.Sizeable)
+	m.renderer = newRevisionListRenderer(&m, m.ViewNode)
 	return &m
 }
 

@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/cellbuf"
 	"github.com/idursun/jjui/internal/config"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/context"
@@ -32,8 +33,7 @@ type helpMenu struct {
 var _ common.Model = (*Model)(nil)
 
 type Model struct {
-	width        int
-	height       int
+	*common.ViewNode
 	keyMap       config.KeyMappings[key.Binding]
 	context      *context.MainContext
 	styles       styles
@@ -48,22 +48,6 @@ type styles struct {
 	text     lipgloss.Style
 	shortcut lipgloss.Style
 	dimmed   lipgloss.Style
-}
-
-func (h *Model) Width() int {
-	return h.width
-}
-
-func (h *Model) Height() int {
-	return h.height
-}
-
-func (h *Model) SetWidth(w int) {
-	h.width = w
-}
-
-func (h *Model) SetHeight(height int) {
-	h.height = height
 }
 
 func (h *Model) ShortHelp() []key.Binding {
@@ -98,7 +82,13 @@ func (h *Model) View() string {
 	// NOTE: add new lines between search bar and help menu
 	content := "\n\n" + h.renderMenu()
 
-	return h.styles.border.Render(h.searchQuery.View(), content)
+	v := h.styles.border.Render(h.searchQuery.View(), content)
+	w, height := lipgloss.Size(v)
+	pw, ph := h.Parent.Width, h.Parent.Height
+	sx := (pw - w) / 2
+	sy := (ph - height) / 2
+	h.SetFrame(cellbuf.Rect(sx, sy, w, height))
+	return v
 }
 
 func (h *Model) filterMenu() {
@@ -166,6 +156,7 @@ func New(context *context.MainContext) *Model {
 	filter.Focus()
 
 	m := &Model{
+		ViewNode:    common.NewViewNode(0, 0),
 		context:     context,
 		keyMap:      config.Current.GetKeyMap(),
 		styles:      styles,
