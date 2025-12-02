@@ -18,19 +18,22 @@ type updateOpLogMsg struct {
 }
 
 var (
-	_ list.IList   = (*Model)(nil)
-	_ common.Model = (*Model)(nil)
+	_ list.IList         = (*Model)(nil)
+	_ common.Model       = (*Model)(nil)
+	_ common.IMouseAware = (*Model)(nil)
 )
 
 type Model struct {
 	*common.ViewNode
-	context       *context.MainContext
-	renderer      *list.ListRenderer
-	rows          []row
-	cursor        int
-	keymap        config.KeyMappings[key.Binding]
-	textStyle     lipgloss.Style
-	selectedStyle lipgloss.Style
+	*common.MouseAware
+	context          *context.MainContext
+	renderer         *list.ListRenderer
+	rows             []row
+	cursor           int
+	keymap           config.KeyMappings[key.Binding]
+	textStyle        lipgloss.Style
+	selectedStyle    lipgloss.Style
+	ensureCursorView bool
 }
 
 func (m *Model) Len() int {
@@ -71,11 +74,78 @@ func (m *Model) Init() tea.Cmd {
 	return m.load()
 }
 
+func (m *Model) ClickAt(x, y int) tea.Cmd {
+	if len(m.rows) == 0 {
+		return nil
+	}
+
+	localY := y - m.Frame.Min.Y
+
+	currentStart := m.renderer.ViewRange.Start
+	if localY >= m.Height {
+		localY = m.Height - 1
+		if localY < 0 {
+			return nil
+		}
+	}
+	line := currentStart + localY
+	row := m.rowAtLine(line)
+	if row == -1 {
+		return nil
+	}
+
+	m.cursor = row
+	m.ensureCursorView = true
+	return m.updateSelection()
+}
+
+func (m *Model) rowAtLine(line int) int {
+	for _, rr := range m.renderer.RowRanges() {
+		if line >= rr.StartLine && line < rr.EndLine {
+			return rr.Row
+		}
+	}
+	return -1
+}
+
+func (m *Model) Scroll(delta int) tea.Cmd {
+	m.ensureCursorView = false
+	desiredStart := m.renderer.ViewRange.Start + delta
+	if desiredStart < 0 {
+		desiredStart = 0
+	}
+
+	totalLines := m.renderer.AbsoluteLineCount()
+	maxStart := totalLines - m.Height
+	if maxStart < 0 {
+		maxStart = 0
+	}
+	newStart := desiredStart
+	if newStart > maxStart {
+		newStart = maxStart
+	}
+	m.renderer.ViewRange.Start = newStart
+	return nil
+}
+
 func (m *Model) Update(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case updateOpLogMsg:
 		m.rows = msg.Rows
 		m.renderer.Reset()
+	case tea.MouseMsg:
+		switch msg.Action {
+		case tea.MouseActionPress:
+			switch msg.Button {
+			case tea.MouseButtonLeft:
+				return m.ClickAt(msg.X, msg.Y)
+			case tea.MouseButtonWheelUp:
+				return m.Scroll(-3)
+			case tea.MouseButtonWheelDown:
+				return m.Scroll(3)
+			}
+			return nil
+		}
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keymap.Cancel):
@@ -83,10 +153,12 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		case key.Matches(msg, m.keymap.Up):
 			if m.cursor > 0 {
 				m.cursor--
+				m.ensureCursorView = true
 			}
 		case key.Matches(msg, m.keymap.Down):
 			if m.cursor < len(m.rows)-1 {
 				m.cursor++
+				m.ensureCursorView = true
 			}
 		case key.Matches(msg, m.keymap.Diff):
 			return func() tea.Msg {
@@ -118,7 +190,7 @@ func (m *Model) View() string {
 	m.renderer.Reset()
 	m.renderer.SetWidth(m.Width)
 	m.renderer.SetHeight(m.Height)
-	content := m.renderer.Render(m.cursor)
+	content := m.renderer.RenderWithOptions(list.RenderOptions{FocusIndex: m.cursor, EnsureFocusVisible: m.ensureCursorView})
 	return m.textStyle.Render(content)
 }
 
@@ -139,6 +211,7 @@ func New(context *context.MainContext) *Model {
 	node := common.NewViewNode(0, 0)
 	m := &Model{
 		ViewNode:      node,
+		MouseAware:    common.NewMouseAware(),
 		context:       context,
 		keymap:        keyMap,
 		rows:          nil,

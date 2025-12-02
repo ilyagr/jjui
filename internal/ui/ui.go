@@ -446,6 +446,9 @@ func (m *Model) findViewAt(x, y int) common.IMouseAware {
 	if m.diff != nil && pt.In(m.diff.Frame) {
 		return m.diff
 	}
+	if m.oplog != nil && pt.In(m.oplog.Frame) {
+		return m.oplog
+	}
 	if m.oplog == nil && pt.In(m.revisions.Frame) {
 		return m.revisions
 	}
