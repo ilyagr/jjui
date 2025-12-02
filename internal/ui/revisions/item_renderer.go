@@ -31,6 +31,7 @@ type itemRenderer struct {
 
 func (ir itemRenderer) writeSection(w io.Writer, current parser.GraphGutter, extended parser.GraphGutter, highlight bool, section string, width int) {
 	isHighlighted := ir.isHighlighted
+	section = strings.TrimSuffix(section, "\n")
 	lines := strings.SplitSeq(section, "\n")
 	for sectionLine := range lines {
 		lw := strings.Builder{}
