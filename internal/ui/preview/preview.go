@@ -38,7 +38,7 @@ type Model struct {
 }
 
 const debounceId = "preview-refresh"
-const debounceDuration = 200 * time.Millisecond
+const debounceDuration = 50 * time.Millisecond
 
 type previewMsg struct {
 	msg tea.Msg
