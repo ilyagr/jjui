@@ -127,6 +127,7 @@ limit = 0
 
 [revisions]
   log_batching = true
+  log_batch_size = 50
   # template = 'builtin_log_compact' # overrides jj's templates.log
   # revset = "zzzzzzz"               # overrides jj's revsets.log
 
@@ -141,9 +142,6 @@ limit = 0
 
 [oplog]
   limit = 200
-
-[graph]
-  batch_size = 50
 
 [git]
   default_remote = "origin"

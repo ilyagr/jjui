@@ -85,7 +85,7 @@ func NewGraphStreamer(parentCtx context.Context, runner appContext.CommandRunner
 	stderrMu.Unlock()
 
 	controlChan := make(chan parser.ControlMsg, 1)
-	batchSize := config.Current.Graph.BatchSize
+	batchSize := config.Current.Revisions.LogBatchSize
 	if batchSize <= 0 {
 		batchSize = DefaultBatchSize
 	}

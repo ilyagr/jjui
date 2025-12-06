@@ -22,7 +22,6 @@ type Config struct {
 	Revisions RevisionsConfig   `toml:"revisions"`
 	Preview   PreviewConfig     `toml:"preview"`
 	OpLog     OpLogConfig       `toml:"oplog"`
-	Graph     GraphConfig       `toml:"graph"`
 	Limit     int               `toml:"limit"`
 	Git       GitConfig         `toml:"git"`
 }
@@ -130,9 +129,10 @@ type UIConfig struct {
 }
 
 type RevisionsConfig struct {
-	LogBatching bool   `toml:"log_batching"`
-	Template    string `toml:"template"`
-	Revset      string `toml:"revset"`
+	LogBatching  bool   `toml:"log_batching"`
+	LogBatchSize int    `toml:"log_batch_size"`
+	Template     string `toml:"template"`
+	Revset       string `toml:"revset"`
 }
 
 type PreviewPosition int
@@ -168,10 +168,6 @@ func GetPreviewPosition(c *Config) (PreviewPosition, error) {
 
 type OpLogConfig struct {
 	Limit int `toml:"limit"`
-}
-
-type GraphConfig struct {
-	BatchSize int `toml:"batch_size"`
 }
 
 type ShowOption string
