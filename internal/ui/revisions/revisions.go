@@ -713,8 +713,7 @@ func (m *Model) requestMoreRows(tag uint64) tea.Cmd {
 
 	m.requestInFlight = true
 	batch := m.streamer.RequestMore()
-	m.Update(appendRowsBatchMsg{batch.Rows, batch.HasMore, tag})
-	return nil
+	return m.Update(appendRowsBatchMsg{batch.Rows, batch.HasMore, tag})
 }
 
 func (m *Model) selectRevision(revision string) int {
