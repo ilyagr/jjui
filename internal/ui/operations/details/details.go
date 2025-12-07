@@ -230,20 +230,10 @@ func (s *Operation) View() string {
 	}
 	s.SetHeight(min(s.Parent.Height-5-ch, s.Len()))
 	filesView := s.renderer.Render(s.cursor)
-
-	view := lipgloss.JoinVertical(lipgloss.Top, filesView, confirmationView)
-	// We are trimming spaces from each line to prevent visual artefacts
-	// Empty lines use the default background colour, and it looks bad if the user has a custom background colour
-	var lines []string
-	scanner := bufio.NewScanner(strings.NewReader(view))
-	for scanner.Scan() {
-		line := scanner.Text()
-		line = strings.TrimSpace(line)
-		lines = append(lines, line)
+	if confirmationView != "" {
+		return lipgloss.JoinVertical(lipgloss.Top, filesView, confirmationView)
 	}
-	view = strings.Join(lines, "\n")
-	w, h := lipgloss.Size(view)
-	return lipgloss.Place(w, h, 0, 0, view, lipgloss.WithWhitespaceBackground(s.styles.Text.GetBackground()))
+	return filesView + "\n"
 }
 
 func (s *Operation) SetSelectedRevision(commit *jj.Commit) tea.Cmd {
