@@ -582,7 +582,7 @@ func (m *Model) startSquash(selectedRevisions jj.SelectedRevisions, files []stri
 
 func (m *Model) updateSelection() tea.Cmd {
 	// Don't override file-level selections (from Details panel)
-	if _, isFile := m.context.SelectedItem.(appContext.SelectedFile); isFile {
+	if _, isFile := m.context.SelectedItem.(appContext.SelectedFile); isFile && !m.InNormalMode() {
 		return nil
 	}
 	if selectedRevision := m.SelectedRevision(); selectedRevision != nil {
