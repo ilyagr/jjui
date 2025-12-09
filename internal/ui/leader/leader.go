@@ -67,7 +67,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 				}
 				m.shown = nil
 				cmds := sendCmds(c.Send)
-				return tea.Batch(
+				return tea.Sequence(
 					common.Close,
 					tea.Sequence(cmds...),
 				)
