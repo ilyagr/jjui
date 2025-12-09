@@ -6,6 +6,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/context"
+	"github.com/idursun/jjui/test"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_sendCmds_detects_tea_keytypes(t *testing.T) {
@@ -69,26 +71,14 @@ send = ["?"]
 		Type:  tea.KeyRunes,
 		Runes: []rune{'h'},
 	}
-	cmd := model.Update(msg)
+	var msgs []tea.Msg
+	test.SimulateModel(model, model.Update(msg), func(msg tea.Msg) {
+		msgs = append(msgs, msg)
+	})
+	assert.Contains(t, msgs, common.CloseViewMsg{}, "expected CloseViewMsg in msgs")
 	if len(model.shown) != 0 {
 		t.Fatal("expected not to show leader keys after reaching leaf")
 	}
-	if cmd == nil {
-		t.Fatal("expected a command returned from Update")
-	}
-	msgOut := cmd()
-	batch, ok := msgOut.(tea.BatchMsg)
-	if !ok {
-		t.Fatalf("expected BatchMsg, got %T", msgOut)
-	}
-	if len(batch) != 2 {
-		t.Fatalf("expected 2 cmds in batch, got %d", len(batch))
-	}
-	closeMsg := batch[0]()
-	if _, ok := closeMsg.(common.CloseViewMsg); !ok {
-		t.Error("expected non-nil closeMsg")
-	}
-	// batch[1]() is a tea.sequenceMsg (private). we test it via sendCmds tests.
 }
 
 func TestUpdate_gf_shows_git_fetch_submenu_and_returns_nil_cmd(t *testing.T) {
