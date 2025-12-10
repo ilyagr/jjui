@@ -7,6 +7,8 @@ import (
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/x/cellbuf"
+	"github.com/idursun/jjui/internal/scripting"
+	"github.com/idursun/jjui/internal/ui/intents"
 	"github.com/idursun/jjui/internal/ui/layout"
 
 	"github.com/idursun/jjui/internal/ui/flash"
@@ -53,6 +55,7 @@ type Model struct {
 	state        common.State
 	status       *status.Model
 	context      *context.MainContext
+	scriptRunner *scripting.Runner
 	keyMap       config.KeyMappings[key.Binding]
 	stacked      SizableModel
 	dragTarget   common.Draggable
@@ -177,7 +180,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			m.oplog.Parent = m.ViewNode
 			return m.oplog.Init()
 		case key.Matches(msg, m.keyMap.Revset) && m.revisions.InNormalMode():
-			return m.revsetModel.Update(revset.EditRevSetMsg{Clear: m.state != common.Error})
+			return m.revsetModel.Update(intents.Edit{Clear: m.state != common.Error})
 		case key.Matches(msg, m.keyMap.Git.Mode) && m.revisions.InNormalMode():
 			model := git.NewModel(m.context, m.revisions.SelectedRevisions())
 			model.Parent = m.ViewNode
@@ -284,6 +287,18 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		}
 		m.revsetModel.AddToHistory(m.context.CurrentRevset)
 		return common.Refresh
+	case common.RunLuaScriptMsg:
+		runner, cmd, err := scripting.RunScript(m.context, msg.Script)
+		if err != nil {
+			return func() tea.Msg {
+				return common.CommandCompletedMsg{Err: err}
+			}
+		}
+		m.scriptRunner = runner
+		if cmd == nil && (runner == nil || runner.Done()) {
+			m.scriptRunner = nil
+		}
+		return cmd
 	case common.ShowPreview:
 		m.previewModel.SetVisible(bool(msg))
 		cmds = append(cmds, common.SelectionChanged)
@@ -294,15 +309,21 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		m.flash.SetHeight(m.Height)
 	}
 
-	if m.revsetModel.Editing {
-		cmds = append(cmds, m.revsetModel.Update(msg))
-	}
-
+	cmds = append(cmds, m.revsetModel.Update(msg))
 	cmds = append(cmds, m.status.Update(msg))
 	cmds = append(cmds, m.flash.Update(msg))
 
 	if m.stacked != nil {
 		cmds = append(cmds, m.stacked.Update(msg))
+	}
+
+	if m.scriptRunner != nil {
+		if cmd := m.scriptRunner.HandleMsg(msg); cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		if m.scriptRunner.Done() {
+			m.scriptRunner = nil
+		}
 	}
 
 	if m.oplog != nil {

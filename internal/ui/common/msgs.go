@@ -47,10 +47,9 @@ type (
 		Commit       *jj.Commit
 		RawFileOut   []byte // raw output from `jj file list`
 	}
-	ShowPreview             bool
-	StartSquashOperationMsg struct {
-		Revision *jj.Commit
-		Files    []string
+	ShowPreview     bool
+	RunLuaScriptMsg struct {
+		Script string
 	}
 	// DeferredUpdateMsg is used to defer an update until the next render cycle
 	// However, this is very hacky and should only be used for single model updates that doesn't interact with any other model
