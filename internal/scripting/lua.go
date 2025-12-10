@@ -12,7 +12,6 @@ import (
 
 	"github.com/idursun/jjui/internal/ui/common"
 	uicontext "github.com/idursun/jjui/internal/ui/context"
-	"github.com/idursun/jjui/internal/ui/flash"
 	"github.com/idursun/jjui/internal/ui/operations/rebase"
 	"github.com/idursun/jjui/internal/ui/revisions"
 	"github.com/idursun/jjui/internal/ui/revset"
@@ -80,7 +79,7 @@ func (r *Runner) resume() tea.Cmd {
 		r.started = true
 		if err != nil {
 			r.done = true
-			cmds = append(cmds, flash.Cmd(flash.AddMessage{Text: err.Error(), Err: err}))
+			cmds = append(cmds, intents.Invoke(intents.AddMessage{Text: err.Error(), Err: err}))
 			break
 		}
 		for _, v := range values {
@@ -240,7 +239,7 @@ func registerAPI(L *lua.LState, runner *Runner) {
 	})
 	flashFn := L.NewFunction(func(L *lua.LState) int {
 		msg := L.CheckString(1)
-		return yieldStep(L, step{cmd: flash.Cmd(flash.AddMessage{Text: msg})})
+		return yieldStep(L, step{cmd: intents.Invoke(intents.AddMessage{Text: msg})})
 	})
 	copyToClipboardFn := L.NewFunction(func(L *lua.LState) int {
 		text := L.CheckString(1)
