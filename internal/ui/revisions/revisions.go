@@ -326,10 +326,10 @@ func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 			return common.RefreshAndKeepSelections
 		}
 	case common.RefreshMsg:
-		return m.refresh(intents.Refresh{
+		return tea.Batch(m.refresh(intents.Refresh{
 			KeepSelections:   msg.KeepSelections,
 			SelectedRevision: msg.SelectedRevision,
-		})
+		}), m.op.Update(msg))
 	case updateRevisionsMsg:
 		m.isLoading = false
 		m.updateGraphRows(msg.rows, msg.selectedRevision)
