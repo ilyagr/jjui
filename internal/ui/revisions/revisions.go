@@ -833,7 +833,7 @@ func (m *Model) startInlineDescribe(intent intents.StartInlineDescribe) tea.Cmd 
 	if commit == nil {
 		return nil
 	}
-	model := describe.NewOperation(m.context, commit.GetChangeId())
+	model := describe.NewOperation(m.context, commit)
 	model.Parent = m.ViewNode
 	m.op = model
 	return m.op.Init()

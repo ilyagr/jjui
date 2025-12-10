@@ -10,6 +10,7 @@ import (
 	"github.com/idursun/jjui/internal/jj"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/context"
+	"github.com/idursun/jjui/internal/ui/intents"
 	"github.com/idursun/jjui/internal/ui/operations"
 )
 
@@ -18,12 +19,20 @@ var (
 	_ common.Editable      = (*Operation)(nil)
 )
 
+var stashed *stashedDescription = nil
+
+type stashedDescription struct {
+	revision    *jj.Commit
+	description string
+}
+
 type Operation struct {
 	*common.ViewNode
-	context  *context.MainContext
-	keyMap   config.KeyMappings[key.Binding]
-	input    textarea.Model
-	revision string
+	context      *context.MainContext
+	keyMap       config.KeyMappings[key.Binding]
+	input        textarea.Model
+	revision     *jj.Commit
+	originalDesc string
 }
 
 func (o *Operation) IsEditing() bool {
@@ -58,32 +67,37 @@ func (o *Operation) Name() string {
 }
 
 func (o *Operation) Update(msg tea.Msg) tea.Cmd {
-	// ignore cursor blink messages to prevent unnecessary rendering and height
-	// recalculations
 	var cmd tea.Cmd
-	if _, ok := msg.(cursor.BlinkMsg); ok {
+	switch msg := msg.(type) {
+	case cursor.BlinkMsg:
+		// ignore cursor blink messages to prevent unnecessary rendering and height
+		// recalculations
 		o.input, cmd = o.input.Update(msg)
 		return cmd
-	}
-
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+	case tea.KeyMsg:
 		switch {
-		case key.Matches(keyMsg, o.keyMap.Cancel):
-			return common.Close
-		case key.Matches(keyMsg, o.keyMap.InlineDescribe.Editor):
-			commit := &jj.Commit{
-				ChangeId: o.revision,
+		case key.Matches(msg, o.keyMap.Cancel):
+			unsavedDescription := o.input.Value()
+			if o.originalDesc != unsavedDescription {
+				stashed = &stashedDescription{
+					revision:    o.revision,
+					description: unsavedDescription,
+				}
+				return tea.Batch(common.Close, intents.Invoke(intents.AddMessage{Text: "Unsaved description is stashed. Edit again to restore."}))
 			}
-			selectedRevisions := jj.NewSelectedRevisions(commit)
+			return common.Close
+		case key.Matches(msg, o.keyMap.InlineDescribe.Editor):
+			selectedRevisions := jj.NewSelectedRevisions(o.revision)
 			return o.context.RunCommand(
-				jj.SetDescription(o.revision, o.input.Value()),
+				jj.SetDescription(o.revision.GetChangeId(), o.input.Value()),
 				common.Close,
 				o.context.RunInteractiveCommand(jj.Describe(selectedRevisions), common.Refresh),
 			)
-		case key.Matches(keyMsg, o.keyMap.InlineDescribe.Accept):
-			return o.context.RunCommand(jj.SetDescription(o.revision, o.input.Value()), common.Close, common.Refresh)
+		case key.Matches(msg, o.keyMap.InlineDescribe.Accept):
+			return o.context.RunCommand(jj.SetDescription(o.revision.GetChangeId(), o.input.Value()), common.Close, common.Refresh)
 		}
 	}
+
 	o.input, cmd = o.input.Update(msg)
 
 	newValue := o.input.Value()
@@ -106,9 +120,17 @@ func (o *Operation) View() string {
 	return o.input.View()
 }
 
-func NewOperation(context *context.MainContext, revision string) *Operation {
-	descOutput, _ := context.RunCommandImmediate(jj.GetDescription(revision))
-	desc := string(descOutput)
+func NewOperation(context *context.MainContext, revision *jj.Commit) *Operation {
+	descOutput, _ := context.RunCommandImmediate(jj.GetDescription(revision.GetChangeId()))
+	originalDesc := string(descOutput)
+	desc := originalDesc
+	if stashed != nil && stashed.revision.CommitId == revision.CommitId && stashed.description != originalDesc {
+		desc = stashed.description
+	}
+
+	// clear the stashed description regardless
+	stashed = nil
+
 	h := lipgloss.Height(desc)
 
 	selectedStyle := common.DefaultPalette.Get("revisions selected")
@@ -124,10 +146,11 @@ func NewOperation(context *context.MainContext, revision string) *Operation {
 	input.Focus()
 
 	return &Operation{
-		ViewNode: common.NewViewNode(0, h+1),
-		context:  context,
-		keyMap:   config.Current.GetKeyMap(),
-		input:    input,
-		revision: revision,
+		ViewNode:     common.NewViewNode(0, h+1),
+		context:      context,
+		keyMap:       config.Current.GetKeyMap(),
+		input:        input,
+		originalDesc: originalDesc,
+		revision:     revision,
 	}
 }
