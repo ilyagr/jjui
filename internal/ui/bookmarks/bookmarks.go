@@ -241,10 +241,10 @@ func itemSorter(a list.Item, b list.Item) int {
 }
 
 func (m *Model) View() string {
-	m.menu.SetFrame(cellbuf.Rect(0, 0, 80, 40))
+	pw, ph := m.Parent.Width, m.Parent.Height
+	m.menu.SetFrame(cellbuf.Rect(0, 0, min(pw, 80), min(ph, 40)).Inset(2))
 	v := m.menu.View()
 	w, h := lipgloss.Size(v)
-	pw, ph := m.Parent.Width, m.Parent.Height
 	sx := (pw - w) / 2
 	sy := (ph - h) / 2
 	m.SetFrame(cellbuf.Rect(sx, sy, w, h))
