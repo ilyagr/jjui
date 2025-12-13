@@ -226,9 +226,13 @@ func registerAPI(L *lua.LState, runner *Runner) {
 		return 1
 	}))
 
-	runAsyncFn := L.NewFunction(func(L *lua.LState) int {
+	jjAsyncFn := L.NewFunction(func(L *lua.LState) int {
 		args := argsFromLua(L)
 		return yieldStep(L, step{cmd: runner.ctx.RunCommand(args)})
+	})
+	jjInteractiveFn := L.NewFunction(func(L *lua.LState) int {
+		args := argsFromLua(L)
+		return yieldStep(L, step{cmd: runner.ctx.RunInteractiveCommand(args, nil)})
 	})
 	jjFn := L.NewFunction(func(L *lua.LState) int {
 		args := argsFromLua(L)
@@ -262,7 +266,8 @@ func registerAPI(L *lua.LState, runner *Runner) {
 	root := L.NewTable()
 	root.RawSetString("revisions", revisionsTable)
 	root.RawSetString("revset", revsetTable)
-	root.RawSetString("jj_async", runAsyncFn)
+	root.RawSetString("jj_async", jjAsyncFn)
+	root.RawSetString("jj_interactive", jjInteractiveFn)
 	root.RawSetString("jj", jjFn)
 	root.RawSetString("flash", flashFn)
 	root.RawSetString("copy_to_clipboard", copyToClipboardFn)
@@ -271,7 +276,8 @@ func registerAPI(L *lua.LState, runner *Runner) {
 	// but also expose at the top level for convenience
 	L.SetGlobal("revisions", revisionsTable)
 	L.SetGlobal("revset", revsetTable)
-	L.SetGlobal("jj_async", runAsyncFn)
+	L.SetGlobal("jj_async", jjAsyncFn)
+	L.SetGlobal("jj_interactive", jjInteractiveFn)
 	L.SetGlobal("jj", jjFn)
 	L.SetGlobal("flash", flashFn)
 	L.SetGlobal("copy_to_clipboard", copyToClipboardFn)
