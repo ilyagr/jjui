@@ -78,7 +78,7 @@ func (o *Operation) Update(msg tea.Msg) tea.Cmd {
 		switch {
 		case key.Matches(msg, o.keyMap.Cancel):
 			unsavedDescription := o.input.Value()
-			if o.originalDesc != unsavedDescription {
+			if o.originalDesc == "" {
 				stashed = &stashedDescription{
 					revision:    o.revision,
 					description: unsavedDescription,
@@ -124,7 +124,7 @@ func NewOperation(context *context.MainContext, revision *jj.Commit) *Operation 
 	descOutput, _ := context.RunCommandImmediate(jj.GetDescription(revision.GetChangeId()))
 	originalDesc := string(descOutput)
 	desc := originalDesc
-	if stashed != nil && stashed.revision.CommitId == revision.CommitId && stashed.description != originalDesc {
+	if stashed != nil && stashed.revision.CommitId == revision.CommitId && originalDesc == "" {
 		desc = stashed.description
 	}
 
