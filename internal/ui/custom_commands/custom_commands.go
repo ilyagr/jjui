@@ -143,6 +143,11 @@ func NewModel(ctx *context.MainContext) *Model {
 			items = append(items, item{name: name, desc: desc, command: cmd, key: command.Binding(), keySequence: command.Sequence()})
 		}
 	}
+
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].(item).name < items[j].(item).name
+	})
+
 	keyMap := config.Current.GetKeyMap()
 	menu := menu.NewMenu(items, keyMap, menu.WithStylePrefix("custom_commands"))
 	menu.Title = "Custom Commands"
