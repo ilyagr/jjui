@@ -1,7 +1,8 @@
 {
+  description = "A Text User Interface (TUI) designed for interacting with the Jujutsu version control system";
+
   inputs = {
-    systems.url = "github:nix-systems/default";
-    nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-parts.url = "github:hercules-ci/flake-parts";
   };
 
