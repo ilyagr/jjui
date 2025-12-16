@@ -11,8 +11,10 @@ import (
 	"os/exec"
 	"runtime/debug"
 	"strings"
+	"unicode"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/idursun/jjui/internal/askpass"
 	"github.com/idursun/jjui/internal/ui/common"
 
 	"github.com/idursun/jjui/internal/config"
@@ -78,17 +80,25 @@ func getJJRootDir(location string) (string, error) {
 }
 
 func main() {
+	os.Exit(run())
+}
+
+func run() int {
+	askpassServer := askpass.NewUnstartedServer("JJUI")
+	if askpassServer.IsSubprocess() {
+		return 0
+	}
+
 	flag.Parse()
 	switch {
 	case help:
 		flag.Usage()
-		os.Exit(0)
+		return 0
 	case version:
 		fmt.Println(getVersion())
-		os.Exit(0)
+		return 0
 	case editConfig:
-		exitCode := config.Edit()
-		os.Exit(exitCode)
+		return config.Edit()
 	}
 
 	var location string
@@ -101,14 +111,14 @@ func main() {
 		if location, err = os.Getwd(); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: couldn't determine the current directory: %v.\n", err)
 			fmt.Fprintf(os.Stderr, "Please pass the location of a `jj` repo as an argument to `jjui`.\n")
-			os.Exit(1)
+			return 1
 		}
 	}
 
 	rootLocation, err := getJJRootDir(location)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
+		return 1
 	}
 
 	if len(os.Getenv("DEBUG")) > 0 {
@@ -126,28 +136,28 @@ func main() {
 		config.Current.Limit = limit
 	}
 
-	appContext := context.NewAppContext(rootLocation)
+	appContext := context.NewAppContext(rootLocation, askpassServer)
 	defer appContext.Histories.Flush()
 	if output, err := config.LoadConfigFile(); err == nil {
 		if err := config.Current.Load(string(output)); err != nil {
 			fmt.Fprintf(os.Stderr, "Error loading configuration: %v\n", err)
-			os.Exit(1)
+			return 1
 		}
 		if registry, err := context.LoadCustomCommands(string(output)); err != nil {
 			fmt.Fprintf(os.Stderr, "Error loading custom commands: %v\n", err)
-			os.Exit(1)
+			return 1
 		} else {
 			appContext.CustomCommands = registry
 		}
 		if registry, err := context.LoadLeader(string(output)); err != nil {
 			fmt.Fprintf(os.Stderr, "Error loading leader keys: %v\n", err)
-			os.Exit(1)
+			return 1
 		} else {
 			appContext.Leader = registry
 		}
 	} else if !errors.Is(err, fs.ErrNotExist) {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 
 	var theme map[string]config.Color
@@ -162,7 +172,7 @@ func main() {
 	theme, err = config.LoadEmbeddedTheme(defaultThemeName)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading default theme '%s': %v\n", defaultThemeName, err)
-		os.Exit(1)
+		return 1
 	}
 
 	var userThemeName string
@@ -176,7 +186,7 @@ func main() {
 		theme, err = config.LoadTheme(userThemeName, theme)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error loading user theme '%s': %v\n", userThemeName, err)
-			os.Exit(1)
+			return 1
 		}
 	}
 
@@ -197,8 +207,48 @@ func main() {
 	appContext.CurrentRevset = appContext.DefaultRevset
 
 	p := tea.NewProgram(ui.New(appContext), tea.WithAltScreen(), tea.WithReportFocus(), tea.WithMouseCellMotion())
+	if config.Current.Ssh.HijackAskpass {
+		if err := askpassServer.StartListening(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: ssh.hijack_askpass: %v\n", err)
+			return 1
+		}
+		defer askpassServer.Close()
+
+		go askpassServer.Serve(showPassword(p.Send))
+
+		// uncomment the line below to show a fake prompt upon startup
+		// go showPassword(p.Send)("test", "Enter PIN for 'ssh': ", make(<-chan struct{}))
+	}
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error running program: %v\n", err)
-		os.Exit(1)
+		return 1
+	}
+	return 0
+}
+
+func showPassword(send func(tea.Msg)) func(name, prompt string, done <-chan struct{}) []byte {
+	adjustPrompt := func(s string) string {
+		// ensure that the prompt is not only made of spaces
+		for _, r := range s {
+			if !unicode.IsSpace(r) {
+				return s
+			}
+		}
+		return "ssh-askpass: "
+	}
+	return func(name, prompt string, done <-chan struct{}) []byte {
+		password := make(chan []byte, 1)
+		send(common.TogglePasswordMsg{
+			Prompt:   adjustPrompt(prompt),
+			Password: password,
+		})
+
+		select {
+		case <-done:
+			send(common.TogglePasswordMsg{})
+			return nil
+		case pw := <-password:
+			return pw
+		}
 	}
 }
