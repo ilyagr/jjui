@@ -784,7 +784,7 @@ func (m *Model) navigate(intent intents.Navigate) tea.Cmd {
 	// Restore original hasMore
 	m.hasMore = origHasMore
 
-	if result.NavigateMessage != nil {
+	if result.NavigateMessage != nil && intent.IsPage {
 		return func() tea.Msg { return *result.NavigateMessage }
 	}
 
