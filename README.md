@@ -4,9 +4,9 @@
 
 `jjui` is a terminal user interface for working with [Jujutsu version control system](https://github.com/jj-vcs/jj). I have built it according to my own needs and will keep adding new features as I need them. I am open to feature requests and contributions.
 
-## Features
+If you are new `jjui`, have a look at [previously on jjui](https://github.com/idursun/jjui/discussions/443).
 
-Currently, you can:
+## Features
 
 ### Change revset with auto-complete
 You can change revset while enjoying auto-complete and signature help while typing.
