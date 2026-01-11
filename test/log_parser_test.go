@@ -9,6 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// In order to get a log output for testing, run the following command:
+// jj log -T "stringify('_PREFIX:' ++ separate('_PREFIX:', change_id.shortest(), commit_id.shortest(), divergent)) ++ ' ' ++ builtin_log_compact" --color always > test/testdata/your_test_case.log
+
 func TestParser_Parse(t *testing.T) {
 	file, _ := os.Open("testdata/output.log")
 	rows := parser.ParseRows(file)
@@ -21,6 +24,14 @@ func TestParser_Parse_WorkingCopyCommit(t *testing.T) {
 	assert.Len(t, rows, 9)
 	row := rows[5]
 	assert.True(t, row.Commit.IsWorkingCopy)
+}
+
+func TestParser_Parse_DivergentLog(t *testing.T) {
+	file, _ := os.Open("testdata/divergent.log")
+	rows := parser.ParseRows(file)
+	assert.Len(t, rows, 2)
+	assert.Contains(t, rows[0].Commit.ChangeId, "/0")
+	assert.Contains(t, rows[1].Commit.ChangeId, "/1")
 }
 
 // TODO: what does no-commit-id mean?
