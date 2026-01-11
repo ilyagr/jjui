@@ -415,6 +415,11 @@ func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 		return tea.Batch(cmds...)
 	}
 
+	// Non-input messages are broadcast to the current operation
+	if !common.IsInputMessage(msg) {
+		return m.op.Update(msg)
+	}
+
 	if len(m.rows) == 0 {
 		return nil
 	}

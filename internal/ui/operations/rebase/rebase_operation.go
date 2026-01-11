@@ -167,9 +167,7 @@ func (r *Operation) SetSelectedRevision(commit *jj.Commit) tea.Cmd {
 		if len(ids) == 1 && ids[0] == "" {
 			ids = nil
 		}
-		return common.DeferredUpdateMsg{Fn: func() tea.Cmd {
-			return r.Update(updateHighlightedIdsMsg{ids: ids})
-		}}
+		return updateHighlightedIdsMsg{ids: ids}
 	})
 }
 

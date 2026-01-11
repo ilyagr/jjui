@@ -176,11 +176,6 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
-	case common.DeferredUpdateMsg:
-		if msg.Fn != nil {
-			return msg.Fn()
-		}
-		return nil
 	case tea.FocusMsg:
 		return tea.Batch(common.RefreshAndKeepSelections, tea.EnableMouseCellMotion)
 	case tea.MouseMsg:
