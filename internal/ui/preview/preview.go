@@ -184,7 +184,12 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		case tea.MouseButtonWheelRight:
 			m.ScrollHorizontal(scrollAmount)
 		}
-	case common.SelectionChangedMsg, common.RefreshMsg:
+	case common.SelectionChangedMsg:
+		if msg.Item != nil {
+			return m.refreshPreviewForItem(msg.Item)
+		}
+		return m.refreshPreview()
+	case common.RefreshMsg:
 		return m.refreshPreview()
 	case updatePreviewContentMsg:
 		m.SetContent(msg.Content)
@@ -220,29 +225,33 @@ func (m *Model) reset() {
 }
 
 func (m *Model) refreshPreview() tea.Cmd {
+	return m.refreshPreviewForItem(m.context.SelectedItem)
+}
+
+func (m *Model) refreshPreviewForItem(item common.SelectedItem) tea.Cmd {
 	return common.Debounce(debounceId, debounceDuration, func() tea.Msg {
 		var args []string
 		previewWidth := strconv.Itoa(m.view.Width)
-		switch msg := m.context.SelectedItem.(type) {
-		case context.SelectedFile:
+		switch sel := item.(type) {
+		case common.SelectedFile:
 			args = jj.TemplatedArgs(config.Current.Preview.FileCommand, map[string]string{
 				jj.RevsetPlaceholder:       m.context.CurrentRevset,
-				jj.ChangeIdPlaceholder:     msg.ChangeId,
-				jj.CommitIdPlaceholder:     msg.CommitId,
-				jj.FilePlaceholder:         msg.File,
+				jj.ChangeIdPlaceholder:     sel.ChangeId,
+				jj.CommitIdPlaceholder:     sel.CommitId,
+				jj.FilePlaceholder:         sel.File,
 				jj.PreviewWidthPlaceholder: previewWidth,
 			})
-		case context.SelectedRevision:
+		case common.SelectedRevision:
 			args = jj.TemplatedArgs(config.Current.Preview.RevisionCommand, map[string]string{
 				jj.RevsetPlaceholder:       m.context.CurrentRevset,
-				jj.ChangeIdPlaceholder:     msg.ChangeId,
-				jj.CommitIdPlaceholder:     msg.CommitId,
+				jj.ChangeIdPlaceholder:     sel.ChangeId,
+				jj.CommitIdPlaceholder:     sel.CommitId,
 				jj.PreviewWidthPlaceholder: previewWidth,
 			})
-		case context.SelectedOperation:
+		case common.SelectedOperation:
 			args = jj.TemplatedArgs(config.Current.Preview.OplogCommand, map[string]string{
 				jj.RevsetPlaceholder:       m.context.CurrentRevset,
-				jj.OperationIdPlaceholder:  msg.OperationId,
+				jj.OperationIdPlaceholder:  sel.OperationId,
 				jj.PreviewWidthPlaceholder: previewWidth,
 			})
 		}

@@ -172,7 +172,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, m.keymap.Cancel):
-			return tea.Batch(common.Close, common.Refresh, common.SelectionChanged)
+			return tea.Batch(common.Close, common.Refresh, common.SelectionChanged(m.context.SelectedItem))
 		case key.Matches(msg, m.keymap.Up, m.keymap.ScrollUp):
 			return m.navigate(-1, key.Matches(msg, m.keymap.ScrollUp))
 		case key.Matches(msg, m.keymap.Down, m.keymap.ScrollDown):

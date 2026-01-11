@@ -13,45 +13,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-type SelectedItem interface {
-	Equal(other SelectedItem) bool
-}
-
-type SelectedRevision struct {
-	ChangeId string
-	CommitId string
-}
-
-func (s SelectedRevision) Equal(other SelectedItem) bool {
-	if o, ok := other.(SelectedRevision); ok {
-		return s.ChangeId == o.ChangeId && s.CommitId == o.CommitId
-	}
-	return false
-}
-
-type SelectedFile struct {
-	ChangeId string
-	CommitId string
-	File     string
-}
-
-func (s SelectedFile) Equal(other SelectedItem) bool {
-	if o, ok := other.(SelectedFile); ok {
-		return s.ChangeId == o.ChangeId && s.CommitId == o.CommitId && s.File == o.File
-	}
-	return false
-}
-
-type SelectedOperation struct {
-	OperationId string
-}
-
-func (s SelectedOperation) Equal(other SelectedItem) bool {
-	if o, ok := other.(SelectedOperation); ok {
-		return s.OperationId == o.OperationId
-	}
-	return false
-}
+// SelectedItem type aliases to break circular dependencies
+type SelectedItem = common.SelectedItem
+type SelectedRevision = common.SelectedRevision
+type SelectedFile = common.SelectedFile
+type SelectedOperation = common.SelectedOperation
 
 type MainContext struct {
 	CommandRunner
@@ -112,7 +78,7 @@ func (ctx *MainContext) SetSelectedItem(item SelectedItem) tea.Cmd {
 		return nil
 	}
 	ctx.SelectedItem = item
-	return common.SelectionChanged
+	return common.SelectionChanged(item)
 }
 
 // CreateReplacements context aware replacements for custom commands and exec input.

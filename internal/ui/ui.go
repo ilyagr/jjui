@@ -88,7 +88,7 @@ func (m *Model) handleFocusInputMessage(msg tea.Msg) (tea.Cmd, bool) {
 		}
 		if m.oplog != nil {
 			m.oplog = nil
-			return common.SelectionChanged, true
+			return common.SelectionChanged(m.context.SelectedItem), true
 		}
 		return nil, false
 	}
@@ -277,7 +277,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 				}
 			}
 			m.previewModel.ToggleVisible()
-			cmds = append(cmds, common.SelectionChanged)
+			cmds = append(cmds, common.SelectionChanged(m.context.SelectedItem))
 			return tea.Batch(cmds...)
 		case key.Matches(msg, m.keyMap.Preview.Expand) && m.previewModel.Visible():
 			m.previewModel.Expand()
@@ -306,6 +306,8 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		case key.Matches(msg, m.keyMap.QuickSearch) && m.oplog != nil:
 			// HACK: prevents quick search from activating in op log view
 			return nil
+		case key.Matches(msg, m.keyMap.ExecJJ, m.keyMap.ExecShell, m.keyMap.QuickSearch) && m.revisions.InNormalMode():
+			return m.status.Update(msg)
 		case key.Matches(msg, m.keyMap.Suspend):
 			return tea.Suspend
 		default:
@@ -384,7 +386,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		m.stacked = nil
 	case common.ShowPreview:
 		m.previewModel.SetVisible(bool(msg))
-		cmds = append(cmds, common.SelectionChanged)
+		cmds = append(cmds, common.SelectionChanged(m.context.SelectedItem))
 		return tea.Batch(cmds...)
 	case common.TogglePasswordMsg:
 		if m.password != nil {
@@ -404,6 +406,17 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		m.SetFrame(cellbuf.Rect(0, 0, msg.Width, msg.Height))
 		m.flash.SetWidth(m.Width)
 		m.flash.SetHeight(m.Height)
+	}
+
+	// Unhandled key messages go to the main view (oplog or revisions)
+	// Other messages are broadcast to all models
+	if common.IsInputMessage(msg) {
+		if m.oplog != nil {
+			cmds = append(cmds, m.oplog.Update(msg))
+		} else {
+			cmds = append(cmds, m.revisions.Update(msg))
+		}
+		return tea.Batch(cmds...)
 	}
 
 	cmds = append(cmds, m.revsetModel.Update(msg))

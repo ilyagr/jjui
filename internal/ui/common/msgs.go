@@ -32,7 +32,9 @@ type (
 		Output string
 		Err    error
 	}
-	SelectionChangedMsg struct{}
+	SelectionChangedMsg struct {
+		Item SelectedItem
+	}
 	QuickSearchMsg      string
 	UpdateRevSetMsg     string
 	ExecMsg             struct {
@@ -105,8 +107,10 @@ func StartAceJump() tea.Cmd {
 	}
 }
 
-func SelectionChanged() tea.Msg {
-	return SelectionChangedMsg{}
+func SelectionChanged(item SelectedItem) tea.Cmd {
+	return func() tea.Msg {
+		return SelectionChangedMsg{Item: item}
+	}
 }
 
 func RefreshAndSelect(selectedRevision string) tea.Cmd {
@@ -164,4 +168,13 @@ var ExecJJ ExecMode = ExecMode{
 var ExecShell ExecMode = ExecMode{
 	Mode:   "sh",
 	Prompt: "$ ",
+}
+
+func IsInputMessage(msg tea.Msg) bool {
+	switch msg.(type) {
+	case tea.KeyMsg, tea.MouseMsg:
+		return true
+	default:
+		return false
+	}
 }
