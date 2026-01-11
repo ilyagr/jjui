@@ -35,9 +35,9 @@ type (
 	SelectionChangedMsg struct {
 		Item SelectedItem
 	}
-	QuickSearchMsg      string
-	UpdateRevSetMsg     string
-	ExecMsg             struct {
+	QuickSearchMsg  string
+	UpdateRevSetMsg string
+	ExecMsg         struct {
 		Line string
 		Mode ExecMode
 	}
