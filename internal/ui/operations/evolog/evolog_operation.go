@@ -173,8 +173,7 @@ func (o *Operation) updateSelection() tea.Cmd {
 	}
 
 	selected := o.getSelectedEvolog()
-	return o.context.SetSelectedItem(context.SelectedRevision{
-		ChangeId: selected.GetChangeId(),
+	return o.context.SetSelectedItem(context.SelectedCommit{
 		CommitId: selected.CommitId,
 	})
 }

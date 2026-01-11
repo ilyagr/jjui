@@ -248,6 +248,12 @@ func (m *Model) refreshPreviewForItem(item common.SelectedItem) tea.Cmd {
 				jj.CommitIdPlaceholder:     sel.CommitId,
 				jj.PreviewWidthPlaceholder: previewWidth,
 			})
+		case common.SelectedCommit:
+			args = jj.TemplatedArgs(config.Current.Preview.EvologCommand, map[string]string{
+				jj.RevsetPlaceholder:       m.context.CurrentRevset,
+				jj.CommitIdPlaceholder:     sel.CommitId,
+				jj.PreviewWidthPlaceholder: previewWidth,
+			})
 		case common.SelectedOperation:
 			args = jj.TemplatedArgs(config.Current.Preview.OplogCommand, map[string]string{
 				jj.RevsetPlaceholder:       m.context.CurrentRevset,

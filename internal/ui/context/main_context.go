@@ -16,6 +16,7 @@ import (
 // SelectedItem type aliases to break circular dependencies
 type SelectedItem = common.SelectedItem
 type SelectedRevision = common.SelectedRevision
+type SelectedCommit = common.SelectedCommit
 type SelectedFile = common.SelectedFile
 type SelectedOperation = common.SelectedOperation
 

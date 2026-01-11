@@ -152,6 +152,7 @@ const (
 
 type PreviewConfig struct {
 	RevisionCommand          []string `toml:"revision_command"`
+	EvologCommand            []string `toml:"evolog_command"`
 	OplogCommand             []string `toml:"oplog_command"`
 	FileCommand              []string `toml:"file_command"`
 	ShowAtStart              bool     `toml:"show_at_start"`

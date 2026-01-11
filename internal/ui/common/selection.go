@@ -39,3 +39,14 @@ func (s SelectedOperation) Equal(other SelectedItem) bool {
 	}
 	return false
 }
+
+type SelectedCommit struct {
+	CommitId string
+}
+
+func (s SelectedCommit) Equal(other SelectedItem) bool {
+	if o, ok := other.(SelectedCommit); ok {
+		return s.CommitId == o.CommitId
+	}
+	return false
+}
