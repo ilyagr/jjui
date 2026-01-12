@@ -11,6 +11,7 @@ import (
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/common/list"
 	"github.com/idursun/jjui/internal/ui/context"
+	"github.com/idursun/jjui/internal/ui/intents"
 )
 
 type updateOpLogMsg struct {
@@ -152,6 +153,8 @@ func (m *Model) Scroll(delta int) tea.Cmd {
 
 func (m *Model) Update(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
+	case intents.Intent:
+		return m.handleIntent(msg)
 	case updateOpLogMsg:
 		m.rows = msg.Rows
 		m.renderer.Reset()
@@ -163,31 +166,54 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			case tea.MouseButtonLeft:
 				return m.ClickAt(msg.X, msg.Y)
 			case tea.MouseButtonWheelUp:
-				return m.Scroll(-3)
+				return intents.Invoke(intents.OpLogNavigate{Delta: -3, IsPage: false})
 			case tea.MouseButtonWheelDown:
-				return m.Scroll(3)
+				return intents.Invoke(intents.OpLogNavigate{Delta: 3, IsPage: false})
 			}
 			return nil
 		}
 	case tea.KeyMsg:
-		switch {
-		case key.Matches(msg, m.keymap.Cancel):
-			return tea.Batch(common.Close, common.Refresh, common.SelectionChanged(m.context.SelectedItem))
-		case key.Matches(msg, m.keymap.Up, m.keymap.ScrollUp):
-			return m.navigate(-1, key.Matches(msg, m.keymap.ScrollUp))
-		case key.Matches(msg, m.keymap.Down, m.keymap.ScrollDown):
-			return m.navigate(1, key.Matches(msg, m.keymap.ScrollDown))
-		case key.Matches(msg, m.keymap.Diff):
-			return func() tea.Msg {
-				output, _ := m.context.RunCommandImmediate(jj.OpShow(m.rows[m.cursor].OperationId))
-				return common.ShowDiffMsg(output)
-			}
-		case key.Matches(msg, m.keymap.OpLog.Restore):
-			return tea.Batch(common.Close, m.context.RunCommand(jj.OpRestore(m.rows[m.cursor].OperationId), common.Refresh))
-		case key.Matches(msg, m.keymap.OpLog.Revert):
-			return tea.Batch(common.Close, m.context.RunCommand(jj.OpRevert(m.rows[m.cursor].OperationId), common.Refresh))
-		}
+		return m.keyToIntent(msg)
+	}
+	return nil
+}
 
+func (m *Model) handleIntent(intent intents.Intent) tea.Cmd {
+	switch intent := intent.(type) {
+	case intents.OpLogNavigate:
+		return m.navigate(intent.Delta, intent.IsPage)
+	case intents.OpLogClose:
+		return m.close()
+	case intents.OpLogShowDiff:
+		return m.showDiff(intent)
+	case intents.OpLogRestore:
+		return m.restore(intent)
+	case intents.OpLogRevert:
+		return m.revert(intent)
+	}
+	return nil
+}
+
+func (m *Model) keyToIntent(msg tea.KeyMsg) tea.Cmd {
+	switch {
+	case key.Matches(msg, m.keymap.Cancel):
+		return intents.Invoke(intents.OpLogClose{})
+	case key.Matches(msg, m.keymap.Up, m.keymap.ScrollUp):
+		return intents.Invoke(intents.OpLogNavigate{
+			Delta:  -1,
+			IsPage: key.Matches(msg, m.keymap.ScrollUp),
+		})
+	case key.Matches(msg, m.keymap.Down, m.keymap.ScrollDown):
+		return intents.Invoke(intents.OpLogNavigate{
+			Delta:  1,
+			IsPage: key.Matches(msg, m.keymap.ScrollDown),
+		})
+	case key.Matches(msg, m.keymap.Diff):
+		return intents.Invoke(intents.OpLogShowDiff{})
+	case key.Matches(msg, m.keymap.OpLog.Restore):
+		return intents.Invoke(intents.OpLogRestore{})
+	case key.Matches(msg, m.keymap.OpLog.Revert):
+		return intents.Invoke(intents.OpLogRevert{})
 	}
 	return nil
 }
@@ -212,6 +238,46 @@ func (m *Model) updateSelection() tea.Cmd {
 		return nil
 	}
 	return m.context.SetSelectedItem(context.SelectedOperation{OperationId: m.rows[m.cursor].OperationId})
+}
+
+func (m *Model) close() tea.Cmd {
+	return tea.Batch(common.Close, common.Refresh, common.SelectionChanged(m.context.SelectedItem))
+}
+
+func (m *Model) showDiff(intent intents.OpLogShowDiff) tea.Cmd {
+	opId := intent.OperationId
+	if opId == "" {
+		if len(m.rows) == 0 {
+			return nil
+		}
+		opId = m.rows[m.cursor].OperationId
+	}
+	return func() tea.Msg {
+		output, _ := m.context.RunCommandImmediate(jj.OpShow(opId))
+		return common.ShowDiffMsg(output)
+	}
+}
+
+func (m *Model) restore(intent intents.OpLogRestore) tea.Cmd {
+	opId := intent.OperationId
+	if opId == "" {
+		if len(m.rows) == 0 {
+			return nil
+		}
+		opId = m.rows[m.cursor].OperationId
+	}
+	return tea.Batch(common.Close, m.context.RunCommand(jj.OpRestore(opId), common.Refresh))
+}
+
+func (m *Model) revert(intent intents.OpLogRevert) tea.Cmd {
+	opId := intent.OperationId
+	if opId == "" {
+		if len(m.rows) == 0 {
+			return nil
+		}
+		opId = m.rows[m.cursor].OperationId
+	}
+	return tea.Batch(common.Close, m.context.RunCommand(jj.OpRevert(opId), common.Refresh))
 }
 
 func (m *Model) View() string {
