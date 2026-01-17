@@ -9,35 +9,31 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/cellbuf"
 	"github.com/idursun/jjui/internal/config"
 	"github.com/idursun/jjui/internal/jj"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/context"
+	"github.com/idursun/jjui/internal/ui/layout"
+	"github.com/idursun/jjui/internal/ui/render"
 )
 
 const (
 	scrollAmount = 3
-	handleSize   = 3
 )
 
-var _ common.Model = (*Model)(nil)
+var _ common.ImmediateModel = (*Model)(nil)
 
 type Model struct {
-	*common.ViewNode
-	*common.MouseAware
-	*common.DragAware
-	view                    viewport.Model
-	previewVisible          bool
-	previewAutoPosition     bool
-	previewAtBottom         bool
-	previewWindowPercentage float64
-	content                 string
-	contentLineCount        int
-	contentWidth            int
-	context                 *context.MainContext
-	keyMap                  config.KeyMappings[key.Binding]
+	view                viewport.Model
+	previewVisible      bool
+	previewAutoPosition bool
+	previewAtBottom     bool
+	content             string
+	contentLineCount    int
+	contentWidth        int
+	context             *context.MainContext
+	keyMap              config.KeyMappings[key.Binding]
 }
 
 const (
@@ -60,19 +56,19 @@ type updatePreviewContentMsg struct {
 	Content string
 }
 
-func (m *Model) Init() tea.Cmd {
-	return nil
+type ScrollMsg struct {
+	Delta      int
+	Horizontal bool
 }
 
-func (m *Model) SetFrame(frame cellbuf.Rectangle) {
-	m.ViewNode.SetFrame(frame)
-	if m.AtBottom() {
-		m.view.Width = frame.Dx()
-		m.view.Height = frame.Dy() - 1
-	} else {
-		m.view.Width = frame.Dx() - 1
-		m.view.Height = frame.Dy()
-	}
+func (s ScrollMsg) SetDelta(delta int, horizontal bool) tea.Msg {
+	s.Delta = delta
+	s.Horizontal = horizontal
+	return s
+}
+
+func (m *Model) Init() tea.Cmd {
+	return nil
 }
 
 func (m *Model) Visible() bool {
@@ -106,10 +102,6 @@ func (m *Model) AtBottom() bool {
 	return m.previewAtBottom
 }
 
-func (m *Model) WindowPercentage() float64 {
-	return m.previewWindowPercentage
-}
-
 func (m *Model) YOffset() int {
 	return m.view.YOffset
 }
@@ -133,60 +125,16 @@ func (m *Model) ScrollHorizontal(delta int) tea.Cmd {
 	return nil
 }
 
-func (m *Model) DragStart(x, y int) bool {
-	if !m.previewVisible {
-		return false
-	}
-
-	if m.Parent.Width == 0 || m.Parent.Height == 0 {
-		return false
-	}
-
-	if m.AtBottom() {
-		if y-m.Frame.Min.Y > handleSize {
-			return false
-		}
-	} else {
-		if x-m.Frame.Min.X > handleSize {
-			return false
-		}
-	}
-
-	m.BeginDrag(m.Frame.Min.X, y)
-	return true
-}
-
-func (m *Model) DragMove(x, y int) tea.Cmd {
-	if !m.IsDragging() {
-		return nil
-	}
-
-	var percentage float64
-	if m.AtBottom() {
-		percentage = float64((m.Parent.Height-y)*100) / float64(m.Parent.Height)
-	} else {
-		percentage = float64((m.Parent.Width-x)*100) / float64(m.Parent.Width)
-	}
-
-	m.SetWindowPercentage(percentage)
-	return nil
-}
-
 func (m *Model) Update(msg tea.Msg) tea.Cmd {
 	if k, ok := msg.(previewMsg); ok {
 		msg = k.msg
 	}
 	switch msg := msg.(type) {
-	case tea.MouseMsg:
-		switch msg.Button {
-		case tea.MouseButtonWheelUp:
-			m.Scroll(-scrollAmount)
-		case tea.MouseButtonWheelDown:
-			m.Scroll(scrollAmount)
-		case tea.MouseButtonWheelLeft:
-			m.ScrollHorizontal(-scrollAmount)
-		case tea.MouseButtonWheelRight:
-			m.ScrollHorizontal(scrollAmount)
+	case ScrollMsg:
+		if msg.Horizontal {
+			m.ScrollHorizontal(msg.Delta)
+		} else {
+			m.Scroll(msg.Delta)
 		}
 	case common.SelectionChangedMsg:
 		if msg.Item != nil {
@@ -208,10 +156,6 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			m.view.HalfPageDown()
 		case key.Matches(msg, m.keyMap.Preview.HalfPageUp):
 			m.view.HalfPageUp()
-		case key.Matches(msg, m.keyMap.Preview.Expand):
-			m.Expand()
-		case key.Matches(msg, m.keyMap.Preview.Shrink):
-			m.Shrink()
 		}
 	}
 	return nil
@@ -222,9 +166,13 @@ func (m *Model) SetContent(content string) {
 	m.view.SetContent(content)
 }
 
-func (m *Model) View() string {
-	border := lipgloss.NewStyle().Border(lipgloss.NormalBorder(), m.AtBottom(), false, false, !m.AtBottom())
-	return border.Render(m.view.View())
+func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
+	m.view.Width = box.R.Dx()
+	m.view.Height = box.R.Dy()
+	dl.AddDraw(box.R, m.view.View(), 0)
+
+	scrollRect := cellbuf.Rect(box.R.Min.X, box.R.Min.Y, box.R.Dx(), box.R.Dy())
+	dl.AddInteraction(scrollRect, ScrollMsg{}, render.InteractionScroll, 0)
 }
 
 func (m *Model) reset() {
@@ -277,23 +225,6 @@ func (m *Model) refreshPreviewForItem(item common.SelectedItem) tea.Cmd {
 	})
 }
 
-func (m *Model) SetWindowPercentage(percentage float64) {
-	m.previewWindowPercentage = percentage
-	if m.previewWindowPercentage < 10 {
-		m.previewWindowPercentage = 10
-	} else if m.previewWindowPercentage > 95 {
-		m.previewWindowPercentage = 95
-	}
-}
-
-func (m *Model) Expand() {
-	m.SetWindowPercentage(m.previewWindowPercentage + config.Current.Preview.WidthIncrementPercentage)
-}
-
-func (m *Model) Shrink() {
-	m.SetWindowPercentage(m.previewWindowPercentage - config.Current.Preview.WidthIncrementPercentage)
-}
-
 func New(context *context.MainContext) *Model {
 	previewAutoPosition := false
 	previewAtBottom := false
@@ -309,14 +240,10 @@ func New(context *context.MainContext) *Model {
 	}
 
 	return &Model{
-		ViewNode:                &common.ViewNode{Width: 0, Height: 0},
-		MouseAware:              common.NewMouseAware(),
-		DragAware:               common.NewDragAware(),
-		context:                 context,
-		keyMap:                  config.Current.GetKeyMap(),
-		previewAutoPosition:     previewAutoPosition,
-		previewAtBottom:         previewAtBottom,
-		previewVisible:          config.Current.Preview.ShowAtStart,
-		previewWindowPercentage: config.Current.Preview.WidthPercentage,
+		context:             context,
+		keyMap:              config.Current.GetKeyMap(),
+		previewAutoPosition: previewAutoPosition,
+		previewAtBottom:     previewAtBottom,
+		previewVisible:      config.Current.Preview.ShowAtStart,
 	}
 }

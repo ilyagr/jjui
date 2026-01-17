@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/x/cellbuf"
-	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/test"
 	"github.com/stretchr/testify/assert"
 )
@@ -15,7 +14,6 @@ func TestModel_Init(t *testing.T) {
 
 	ctx := test.NewTestContext(commandRunner)
 	model := New(ctx)
-	model.Parent = common.NewViewNode(10, 10)
 
 	test.SimulateModel(model, model.Init())
 }
@@ -41,8 +39,8 @@ func TestModel_View(t *testing.T) {
 			+++++..
 			`),
 			expected: test.Stripped(`
-			│++++
-			│+abc
+			+++++
+			+abcd
 			`),
 		},
 		{
@@ -57,9 +55,9 @@ func TestModel_View(t *testing.T) {
 			+++++..
 			`),
 			expected: test.Stripped(`
-			─────
 			+++++
 			+abcd
+			+++++
 			`),
 		},
 		{
@@ -73,8 +71,8 @@ func TestModel_View(t *testing.T) {
 			.......
 			`),
 			expected: test.Stripped(`
-			│abcd
-			│....
+			abcde
+			.....
 			`),
 		},
 		{
@@ -89,7 +87,6 @@ func TestModel_View(t *testing.T) {
 			.......
 			`),
 			expected: test.Stripped(`
-			─────
 			.abcd
 			.....
 			`),
@@ -106,9 +103,9 @@ func TestModel_View(t *testing.T) {
 			.......
 			`),
 			expected: test.Stripped(`
-			─────
 			.....
 			bcde.
+			.....
 			`),
 		},
 	}
@@ -117,10 +114,8 @@ func TestModel_View(t *testing.T) {
 			ctx := test.NewTestContext(test.NewTestCommandRunner(t))
 
 			model := New(ctx)
-			model.Parent = common.NewViewNode(10, 10)
 
 			model.previewAtBottom = tc.atBottom
-			model.SetFrame(cellbuf.Rect(0, 0, tc.width, tc.height))
 			model.SetContent(tc.content)
 			if tc.scrollBy.X > 0 {
 				model.ScrollHorizontal(tc.scrollBy.X)
@@ -128,7 +123,7 @@ func TestModel_View(t *testing.T) {
 			if tc.scrollBy.Y > 0 {
 				model.Scroll(tc.scrollBy.Y)
 			}
-			v := test.Stripped(model.View())
+			v := test.Stripped(test.RenderImmediate(model, tc.width, tc.height))
 
 			assert.Equal(t, tc.expected, v)
 		})

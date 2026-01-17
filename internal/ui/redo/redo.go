@@ -9,12 +9,13 @@ import (
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/confirmation"
 	"github.com/idursun/jjui/internal/ui/context"
+	"github.com/idursun/jjui/internal/ui/layout"
+	"github.com/idursun/jjui/internal/ui/render"
 )
 
-var _ common.Model = (*Model)(nil)
+var _ common.ImmediateModel = (*Model)(nil)
 
 type Model struct {
-	*common.ViewNode
 	confirmation *confirmation.Model
 }
 
@@ -34,14 +35,14 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 	return m.confirmation.Update(msg)
 }
 
-func (m *Model) View() string {
+func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
 	v := m.confirmation.View()
 	w, h := lipgloss.Size(v)
-	pw, ph := m.Parent.Width, m.Parent.Height
-	sx := (pw - w) / 2
-	sy := (ph - h) / 2
-	m.SetFrame(cellbuf.Rect(sx, sy, w, h))
-	return v
+	pw, ph := box.R.Dx(), box.R.Dy()
+	sx := box.R.Min.X + max((pw-w)/2, 0)
+	sy := box.R.Min.Y + max((ph-h)/2, 0)
+	frame := cellbuf.Rect(sx, sy, w, h)
+	m.confirmation.ViewRect(dl, layout.Box{R: frame})
 }
 
 func NewModel(context *context.MainContext) *Model {
@@ -55,7 +56,6 @@ func NewModel(context *context.MainContext) *Model {
 	)
 	model.Styles.Border = common.DefaultPalette.GetBorder("redo border", lipgloss.NormalBorder()).Padding(1)
 	return &Model{
-		ViewNode:     common.NewViewNode(0, 0),
 		confirmation: model,
 	}
 }

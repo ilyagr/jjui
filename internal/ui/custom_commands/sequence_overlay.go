@@ -11,7 +11,11 @@ import (
 	"github.com/charmbracelet/x/cellbuf"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/context"
+	"github.com/idursun/jjui/internal/ui/layout"
+	"github.com/idursun/jjui/internal/ui/render"
 )
+
+var _ common.ImmediateModel = (*SequenceOverlay)(nil)
 
 type SequenceEntry struct {
 	Name      string
@@ -37,7 +41,6 @@ type SequenceResult struct {
 
 // SequenceOverlay renders a lightweight hint panel for in-flight key sequences.
 type SequenceOverlay struct {
-	*common.ViewNode
 	ctx           *context.MainContext
 	prefix        string
 	items         []SequenceEntry
@@ -53,7 +56,6 @@ const sequenceTimeout = 4 * time.Second
 
 func NewSequenceOverlay(ctx *context.MainContext) *SequenceOverlay {
 	return &SequenceOverlay{
-		ViewNode:      common.NewViewNode(0, 0),
 		ctx:           ctx,
 		shortcutStyle: common.DefaultPalette.Get("shortcut"),
 		matchedStyle:  common.DefaultPalette.Get("matched"),
@@ -147,7 +149,7 @@ func (s *SequenceOverlay) HandleTimeout(msg SequenceTimeoutMsg) SequenceResult {
 	return s.handleTimeout(msg)
 }
 
-func (s *SequenceOverlay) View() string {
+func (s *SequenceOverlay) ViewRect(dl *render.DisplayContext, box layout.Box) {
 	var view strings.Builder
 	for i, it := range s.items {
 		view.WriteString(s.matchedStyle.Render(s.prefix))
@@ -164,7 +166,9 @@ func (s *SequenceOverlay) View() string {
 			view.WriteString("\n")
 		}
 	}
-	w := s.Parent.Frame.Dx()
+
+	area := box.R
+	w := area.Dx()
 
 	content := view.String()
 	style := lipgloss.NewStyle().
@@ -175,10 +179,10 @@ func (s *SequenceOverlay) View() string {
 	content = style.Render(content)
 
 	h := lipgloss.Height(content)
-	sy := s.Parent.Frame.Dy() - h - 1
+	sy := area.Max.Y - h - 1
 
-	s.SetFrame(cellbuf.Rect(0, sy, w, h))
-	return content
+	rect := cellbuf.Rect(area.Min.X, sy, w, h)
+	dl.AddDraw(rect, content, 200)
 }
 
 func (s *SequenceOverlay) advance(msg tea.KeyMsg) ([]SequenceCandidate, SequenceResult) {

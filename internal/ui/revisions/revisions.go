@@ -12,12 +12,13 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/idursun/jjui/internal/ui/common/list"
 	"github.com/idursun/jjui/internal/ui/intents"
+	"github.com/idursun/jjui/internal/ui/layout"
 	"github.com/idursun/jjui/internal/ui/operations/ace_jump"
 	"github.com/idursun/jjui/internal/ui/operations/duplicate"
 	"github.com/idursun/jjui/internal/ui/operations/revert"
 	"github.com/idursun/jjui/internal/ui/operations/set_parents"
+	"github.com/idursun/jjui/internal/ui/render"
 
 	"github.com/idursun/jjui/internal/parser"
 	"github.com/idursun/jjui/internal/ui/operations/describe"
@@ -41,51 +42,59 @@ import (
 )
 
 var (
-	_ list.IList           = (*Model)(nil)
-	_ list.IListCursor     = (*Model)(nil)
-	_ list.IScrollableList = (*Model)(nil)
-	_ list.IStreamableList = (*Model)(nil)
-	_ common.Focusable     = (*Model)(nil)
-	_ common.Editable      = (*Model)(nil)
-	_ common.IMouseAware   = (*Model)(nil)
+	_ common.Focusable      = (*Model)(nil)
+	_ common.Editable       = (*Model)(nil)
+	_ common.ImmediateModel = (*Model)(nil)
 )
 
 type Model struct {
-	*common.ViewNode
-	*common.MouseAware
-	rows             []parser.Row
-	tag              atomic.Uint64
-	revisionToSelect string
-	offScreenRows    []parser.Row
-	streamer         *graph.GraphStreamer
-	hasMore          bool
-	op               common.Model
-	cursor           int
-	context          *appContext.MainContext
-	keymap           config.KeyMappings[key.Binding]
-	output           string
-	err              error
-	quickSearch      string
-	previousOpLogId  string
-	isLoading        bool
-	renderer         *revisionListRenderer
-	textStyle        lipgloss.Style
-	dimmedStyle      lipgloss.Style
-	selectedStyle    lipgloss.Style
-	matchedStyle     lipgloss.Style
-	ensureCursorView bool
-	requestInFlight  bool
+	rows                   []parser.Row
+	tag                    atomic.Uint64
+	revisionToSelect       string
+	offScreenRows          []parser.Row
+	streamer               *graph.GraphStreamer
+	hasMore                bool
+	op                     common.ImmediateModel
+	cursor                 int
+	context                *appContext.MainContext
+	keymap                 config.KeyMappings[key.Binding]
+	output                 string
+	err                    error
+	quickSearch            string
+	previousOpLogId        string
+	isLoading              bool
+	displayContextRenderer *DisplayContextRenderer
+	textStyle              lipgloss.Style
+	dimmedStyle            lipgloss.Style
+	selectedStyle          lipgloss.Style
+	matchedStyle           lipgloss.Style
+	ensureCursorView       bool
+	requestInFlight        bool
 }
 
 type revisionsMsg struct {
 	msg tea.Msg
 }
 
-// Allow a message to be targetted to this component.
 func RevisionsCmd(msg tea.Msg) tea.Cmd {
 	return func() tea.Msg {
 		return revisionsMsg{msg: msg}
 	}
+}
+
+type ItemClickedMsg struct {
+	Index int
+}
+
+type ViewportScrollMsg struct {
+	Delta      int
+	Horizontal bool
+}
+
+func (v ViewportScrollMsg) SetDelta(delta int, horizontal bool) tea.Msg {
+	v.Delta = delta
+	v.Horizontal = horizontal
+	return v
 }
 
 type updateRevisionsMsg struct {
@@ -115,102 +124,28 @@ func (m *Model) SetCursor(index int) {
 	}
 }
 
-func (m *Model) VisibleRange() (int, int) {
-	return m.renderer.FirstRowIndex, m.renderer.LastRowIndex
-}
-
-func (m *Model) ListName() string {
-	return fmt.Sprintf("revset `%s`", m.context.CurrentRevset)
-}
-
 func (m *Model) HasMore() bool {
 	return m.hasMore
 }
 
-func (m *Model) ClickAt(x, y int) tea.Cmd {
-	if len(m.rows) == 0 {
-		return nil
-	}
-
-	localY := y - m.Frame.Min.Y
-
-	currentStart := m.renderer.ViewRange.Start
-	if localY >= m.Height {
-		localY = m.Height - 1
-		if localY < 0 {
-			return nil
-		}
-	}
-	line := currentStart + localY
-	row := m.rowAtLine(line)
-	if row == -1 {
-		return nil
-	}
-
-	m.SetCursor(row)
-	return m.updateSelection()
-}
-
-func (m *Model) rowAtLine(line int) int {
-	for _, rr := range m.renderer.RowRanges() {
-		if line >= rr.StartLine && line < rr.EndLine {
-			return rr.Row
-		}
-	}
-	return -1
-}
-
 func (m *Model) Scroll(delta int) tea.Cmd {
 	m.ensureCursorView = false
-	desiredStart := m.renderer.ViewRange.Start + delta
-	if desiredStart < 0 {
-		desiredStart = 0
-	}
+	currentStart := m.displayContextRenderer.GetScrollOffset()
+	desiredStart := currentStart + delta
+	m.displayContextRenderer.SetScrollOffset(desiredStart)
 
-	totalLines := m.renderer.AbsoluteLineCount()
-	maxStart := totalLines - m.Height
-	if maxStart < 0 {
-		maxStart = 0
-	}
-	newStart := desiredStart
-	if newStart > maxStart {
-		newStart = maxStart
-	}
-	m.renderer.ViewRange.Start = newStart
-
-	if m.hasMore && (desiredStart > maxStart || newStart+m.Height >= totalLines-1) {
-		return m.requestMoreRows(m.tag.Load())
+	// Request more rows if scrolling down and near the end
+	if m.hasMore && delta > 0 {
+		lastRowIndex := m.displayContextRenderer.GetLastRowIndex()
+		if lastRowIndex >= len(m.rows)-1 {
+			return m.requestMoreRows(m.tag.Load())
+		}
 	}
 	return nil
 }
 
 func (m *Model) Len() int {
 	return len(m.rows)
-}
-
-func (m *Model) GetItemRenderer(index int) list.IItemRenderer {
-	row := m.rows[index]
-	inLane := m.renderer.tracer.IsInSameLane(index)
-	isHighlighted := index == m.cursor
-
-	return &itemRenderer{
-		row:           row,
-		isHighlighted: isHighlighted,
-		SearchText:    m.quickSearch,
-		textStyle:     m.textStyle,
-		dimmedStyle:   m.dimmedStyle,
-		selectedStyle: m.selectedStyle,
-		matchedStyle:  m.matchedStyle,
-		isChecked:     m.renderer.selections[row.Commit.GetChangeId()],
-		isGutterInLane: func(lineIndex, segmentIndex int) bool {
-			return m.renderer.tracer.IsGutterInLane(index, lineIndex, segmentIndex)
-		},
-		updateGutterText: func(lineIndex, segmentIndex int, text string) string {
-			return m.renderer.tracer.UpdateGutterText(index, lineIndex, segmentIndex, text)
-		},
-		inLane: inLane,
-		op:     m.op.(operations.Operation),
-	}
 }
 
 func (m *Model) IsEditing() bool {
@@ -298,22 +233,17 @@ func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case intents.Intent:
 		return m.handleIntent(msg)
-	case tea.MouseMsg:
-		switch msg.Action {
-		case tea.MouseActionPress:
-			switch msg.Button {
-			case tea.MouseButtonLeft:
-				if !m.InNormalMode() {
-					return nil
-				}
-				return m.ClickAt(msg.X, msg.Y)
-			case tea.MouseButtonWheelUp:
-				return m.Scroll(-3)
-			case tea.MouseButtonWheelDown:
-				return m.Scroll(3)
-			}
+	case ItemClickedMsg:
+		if !m.InNormalMode() {
 			return nil
 		}
+		m.SetCursor(msg.Index)
+		return m.updateSelection()
+	case ViewportScrollMsg:
+		if msg.Horizontal {
+			return nil
+		}
+		return m.Scroll(msg.Delta)
 
 	case common.CloseViewMsg:
 		m.op = operations.NewDefault()
@@ -329,7 +259,6 @@ func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 		m.quickSearch = strings.ToLower(string(msg))
 		m.SetCursor(m.search(0))
 		m.op = operations.NewDefault()
-		m.renderer.Reset()
 		return nil
 	case common.CommandCompletedMsg:
 		m.output = msg.Output
@@ -384,7 +313,8 @@ func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 
 		if m.hasMore {
 			// keep requesting rows until we reach the initial load count or the current cursor position
-			if len(m.offScreenRows) < m.cursor+1 || len(m.offScreenRows) < m.renderer.ViewRange.LastRowIndex+1 {
+			lastRowIndex := m.displayContextRenderer.GetLastRowIndex()
+			if len(m.offScreenRows) < m.cursor+1 || len(m.offScreenRows) < lastRowIndex+1 {
 				return m.requestMoreRows(msg.tag)
 			}
 		} else if m.streamer != nil {
@@ -449,9 +379,9 @@ func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 		case key.Matches(msg, m.keymap.AceJump):
 			parentOp := m.op
 			// Create ace jump with parent operation
-			op := ace_jump.NewOperation(m, func(index int) parser.Row {
+			op := ace_jump.NewOperation(m.SetCursor, func(index int) parser.Row {
 				return m.rows[index]
-			}, m.renderer.FirstRowIndex, m.renderer.LastRowIndex, parentOp)
+			}, m.displayContextRenderer.GetFirstRowIndex(), m.displayContextRenderer.GetLastRowIndex(), parentOp)
 			m.op = op
 			return op.Init()
 		default:
@@ -462,7 +392,6 @@ func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 			switch {
 			case m.quickSearch != "" && (msg.Type == tea.KeyEsc || msg.Type == tea.KeyEnter):
 				m.quickSearch = ""
-				m.renderer.Reset()
 				return nil
 			case key.Matches(msg, m.keymap.ToggleSelect):
 				commit := m.rows[m.cursor].Commit
@@ -473,11 +402,9 @@ func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 			case key.Matches(msg, m.keymap.Cancel):
 				m.context.ClearCheckedItems(reflect.TypeFor[appContext.SelectedRevision]())
 				m.op = operations.NewDefault()
-				m.renderer.Reset()
 				return nil
 			case key.Matches(msg, m.keymap.QuickSearchCycle):
 				m.SetCursor(m.search(m.cursor + 1))
-				m.renderer.Reset()
 				return nil
 			case key.Matches(msg, m.keymap.Details.Mode):
 				return m.handleIntent(intents.OpenDetails{})
@@ -589,7 +516,6 @@ func (m *Model) openDetails(_ intents.OpenDetails) tea.Cmd {
 		return nil
 	}
 	model := details.NewOperation(m.context, m.SelectedRevision())
-	model.Parent = m.ViewNode
 	m.op = model
 	return m.op.Init()
 }
@@ -787,26 +713,39 @@ func (m *Model) navigate(intent intents.Navigate) tea.Cmd {
 		delta = 1
 	}
 
-	// Temporarily override the CanStream based on allowStream parameter
-	origHasMore := m.hasMore
-	if !allowStream {
-		m.hasMore = false
+	// Calculate step (convert page scroll to item count)
+	step := delta
+	if intent.IsPage {
+		firstRowIndex := m.displayContextRenderer.GetFirstRowIndex()
+		lastRowIndex := m.displayContextRenderer.GetLastRowIndex()
+		span := max(lastRowIndex-firstRowIndex-1, 1)
+		if step < 0 {
+			step = -span
+		} else {
+			step = span
+		}
 	}
 
-	result := list.Scroll(m, delta, intent.IsPage)
+	// Calculate new cursor position
+	totalItems := len(m.rows)
+	newCursor := m.cursor + step
 
-	// Restore original hasMore
-	m.hasMore = origHasMore
-
-	if result.NavigateMessage != nil && intent.IsPage {
-		return func() tea.Msg { return *result.NavigateMessage }
+	if step > 0 {
+		// Moving down
+		if newCursor >= totalItems {
+			if allowStream && m.hasMore {
+				return m.requestMoreRows(m.tag.Load())
+			}
+			newCursor = totalItems - 1
+		}
+	} else {
+		// Moving up
+		if newCursor < 0 {
+			newCursor = 0
+		}
 	}
 
-	if result.RequestMore && allowStream {
-		return m.requestMoreRows(m.tag.Load())
-	}
-
-	m.SetCursor(result.NewCursor)
+	m.SetCursor(newCursor)
 	m.ensureCursorView = ensureView
 	return m.updateSelection()
 }
@@ -831,7 +770,6 @@ func (m *Model) startEvolog(intent intents.StartEvolog) tea.Cmd {
 		return nil
 	}
 	model := evolog.NewOperation(m.context, commit)
-	model.Parent = m.ViewNode
 	m.op = model
 	return m.op.Init()
 }
@@ -845,7 +783,6 @@ func (m *Model) startInlineDescribe(intent intents.StartInlineDescribe) tea.Cmd 
 		return nil
 	}
 	model := describe.NewOperation(m.context, commit)
-	model.Parent = m.ViewNode
 	m.op = model
 	return m.op.Init()
 }
@@ -942,26 +879,41 @@ func (m *Model) updateGraphRows(rows []parser.Row, selectedRevision string) {
 	}
 }
 
-func (m *Model) View() string {
+func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
+	area := box.R
+
 	if len(m.rows) == 0 {
+		content := ""
 		if m.isLoading {
-			return lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, "loading")
+			content = lipgloss.Place(area.Dx(), area.Dy(), lipgloss.Center, lipgloss.Center, "loading")
+		} else {
+			content = lipgloss.Place(area.Dx(), area.Dy(), lipgloss.Center, lipgloss.Center, "(no matching revisions)")
 		}
-		return lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, "(no matching revisions)")
+		dl.AddDraw(area, content, 0)
+		return
 	}
 
-	if config.Current.UI.Tracer.Enabled {
-		start, end := m.renderer.FirstRowIndex, m.renderer.LastRowIndex+1 // +1 because the last row is inclusive in the view range
-		log.Println("Visible row range:", start, end, "Cursor:", m.cursor, "Total rows:", len(m.rows))
-		m.renderer.tracer = parser.NewTracer(m.rows, m.cursor, start, end)
-	} else {
-		m.renderer.tracer = parser.NewNoopTracer()
+	// Set selections
+	m.displayContextRenderer.SetSelections(m.context.GetSelectedRevisions())
+
+	// Get operation if any
+	var op operations.Operation
+	if opModel, ok := m.op.(operations.Operation); ok {
+		op = opModel
 	}
 
-	m.renderer.selections = m.context.GetSelectedRevisions()
+	// Render to DisplayContext
+	m.displayContextRenderer.Render(
+		dl,
+		m.rows,
+		m.cursor,
+		layout.Box{R: area},
+		op,
+		m.ensureCursorView,
+	)
 
-	output := m.renderer.RenderWithOptions(list.RenderOptions{FocusIndex: m.cursor, EnsureFocusVisible: m.ensureCursorView})
-	return output
+	// Reset the flag after ensuring cursor is visible
+	m.ensureCursorView = false
 }
 
 func (m *Model) load(revset string, selectedRevision string) tea.Cmd {
@@ -1071,8 +1023,6 @@ func (m *Model) GetCommitIds() []string {
 func New(c *appContext.MainContext) *Model {
 	keymap := config.Current.GetKeyMap()
 	m := Model{
-		ViewNode:      common.NewViewNode(0, 0),
-		MouseAware:    common.NewMouseAware(),
 		context:       c,
 		keymap:        keymap,
 		rows:          nil,
@@ -1084,7 +1034,7 @@ func New(c *appContext.MainContext) *Model {
 		selectedStyle: common.DefaultPalette.Get("revisions selected"),
 		matchedStyle:  common.DefaultPalette.Get("revisions matched"),
 	}
-	m.renderer = newRevisionListRenderer(&m, m.ViewNode)
+	m.displayContextRenderer = NewDisplayContextRenderer(m.textStyle, m.dimmedStyle, m.selectedStyle, m.matchedStyle)
 	return &m
 }
 

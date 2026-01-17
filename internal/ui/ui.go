@@ -11,12 +11,12 @@ import (
 	"github.com/idursun/jjui/internal/ui/intents"
 	"github.com/idursun/jjui/internal/ui/layout"
 	"github.com/idursun/jjui/internal/ui/password"
+	"github.com/idursun/jjui/internal/ui/render"
 
 	"github.com/idursun/jjui/internal/ui/flash"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/idursun/jjui/internal/config"
 	"github.com/idursun/jjui/internal/jj"
 	"github.com/idursun/jjui/internal/ui/bookmarks"
@@ -39,15 +39,7 @@ import (
 	"github.com/idursun/jjui/internal/ui/undo"
 )
 
-var _ common.Model = (*Model)(nil)
-
-type SizableModel interface {
-	common.Model
-	common.IViewNode
-}
-
 type Model struct {
-	*common.ViewNode
 	revisions       *revisions.Model
 	oplog           *oplog.Model
 	revsetModel     *revset.Model
@@ -61,9 +53,14 @@ type Model struct {
 	context         *context.MainContext
 	scriptRunner    *scripting.Runner
 	keyMap          config.KeyMappings[key.Binding]
-	stacked         SizableModel
-	dragTarget      common.Draggable
+	stacked         common.ImmediateModel
 	sequenceOverlay *customcommands.SequenceOverlay
+	displayContext  *render.DisplayContext
+	width           int
+	height          int
+	revisionsSplit  *split
+	activeSplit     *split
+	splitActive     bool
 }
 
 type triggerAutoRefreshMsg struct{}
@@ -151,7 +148,6 @@ func (m *Model) ensureSequenceOverlay(msg tea.KeyMsg) bool {
 		return false
 	}
 	m.sequenceOverlay = customcommands.NewSequenceOverlay(m.context)
-	m.sequenceOverlay.Parent = m.ViewNode
 	return true
 }
 
@@ -179,31 +175,27 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 	case tea.FocusMsg:
 		return tea.Batch(common.RefreshAndKeepSelections, tea.EnableMouseCellMotion)
 	case tea.MouseMsg:
-		if m.stacked != nil {
-			// for now, stacked windows don't respond to mouse events
-			return nil
-		}
-		if m.dragTarget != nil && m.dragTarget.IsDragging() {
+		if m.splitActive {
 			switch msg.Action {
 			case tea.MouseActionRelease:
-				cmd := m.dragTarget.DragEnd(msg.X, msg.Y)
-				m.dragTarget = nil
-				return cmd
+				m.splitActive = false
 			case tea.MouseActionMotion:
-				return m.dragTarget.DragMove(msg.X, msg.Y)
+				if m.activeSplit != nil {
+					m.activeSplit.DragTo(msg.X, msg.Y)
+				}
+				return nil
 			}
-		} else if m.dragTarget != nil && !m.dragTarget.IsDragging() {
-			m.dragTarget = nil
 		}
 
-		if model := m.findViewAt(msg.X, msg.Y); model != nil {
-			if draggable, ok := model.(common.Draggable); ok && msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft {
-				if draggable.DragStart(msg.X, msg.Y) {
-					m.dragTarget = draggable
-					return nil
+		// Process interactions from DisplayContext first
+		if m.displayContext != nil {
+			if interactionMsg, handled := m.displayContext.ProcessMouseEvent(msg); handled {
+				if interactionMsg != nil {
+					// Send the interaction message back through Update
+					return func() tea.Msg { return interactionMsg }
 				}
+				return nil
 			}
-			return model.Update(msg)
 		}
 		return nil
 	case tea.KeyMsg:
@@ -232,31 +224,26 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			return tea.Quit
 		case key.Matches(msg, m.keyMap.OpLog.Mode) && m.revisions.InNormalMode():
 			m.oplog = oplog.New(m.context)
-			m.oplog.Parent = m.ViewNode
 			return m.oplog.Init()
 		case key.Matches(msg, m.keyMap.Revset) && m.revisions.InNormalMode():
 			return m.revsetModel.Update(intents.Edit{Clear: m.state != common.Error})
 		case key.Matches(msg, m.keyMap.Git.Mode) && m.revisions.InNormalMode():
 			model := git.NewModel(m.context, m.revisions.SelectedRevisions())
-			model.Parent = m.ViewNode
 			m.stacked = model
 			return m.stacked.Init()
 		case key.Matches(msg, m.keyMap.Undo) && m.revisions.InNormalMode():
 			model := undo.NewModel(m.context)
-			model.Parent = m.ViewNode
 			m.stacked = model
 			cmds = append(cmds, m.stacked.Init())
 			return tea.Batch(cmds...)
 		case key.Matches(msg, m.keyMap.Redo) && m.revisions.InNormalMode():
 			model := redo.NewModel(m.context)
-			model.Parent = m.ViewNode
 			m.stacked = model
 			cmds = append(cmds, m.stacked.Init())
 			return tea.Batch(cmds...)
 		case key.Matches(msg, m.keyMap.Bookmark.Mode) && m.revisions.InNormalMode():
 			changeIds := m.revisions.GetCommitIds()
 			model := bookmarks.NewModel(m.context, m.revisions.SelectedRevision(), changeIds)
-			model.Parent = m.ViewNode
 			m.stacked = model
 			cmds = append(cmds, m.stacked.Init())
 			return tea.Batch(cmds...)
@@ -274,19 +261,25 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			m.previewModel.ToggleVisible()
 			cmds = append(cmds, common.SelectionChanged(m.context.SelectedItem))
 			return tea.Batch(cmds...)
+		case key.Matches(msg, m.keyMap.Preview.Expand) && m.previewModel.Visible():
+			if m.revisionsSplit != nil && m.revisionsSplit.State != nil {
+				m.revisionsSplit.State.Expand(config.Current.Preview.WidthIncrementPercentage)
+			}
+			return tea.Batch(cmds...)
+		case key.Matches(msg, m.keyMap.Preview.Shrink) && m.previewModel.Visible():
+			if m.revisionsSplit != nil && m.revisionsSplit.State != nil {
+				m.revisionsSplit.State.Shrink(config.Current.Preview.WidthIncrementPercentage)
+			}
+			return tea.Batch(cmds...)
 		case m.previewModel.Visible() && key.Matches(msg,
-			m.keyMap.Preview.Expand,
-			m.keyMap.Preview.Shrink,
-			m.keyMap.Preview.HalfPageDown,
 			m.keyMap.Preview.HalfPageUp,
-			m.keyMap.Preview.ScrollDown,
-			m.keyMap.Preview.ScrollUp):
-			cmd := m.previewModel.Update(msg)
-			cmds = append(cmds, cmd)
+			m.keyMap.Preview.HalfPageDown,
+			m.keyMap.Preview.ScrollUp,
+			m.keyMap.Preview.ScrollDown):
+			cmds = append(cmds, m.previewModel.Update(msg))
 			return tea.Batch(cmds...)
 		case key.Matches(msg, m.keyMap.CustomCommands):
 			model := customcommands.NewModel(m.context)
-			model.Parent = m.ViewNode
 			m.stacked = model
 			cmds = append(cmds, m.stacked.Init())
 			return tea.Batch(cmds...)
@@ -326,7 +319,6 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 	case common.ToggleHelpMsg:
 		if m.stacked == nil {
 			h := helppage.New(m.context)
-			h.Parent = m.ViewNode
 			m.stacked = h
 		} else {
 			m.stacked = nil
@@ -371,14 +363,12 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		return cmd
 	case common.ShowChooseMsg:
 		model := choose.NewWithTitle(msg.Options, msg.Title)
-		model.Parent = m.ViewNode
 		m.stacked = model
 		return m.stacked.Init()
 	case choose.SelectedMsg, choose.CancelledMsg:
 		m.stacked = nil
 	case common.ShowInputMsg:
 		model := input.NewWithTitle(msg.Title, msg.Prompt)
-		model.Parent = m.ViewNode
 		m.stacked = model
 		return m.stacked.Init()
 	case input.SelectedMsg, input.CancelledMsg:
@@ -398,13 +388,18 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			// overwrite current prompt. This can happen for ssh-sk keys:
 			//   - first prompt reads "Confirm user presence for ..."
 			//   - if the user denies the request on the device, a new prompt automatically happen "Enter PIN for ...
-			m.password = password.New(msg, m.ViewNode)
+			m.password = password.New(msg)
+		}
+	case SplitDragMsg:
+		m.activeSplit = msg.Split
+		m.splitActive = true
+		if m.activeSplit != nil {
+			m.activeSplit.DragTo(msg.X, msg.Y)
 		}
 
 	case tea.WindowSizeMsg:
-		m.SetFrame(cellbuf.Rect(0, 0, msg.Width, msg.Height))
-		m.flash.SetWidth(m.Width)
-		m.flash.SetHeight(m.Height)
+		m.width = msg.Width
+		m.height = msg.Height
 	}
 
 	// Unhandled key messages go to the main view (oplog or revisions)
@@ -421,6 +416,9 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 	cmds = append(cmds, m.revsetModel.Update(msg))
 	cmds = append(cmds, m.status.Update(msg))
 	cmds = append(cmds, m.flash.Update(msg))
+	if m.diff != nil {
+		cmds = append(cmds, m.diff.Update(msg))
+	}
 
 	if m.stacked != nil {
 		cmds = append(cmds, m.stacked.Update(msg))
@@ -471,91 +469,115 @@ func (m *Model) updateStatus() {
 
 func (m *Model) UpdatePreviewPosition() {
 	if m.previewModel.AutoPosition() {
-		atBottom := m.Height >= m.Width/2
+		atBottom := m.height >= m.width/2
 		m.previewModel.SetPosition(true, atBottom)
 	}
 }
 
 func (m *Model) View() string {
-	if m.Width == 0 || m.Height == 0 {
+	if m.width == 0 || m.height == 0 {
 		return ""
 	}
+
+	m.displayContext = render.NewDisplayContext()
+
 	m.updateStatus()
-	m.status.SetWidth(m.Width)
-	footer := m.status.View()
-	footerHeight := lipgloss.Height(footer)
+
+	box := layout.NewBox(cellbuf.Rect(0, 0, m.width, m.height))
+	screenBuf := cellbuf.NewBuffer(m.width, m.height)
 
 	if m.diff != nil {
-		m.diff.SetFrame(cellbuf.Rect(0, footerHeight, m.Width, m.Height-footerHeight))
-		return lipgloss.JoinVertical(0, m.diff.View(), footer)
+		m.renderDiffLayout(box)
+		m.displayContext.Render(screenBuf)
+		content := cellbuf.Render(screenBuf)
+		return strings.ReplaceAll(content, "\r", "")
 	}
-
-	screenBuf := cellbuf.NewBuffer(m.Width, m.Height)
-	centerArea := cellbuf.Rect(0, 0, m.Width, m.Height)
-	var topArea, previewArea, bottomArea cellbuf.Rectangle
-
-	topView := m.revsetModel.View()
-	topViewHeight := lipgloss.Height(topView)
-	topArea, centerArea = layout.SplitVertical(centerArea, layout.Fixed(topViewHeight))
-	cellbuf.SetContentRect(screenBuf, topView, topArea)
-
-	centerArea, bottomArea = layout.SplitVertical(centerArea, layout.Fixed(centerArea.Dy()-footerHeight))
-	cellbuf.SetContentRect(screenBuf, footer, bottomArea)
 
 	if m.previewModel.Visible() {
 		m.UpdatePreviewPosition()
-		if m.previewModel.AtBottom() {
-			centerArea, previewArea = layout.SplitVertical(centerArea, layout.Percent(100-m.previewModel.WindowPercentage()))
-		} else {
-			centerArea, previewArea = layout.SplitHorizontal(centerArea, layout.Percent(100-m.previewModel.WindowPercentage()))
-		}
-		m.previewModel.SetFrame(previewArea)
 	}
-
-	var leftView string
+	m.syncPreviewSplitOrientation()
 	if m.oplog != nil {
-		m.oplog.SetFrame(centerArea)
-		leftView = m.oplog.View()
+		m.renderOpLogLayout(box)
 	} else {
-		m.revisions.SetFrame(centerArea)
-		leftView = m.revisions.View()
-	}
-
-	cellbuf.SetContentRect(screenBuf, leftView, centerArea)
-	if m.previewModel.Visible() {
-		cellbuf.SetContentRect(screenBuf, m.previewModel.View(), previewArea)
+		m.renderRevisionsLayout(box)
 	}
 
 	if m.stacked != nil {
-		stackedView := m.stacked.View()
-		cellbuf.SetContentRect(screenBuf, stackedView, m.stacked.GetViewNode().Frame)
+		m.stacked.ViewRect(m.displayContext, box)
 	}
 
 	if m.sequenceOverlay != nil {
-		m.sequenceOverlay.Parent = m.ViewNode
-		view := m.sequenceOverlay.View()
-		cellbuf.SetContentRect(screenBuf, view, m.sequenceOverlay.Frame)
+		m.sequenceOverlay.ViewRect(m.displayContext, box)
 	}
 
-	flashMessageView := m.flash.View()
-	if flashMessageView != nil {
-		for _, v := range flashMessageView {
-			cellbuf.SetContentRect(screenBuf, v.Content, v.Rect)
-		}
-	}
-	statusFuzzyView := m.status.FuzzyView()
-	if statusFuzzyView != "" {
-		_, mh := lipgloss.Size(statusFuzzyView)
-		cellbuf.SetContentRect(screenBuf, statusFuzzyView, cellbuf.Rect(0, m.Height-mh-1, m.Width, mh))
-	}
+	m.flash.ViewRect(m.displayContext, box)
 
 	if m.password != nil {
-		view := m.password.View()
-		cellbuf.SetContentRect(screenBuf, view, m.password.Frame)
+		m.password.ViewRect(m.displayContext, box)
 	}
 
+	m.displayContext.Render(screenBuf)
 	finalView := cellbuf.Render(screenBuf)
 	return strings.ReplaceAll(finalView, "\r", "")
+}
+
+func (m *Model) renderDiffLayout(box layout.Box) {
+	m.renderWithStatus(box, func(content layout.Box) {
+		m.diff.ViewRect(m.displayContext, content)
+	})
+}
+
+func (m *Model) renderOpLogLayout(box layout.Box) {
+	m.renderWithStatus(box, func(content layout.Box) {
+		m.renderSplit(m.oplog, content)
+	})
+}
+
+func (m *Model) renderRevisionsLayout(box layout.Box) {
+	rows := box.V(layout.Fixed(1), layout.Fill(1), layout.Fixed(1))
+	if len(rows) < 3 {
+		return
+	}
+	m.revsetModel.ViewRect(m.displayContext, rows[0])
+	m.renderSplit(m.revisions, rows[1])
+	m.status.ViewRect(m.displayContext, rows[2])
+}
+
+func (m *Model) renderWithStatus(box layout.Box, renderContent func(layout.Box)) {
+	rows := box.V(layout.Fill(1), layout.Fixed(1))
+	if len(rows) < 2 {
+		return
+	}
+	renderContent(rows[0])
+	m.status.ViewRect(m.displayContext, rows[1])
+}
+
+func (m *Model) renderSplit(primary common.ImmediateModel, box layout.Box) {
+	if m.revisionsSplit == nil {
+		return
+	}
+	m.revisionsSplit.Primary = primary
+	m.revisionsSplit.Secondary = m.previewModel
+	m.revisionsSplit.Render(m.displayContext, box)
+}
+
+func (m *Model) syncPreviewSplitOrientation() {
+	if m.revisionsSplit == nil {
+		return
+	}
+	vertical := m.previewModel.AtBottom()
+	m.revisionsSplit.Vertical = vertical
+}
+
+func (m *Model) initSplit() {
+	splitState := newSplitState(config.Current.Preview.WidthPercentage)
+
+	m.revisionsSplit = newSplit(
+		splitState,
+		m.revisions,
+		m.previewModel,
+	)
 }
 
 func (m *Model) scheduleAutoRefresh() tea.Cmd {
@@ -575,28 +597,10 @@ func (m *Model) isSafeToQuit() bool {
 	if m.oplog != nil {
 		return false
 	}
-	if m.revisions.CurrentOperation().Name() == "normal" {
+	if m.revisions.InNormalMode() {
 		return true
 	}
 	return false
-}
-
-func (m *Model) findViewAt(x, y int) common.IMouseAware {
-	// well, these are all the views that can receive mouse input for now
-	pt := cellbuf.Pos(x, y)
-	if m.diff != nil && pt.In(m.diff.Frame) {
-		return m.diff
-	}
-	if m.oplog != nil && pt.In(m.oplog.Frame) {
-		return m.oplog
-	}
-	if m.oplog == nil && pt.In(m.revisions.Frame) {
-		return m.revisions
-	}
-	if m.previewModel.Visible() && pt.In(m.previewModel.Frame) {
-		return m.previewModel
-	}
-	return nil
 }
 
 var _ tea.Model = (*wrapper)(nil)
@@ -641,25 +645,13 @@ func (w *wrapper) View() string {
 }
 
 func NewUI(c *context.MainContext) *Model {
-	frame := common.NewViewNode(0, 0)
-
 	revisionsModel := revisions.New(c)
-	revisionsModel.Parent = frame
-
 	statusModel := status.New(c)
-	statusModel.Parent = frame
-
 	flashView := flash.New(c)
-	flashView.Parent = frame
-
 	previewModel := preview.New(c)
-	previewModel.Parent = frame
-
 	revsetModel := revset.New(c)
-	revsetModel.Parent = frame
 
-	return &Model{
-		ViewNode:     frame,
+	ui := &Model{
 		context:      c,
 		keyMap:       config.Current.GetKeyMap(),
 		state:        common.Loading,
@@ -669,6 +661,8 @@ func NewUI(c *context.MainContext) *Model {
 		revsetModel:  revsetModel,
 		flash:        flashView,
 	}
+	ui.initSplit()
+	return ui
 }
 
 func New(c *context.MainContext) tea.Model {

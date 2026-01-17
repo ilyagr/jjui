@@ -9,6 +9,8 @@ import (
 	"github.com/charmbracelet/x/cellbuf"
 	"github.com/idursun/jjui/internal/config"
 	"github.com/idursun/jjui/internal/ui/common"
+	"github.com/idursun/jjui/internal/ui/layout"
+	"github.com/idursun/jjui/internal/ui/render"
 )
 
 type SelectedMsg struct {
@@ -18,13 +20,11 @@ type SelectedMsg struct {
 type CancelledMsg struct{}
 
 var (
-	_ common.Model     = (*Model)(nil)
-	_ common.IViewNode = (*Model)(nil)
-	_ help.KeyMap      = (*Model)(nil)
+	_ common.ImmediateModel = (*Model)(nil)
+	_ help.KeyMap           = (*Model)(nil)
 )
 
 type Model struct {
-	*common.ViewNode
 	input  textinput.Model
 	title  string
 	prompt string
@@ -52,11 +52,10 @@ func NewWithTitle(title string, prompt string) *Model {
 	}
 
 	return &Model{
-		ViewNode: common.NewViewNode(0, 0),
-		input:    ti,
-		title:    title,
-		prompt:   prompt,
-		keymap:   keymap,
+		input:  ti,
+		title:  title,
+		prompt: prompt,
+		keymap: keymap,
 		styles: styles{
 			border: common.DefaultPalette.GetBorder("input border", lipgloss.RoundedBorder()),
 			text:   common.DefaultPalette.Get("input text"),
@@ -93,7 +92,7 @@ func (m *Model) selectCurrent() tea.Cmd {
 	return newCmd(SelectedMsg{Value: value})
 }
 
-func (m *Model) View() string {
+func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
 	var rows []string
 	if m.title != "" {
 		rows = append(rows, m.styles.title.Render(m.title))
@@ -105,14 +104,12 @@ func (m *Model) View() string {
 	content = m.styles.border.Padding(0, 1).Render(content)
 	w, h := lipgloss.Size(content)
 
-	if m.Parent != nil {
-		pw, ph := m.Parent.Width, m.Parent.Height
-		sx := max((pw-w)/2, 0)
-		sy := max((ph-h)/2, 0)
-		m.SetFrame(cellbuf.Rect(sx, sy, w, h))
-	}
-
-	return content
+	pw, ph := box.R.Dx(), box.R.Dy()
+	sx := box.R.Min.X + max((pw-w)/2, 0)
+	sy := box.R.Min.Y + max((ph-h)/2, 0)
+	frame := cellbuf.Rect(sx, sy, w, h)
+	window := dl.Window(frame, 10)
+	window.AddDraw(frame, content, 0)
 }
 
 func (m *Model) ShortHelp() []key.Binding {

@@ -6,18 +6,16 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/idursun/jjui/internal/config"
 	"github.com/idursun/jjui/internal/ui/common"
-	"github.com/idursun/jjui/internal/ui/common/list"
 	"github.com/idursun/jjui/internal/ui/context"
 	"github.com/idursun/jjui/internal/ui/intents"
+	"github.com/idursun/jjui/internal/ui/render"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCancelKeyRefreshesPreview(t *testing.T) {
 	m := &Model{
-		ViewNode:   common.NewViewNode(0, 0),
-		MouseAware: common.NewMouseAware(),
-		context:    &context.MainContext{},
+		context: &context.MainContext{},
 		rows: []row{
 			{
 				OperationId: "op1",
@@ -75,9 +73,7 @@ func TestCancelKeyRefreshesPreview(t *testing.T) {
 
 func TestOpLogCloseIntent(t *testing.T) {
 	m := &Model{
-		ViewNode:   common.NewViewNode(0, 0),
-		MouseAware: common.NewMouseAware(),
-		context:    &context.MainContext{},
+		context: &context.MainContext{},
 		rows: []row{
 			{
 				OperationId: "op1",
@@ -123,11 +119,8 @@ func TestOpLogCloseIntent(t *testing.T) {
 }
 
 func TestOpLogNavigateIntent(t *testing.T) {
-	node := common.NewViewNode(0, 0)
 	m := &Model{
-		ViewNode:   node,
-		MouseAware: common.NewMouseAware(),
-		context:    &context.MainContext{},
+		context: &context.MainContext{},
 		rows: []row{
 			{OperationId: "op1"},
 			{OperationId: "op2"},
@@ -136,7 +129,7 @@ func TestOpLogNavigateIntent(t *testing.T) {
 		cursor: 0,
 		keymap: config.Current.GetKeyMap(),
 	}
-	m.renderer = list.NewRenderer(m, node)
+	m.listRenderer = render.NewListRenderer(OpLogScrollMsg{})
 
 	cmd := m.Update(intents.OpLogNavigate{Delta: 1, IsPage: false})
 	if cmd != nil {

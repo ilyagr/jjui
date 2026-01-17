@@ -6,7 +6,10 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/x/cellbuf"
 	"github.com/idursun/jjui/internal/config"
+	"github.com/idursun/jjui/internal/ui/layout"
+	"github.com/idursun/jjui/internal/ui/render"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -31,10 +34,9 @@ const (
 	commandFailed
 )
 
-var _ common.Model = (*Model)(nil)
+var _ common.ImmediateModel = (*Model)(nil)
 
 type Model struct {
-	*common.ViewNode
 	context    *context.MainContext
 	spinner    spinner.Model
 	input      textinput.Model
@@ -68,13 +70,6 @@ func emptyEditStatus() (help.KeyMap, string) {
 
 func (m *Model) IsFocused() bool {
 	return m.editStatus != nil
-}
-
-func (m *Model) FuzzyView() string {
-	if m.fuzzy == nil {
-		return ""
-	}
-	return m.fuzzy.View()
 }
 
 const CommandClearDuration = 3 * time.Second
@@ -133,7 +128,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		case key.Matches(msg, km.Cancel) && m.IsFocused():
 			var cmd tea.Cmd
 			if m.fuzzy != nil {
-				_, cmd = m.fuzzy.Update(msg)
+				cmd = m.fuzzy.Update(msg)
 			}
 
 			m.fuzzy = nil
@@ -163,7 +158,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 
 			switch {
 			case strings.HasSuffix(editMode, "file"):
-				_, cmd := fuzzy.Update(msg)
+				cmd := fuzzy.Update(msg)
 				return cmd
 			case strings.HasPrefix(editMode, "exec"):
 				return func() tea.Msg { return exec_process.ExecMsgFromLine(prompt, input) }
@@ -203,7 +198,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			m.spinner, cmd = m.spinner.Update(msg)
 		}
 		if m.fuzzy != nil {
-			m.fuzzy, cmd = fuzzy_search.Update(m.fuzzy, msg)
+			cmd = m.fuzzy.Update(msg)
 		}
 		return cmd
 	}
@@ -225,7 +220,8 @@ func (m *Model) loadEditingSuggestions() {
 	m.input.SetSuggestions([]string(history))
 }
 
-func (m *Model) View() string {
+func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
+	width := box.R.Dx()
 	commandStatusMark := m.styles.text.Render(" ")
 	if m.status == commandRunning {
 		commandStatusMark = m.styles.text.Render(m.spinner.View())
@@ -235,7 +231,7 @@ func (m *Model) View() string {
 		commandStatusMark = m.styles.success.Render("✓ ")
 	} else {
 		commandStatusMark = m.helpView(m.keyMap)
-		commandStatusMark = lipgloss.PlaceHorizontal(m.Width, 0, commandStatusMark, lipgloss.WithWhitespaceBackground(m.styles.text.GetBackground()))
+		commandStatusMark = lipgloss.PlaceHorizontal(width, 0, commandStatusMark, lipgloss.WithWhitespaceBackground(m.styles.text.GetBackground()))
 	}
 	modeWith := max(10, len(m.mode)+2)
 	ret := m.styles.text.Render(strings.ReplaceAll(m.command, "\n", "⏎"))
@@ -246,13 +242,19 @@ func (m *Model) View() string {
 			editHelp = lipgloss.JoinHorizontal(0, m.helpView(editKeys), editHelp)
 		}
 		promptWidth := len(m.input.Prompt) + 2
-		m.input.Width = m.Width - modeWith - promptWidth - lipgloss.Width(editHelp)
+		m.input.Width = width - modeWith - promptWidth - lipgloss.Width(editHelp)
 		ret = lipgloss.JoinHorizontal(0, m.input.View(), editHelp)
 	}
 	mode := m.styles.title.Width(modeWith).Render("", m.mode)
 	ret = lipgloss.JoinHorizontal(lipgloss.Left, mode, m.styles.text.Render(" "), commandStatusMark, ret)
-	height := lipgloss.Height(ret)
-	return lipgloss.Place(m.Width, height, 0, 0, ret, lipgloss.WithWhitespaceBackground(m.styles.text.GetBackground()))
+	dl.AddDraw(box.R, ret, 0)
+
+	if m.fuzzy == nil {
+		return
+	}
+
+	overlayRect := cellbuf.Rect(box.R.Min.X, 0, box.R.Dx(), box.R.Min.Y-1)
+	m.fuzzy.ViewRect(dl, layout.Box{R: overlayRect})
 }
 
 func (m *Model) SetHelp(keyMap help.KeyMap) {
@@ -298,13 +300,12 @@ func New(context *context.MainContext) *Model {
 	t.PlaceholderStyle = styles.dimmed
 
 	return &Model{
-		ViewNode: common.NewViewNode(0, 0),
-		context:  context,
-		spinner:  s,
-		command:  "",
-		status:   none,
-		input:    t,
-		keyMap:   nil,
-		styles:   styles,
+		context: context,
+		spinner: s,
+		command: "",
+		status:  none,
+		input:   t,
+		keyMap:  nil,
+		styles:  styles,
 	}
 }

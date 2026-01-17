@@ -12,13 +12,16 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/cellbuf"
 	"github.com/idursun/jjui/internal/config"
 	"github.com/idursun/jjui/internal/jj"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/confirmation"
 	"github.com/idursun/jjui/internal/ui/context"
 	"github.com/idursun/jjui/internal/ui/intents"
+	"github.com/idursun/jjui/internal/ui/layout"
 	"github.com/idursun/jjui/internal/ui/operations"
+	"github.com/idursun/jjui/internal/ui/render"
 )
 
 type updateCommitStatusMsg struct {
@@ -108,6 +111,24 @@ func (s *Operation) Update(msg tea.Msg) tea.Cmd {
 
 func (s *Operation) internalUpdate(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
+	case confirmation.SelectOptionMsg:
+		if s.confirmation != nil {
+			return s.confirmation.Update(msg)
+		}
+		return nil
+	case FileClickedMsg:
+		s.setCursor(msg.Index)
+		return s.context.SetSelectedItem(context.SelectedFile{
+			ChangeId: s.revision.GetChangeId(),
+			CommitId: s.revision.CommitId,
+			File:     s.current().fileName,
+		})
+	case FileListScrollMsg:
+		if msg.Horizontal {
+			return nil
+		}
+		s.Scroll(msg.Delta)
+		return nil
 	case tea.KeyMsg:
 		if s.confirmation != nil {
 			return s.confirmation.Update(msg)
@@ -220,22 +241,17 @@ func (s *Operation) internalUpdate(msg tea.Msg) tea.Cmd {
 	return nil
 }
 
-func (s *Operation) View() string {
-	confirmationView := ""
-	ch := 0
-	if s.confirmation != nil {
-		confirmationView = s.confirmation.View()
-		ch = lipgloss.Height(confirmationView)
-	}
-	if s.Len() == 0 {
-		return s.styles.Dimmed.Render("No changes\n")
-	}
-	s.SetHeight(min(s.Parent.Height-5-ch, s.Len()))
-	filesView := s.renderer.Render(s.cursor)
-	if confirmationView != "" {
-		return lipgloss.JoinVertical(lipgloss.Top, filesView, confirmationView)
-	}
-	return filesView + "\n"
+func (s *Operation) ViewRect(dl *render.DisplayContext, box layout.Box) {
+	content := s.viewContent(box.R.Dx(), box.R.Dy())
+	content = lipgloss.Place(
+		box.R.Dx(),
+		box.R.Dy(),
+		lipgloss.Left,
+		lipgloss.Top,
+		content,
+		lipgloss.WithWhitespaceBackground(s.styles.Text.GetBackground()),
+	)
+	dl.AddDraw(box.R, content, 0)
 }
 
 func (s *Operation) SetSelectedRevision(commit *jj.Commit) tea.Cmd {
@@ -265,11 +281,67 @@ func (s *Operation) FullHelp() [][]key.Binding {
 }
 
 func (s *Operation) Render(commit *jj.Commit, pos operations.RenderPosition) string {
+	// RenderToDisplayContext handles the actual rendering
+	// This method is only called as a fallback when DesiredHeight returns 0,
+	// which only happens when !isSelected || pos != After - the same conditions
+	// that would make this return "" anyway.
+	return ""
+}
+
+// DesiredHeight returns the desired height for the operation
+func (s *Operation) DesiredHeight(commit *jj.Commit, pos operations.RenderPosition) int {
 	isSelected := s.Current != nil && s.Current.GetChangeId() == commit.GetChangeId()
 	if !isSelected || pos != operations.RenderPositionAfter {
-		return ""
+		return 0
 	}
-	return s.View()
+	if s.Len() == 0 {
+		return 1 // "No changes" message
+	}
+	confirmationHeight := 0
+	if s.confirmation != nil {
+		confirmationHeight = lipgloss.Height(s.confirmation.View())
+	}
+	return s.Len() + confirmationHeight
+}
+
+// RenderToDisplayContext renders the file list directly to the DisplayContext
+func (s *Operation) RenderToDisplayContext(dl *render.DisplayContext, commit *jj.Commit, pos operations.RenderPosition, rect cellbuf.Rectangle, screenOffset cellbuf.Position) int {
+	isSelected := s.Current != nil && s.Current.GetChangeId() == commit.GetChangeId()
+	if !isSelected || pos != operations.RenderPositionAfter {
+		return 0
+	}
+
+	if s.Len() == 0 {
+		// Render "No changes" message
+		content := s.styles.Dimmed.Render("No changes")
+		dl.AddDraw(cellbuf.Rect(rect.Min.X, rect.Min.Y, rect.Dx(), 1), content, 0)
+		return 1
+	}
+
+	confirmationHeight := 0
+	if s.confirmation != nil {
+		confirmationHeight = lipgloss.Height(s.confirmation.View())
+	}
+
+	availableListHeight := rect.Dy() - confirmationHeight
+	if availableListHeight < 0 {
+		availableListHeight = 0
+	}
+
+	// Calculate available height
+	height := min(availableListHeight, s.Len())
+
+	// Render the file list to DisplayContext
+	// viewRect is already absolute, so don't reapply the parent screen offset.
+	viewRect := layout.Box{R: cellbuf.Rect(rect.Min.X, rect.Min.Y, rect.Dx(), height)}
+	s.RenderFileList(dl, viewRect, cellbuf.Pos(0, 0))
+
+	if s.confirmation != nil && confirmationHeight > 0 && height < rect.Dy() {
+		confirmRect := cellbuf.Rect(rect.Min.X, rect.Min.Y+height, rect.Dx(), confirmationHeight)
+		s.confirmation.ViewRect(dl, layout.Box{R: confirmRect})
+	}
+
+	return height + confirmationHeight
 }
 
 func (s *Operation) Name() string {
@@ -382,7 +454,7 @@ func NewOperation(context *context.MainContext, selected *jj.Commit) *Operation 
 		Conflict: common.DefaultPalette.Get("revisions details conflict"),
 	}
 
-	l := NewDetailsList(s, common.NewViewNode(0, 0))
+	l := NewDetailsList(s)
 	op := &Operation{
 		DetailsList:       l,
 		context:           context,
@@ -392,6 +464,34 @@ func NewOperation(context *context.MainContext, selected *jj.Commit) *Operation 
 		keymap:            config.Current.GetKeyMap(),
 		targetMarkerStyle: common.DefaultPalette.Get("revisions details target_marker"),
 	}
-	l.Parent = op.ViewNode
 	return op
+}
+
+func (s *Operation) viewContent(width, maxHeight int) string {
+	confirmationView := ""
+	ch := 0
+	if s.confirmation != nil {
+		confirmationView = s.confirmation.View()
+		ch = lipgloss.Height(confirmationView)
+	}
+	if s.Len() == 0 {
+		return s.styles.Dimmed.Render("No changes")
+	}
+	if width <= 0 {
+		width = 80 // sensible default
+	}
+	height := min(maxHeight-5-ch, s.Len())
+	if height < 0 {
+		height = 0
+	}
+	dl := render.NewDisplayContext()
+	viewRect := layout.Box{R: cellbuf.Rect(0, 0, width, height)}
+	if height > 0 {
+		s.RenderFileList(dl, viewRect, cellbuf.Pos(0, 0))
+	}
+	filesView := strings.TrimRight(dl.RenderToString(width, height), "\n")
+	if confirmationView != "" {
+		return lipgloss.JoinVertical(lipgloss.Top, filesView, confirmationView)
+	}
+	return filesView
 }

@@ -8,13 +8,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/idursun/jjui/internal/config"
 	"github.com/idursun/jjui/internal/ui/common"
+	"github.com/idursun/jjui/internal/ui/layout"
+	"github.com/idursun/jjui/internal/ui/render"
 )
 
-var _ common.Model = (*Model)(nil)
+var _ common.ImmediateModel = (*Model)(nil)
 
 type Model struct {
-	*common.ViewNode
-	*common.MouseAware
 	view   viewport.Model
 	keymap config.KeyMappings[key.Binding]
 }
@@ -47,6 +47,17 @@ func (m *Model) Scroll(delta int) tea.Cmd {
 	return nil
 }
 
+type ScrollMsg struct {
+	Delta      int
+	Horizontal bool
+}
+
+func (s ScrollMsg) SetDelta(delta int, horizontal bool) tea.Msg {
+	s.Delta = delta
+	s.Horizontal = horizontal
+	return s
+}
+
 func (m *Model) Update(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -54,16 +65,23 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		case key.Matches(msg, m.keymap.Cancel):
 			return common.Close
 		}
+	case ScrollMsg:
+		if msg.Horizontal {
+			return nil
+		}
+		return m.Scroll(msg.Delta)
 	}
 	var cmd tea.Cmd
 	m.view, cmd = m.view.Update(msg)
 	return cmd
 }
 
-func (m *Model) View() string {
-	m.view.Height = m.Height
-	m.view.Width = m.Width
-	return m.view.View()
+func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
+	area := box.R
+	m.view.Height = area.Dy()
+	m.view.Width = area.Dx()
+	dl.AddDraw(area, m.view.View(), 0)
+	dl.AddInteraction(area, ScrollMsg{}, render.InteractionScroll, 0)
 }
 
 func New(output string) *Model {
@@ -74,9 +92,7 @@ func New(output string) *Model {
 	}
 	view.SetContent(content)
 	return &Model{
-		ViewNode:   common.NewViewNode(0, 0),
-		MouseAware: common.NewMouseAware(),
-		view:       view,
-		keymap:     config.Current.GetKeyMap(),
+		view:   view,
+		keymap: config.Current.GetKeyMap(),
 	}
 }

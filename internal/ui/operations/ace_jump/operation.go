@@ -7,13 +7,15 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/cellbuf"
 	"github.com/idursun/jjui/internal/config"
 	"github.com/idursun/jjui/internal/jj"
 	"github.com/idursun/jjui/internal/parser"
 	"github.com/idursun/jjui/internal/screen"
 	"github.com/idursun/jjui/internal/ui/common"
-	"github.com/idursun/jjui/internal/ui/common/list"
+	"github.com/idursun/jjui/internal/ui/layout"
 	"github.com/idursun/jjui/internal/ui/operations"
+	"github.com/idursun/jjui/internal/ui/render"
 )
 
 var (
@@ -25,7 +27,7 @@ var (
 )
 
 type Operation struct {
-	cursor      list.IListCursor
+	setCursor   func(int)
 	aceJump     *AceJump
 	keymap      config.KeyMappings[key.Binding]
 	getItemFn   func(index int) parser.Row
@@ -45,9 +47,9 @@ func (o *Operation) Name() string {
 	return "ace jump"
 }
 
-func NewOperation(listCursor list.IListCursor, getItemFn func(index int) parser.Row, first, last int, parentOp any) *Operation {
+func NewOperation(setCursor func(int), getItemFn func(index int) parser.Row, first, last int, parentOp any) *Operation {
 	return &Operation{
-		cursor:    listCursor,
+		setCursor: setCursor,
 		keymap:    config.Current.GetKeyMap(),
 		aceJump:   NewAceJump(),
 		first:     first,
@@ -104,7 +106,7 @@ func (o *Operation) Init() tea.Cmd {
 
 func (o *Operation) HandleKey(msg tea.KeyMsg) tea.Cmd {
 	if found := o.aceJump.Narrow(msg); found != nil {
-		o.cursor.SetCursor(found.RowIdx)
+		o.setCursor(found.RowIdx)
 		o.aceJump = nil
 		if o.parentOp != nil {
 			return common.RestoreOperation(o.parentOp)
@@ -125,7 +127,7 @@ func (o *Operation) Update(msg tea.Msg) tea.Cmd {
 			}
 			return common.Close
 		case key.Matches(msg, o.keymap.Apply):
-			o.cursor.SetCursor(o.aceJump.First().RowIdx)
+			o.setCursor(o.aceJump.First().RowIdx)
 			o.aceJump = nil
 			if o.parentOp != nil {
 				return common.RestoreOperation(o.parentOp)
@@ -138,12 +140,18 @@ func (o *Operation) Update(msg tea.Msg) tea.Cmd {
 	return nil
 }
 
-func (o *Operation) View() string {
-	return ""
-}
+func (o *Operation) ViewRect(_ *render.DisplayContext, _ layout.Box) {}
 
 func (o *Operation) Render(*jj.Commit, operations.RenderPosition) string {
 	return ""
+}
+
+func (o *Operation) RenderToDisplayContext(_ *render.DisplayContext, _ *jj.Commit, _ operations.RenderPosition, _ cellbuf.Rectangle, _ cellbuf.Position) int {
+	return 0
+}
+
+func (o *Operation) DesiredHeight(_ *jj.Commit, _ operations.RenderPosition) int {
+	return 0
 }
 
 func (o *Operation) findAceKeys() *AceJump {

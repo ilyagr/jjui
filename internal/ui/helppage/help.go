@@ -12,6 +12,8 @@ import (
 	"github.com/idursun/jjui/internal/config"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/context"
+	"github.com/idursun/jjui/internal/ui/layout"
+	"github.com/idursun/jjui/internal/ui/render"
 )
 
 type helpItem struct {
@@ -30,10 +32,9 @@ type helpMenu struct {
 	rightList     menuColumn
 }
 
-var _ common.Model = (*Model)(nil)
+var _ common.ImmediateModel = (*Model)(nil)
 
 type Model struct {
-	*common.ViewNode
 	keyMap       config.KeyMappings[key.Binding]
 	context      *context.MainContext
 	styles       styles
@@ -78,17 +79,17 @@ func (h *Model) Update(msg tea.Msg) tea.Cmd {
 	return cmd
 }
 
-func (h *Model) View() string {
+func (h *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
 	// NOTE: add new lines between search bar and help menu
 	content := "\n\n" + h.renderMenu()
 
 	v := h.styles.border.Render(h.searchQuery.View(), content)
 	w, height := lipgloss.Size(v)
-	pw, ph := h.Parent.Width, h.Parent.Height
-	sx := (pw - w) / 2
-	sy := (ph - height) / 2
-	h.SetFrame(cellbuf.Rect(sx, sy, w, height))
-	return v
+	pw, ph := box.R.Dx(), box.R.Dy()
+	sx := box.R.Min.X + max((pw-w)/2, 0)
+	sy := box.R.Min.Y + max((ph-height)/2, 0)
+	frame := cellbuf.Rect(sx, sy, w, height)
+	dl.AddDraw(frame, v, 3)
 }
 
 func (h *Model) filterMenu() {
@@ -156,7 +157,6 @@ func New(context *context.MainContext) *Model {
 	filter.Focus()
 
 	m := &Model{
-		ViewNode:    common.NewViewNode(0, 0),
 		context:     context,
 		keyMap:      config.Current.GetKeyMap(),
 		styles:      styles,

@@ -8,11 +8,14 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/cellbuf"
 	"github.com/idursun/jjui/internal/config"
 	"github.com/idursun/jjui/internal/jj"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/context"
+	"github.com/idursun/jjui/internal/ui/layout"
 	"github.com/idursun/jjui/internal/ui/operations"
+	"github.com/idursun/jjui/internal/ui/render"
 )
 
 var _ operations.Operation = (*Model)(nil)
@@ -44,9 +47,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 	return nil
 }
 
-func (m *Model) View() string {
-	return ""
-}
+func (m *Model) ViewRect(_ *render.DisplayContext, _ layout.Box) {}
 
 func (m *Model) ShortHelp() []key.Binding {
 	return []key.Binding{
@@ -134,6 +135,14 @@ func (m *Model) Render(commit *jj.Commit, renderPosition operations.RenderPositi
 		return m.styles.targetMarker.Render("<< to >>")
 	}
 	return ""
+}
+
+func (m *Model) RenderToDisplayContext(_ *render.DisplayContext, _ *jj.Commit, _ operations.RenderPosition, _ cellbuf.Rectangle, _ cellbuf.Position) int {
+	return 0
+}
+
+func (m *Model) DesiredHeight(_ *jj.Commit, _ operations.RenderPosition) int {
+	return 0
 }
 
 func (m *Model) Name() string {

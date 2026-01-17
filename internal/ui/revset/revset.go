@@ -6,17 +6,20 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/cellbuf"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/common/autocompletion"
 	appContext "github.com/idursun/jjui/internal/ui/context"
 	"github.com/idursun/jjui/internal/ui/intents"
+	"github.com/idursun/jjui/internal/ui/layout"
+	"github.com/idursun/jjui/internal/ui/render"
 )
 
 type EditRevSetMsg struct {
 	Clear bool
 }
 
-var _ common.Model = (*Model)(nil)
+var _ common.ImmediateModel = (*Model)(nil)
 
 type revsetMsg struct {
 	msg tea.Msg
@@ -30,7 +33,6 @@ func RevsetCmd(msg tea.Msg) tea.Cmd {
 }
 
 type Model struct {
-	*common.ViewNode
 	Editing         bool
 	autoComplete    *autocompletion.AutoCompletionInput
 	keymap          keymap
@@ -82,7 +84,6 @@ func New(context *appContext.MainContext) *Model {
 	autoComplete.Focus()
 
 	return &Model{
-		ViewNode:        &common.ViewNode{Width: 0, Height: 0},
 		context:         context,
 		Editing:         false,
 		keymap:          keymap{},
@@ -231,7 +232,7 @@ func (m *Model) handleIntent(intent intents.Intent) tea.Cmd {
 	return nil
 }
 
-func (m *Model) View() string {
+func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
 	var w strings.Builder
 	w.WriteString(m.styles.promptStyle.PaddingRight(1).Render("revset:"))
 	if m.Editing {
@@ -239,5 +240,21 @@ func (m *Model) View() string {
 	} else {
 		w.WriteString(m.styles.textStyle.Render(m.context.CurrentRevset))
 	}
-	return lipgloss.Place(m.Width, m.Height, 0, 0, w.String(), lipgloss.WithWhitespaceBackground(m.styles.textStyle.GetBackground()))
+	content := w.String()
+	parts := strings.SplitN(content, "\n", 2)
+	line := parts[0]
+	dl.AddDraw(box.R, line, 1)
+
+	if !m.Editing || len(parts) < 2 {
+		return
+	}
+
+	overlay := parts[1]
+	overlayHeight := 1 + strings.Count(overlay, "\n")
+	if overlayHeight <= 0 {
+		return
+	}
+
+	overlayRect := cellbuf.Rect(box.R.Min.X, box.R.Max.Y, box.R.Dx(), overlayHeight)
+	dl.AddDraw(overlayRect, overlay, 2)
 }

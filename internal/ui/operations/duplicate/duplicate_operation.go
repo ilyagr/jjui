@@ -6,11 +6,14 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/cellbuf"
 	"github.com/idursun/jjui/internal/config"
 	"github.com/idursun/jjui/internal/jj"
 	"github.com/idursun/jjui/internal/ui/common"
 	appContext "github.com/idursun/jjui/internal/ui/context"
+	"github.com/idursun/jjui/internal/ui/layout"
 	"github.com/idursun/jjui/internal/ui/operations"
+	"github.com/idursun/jjui/internal/ui/render"
 )
 
 type Target int
@@ -65,9 +68,7 @@ func (r *Operation) Update(msg tea.Msg) tea.Cmd {
 	return nil
 }
 
-func (r *Operation) View() string {
-	return ""
-}
+func (r *Operation) ViewRect(_ *render.DisplayContext, _ layout.Box) {}
 
 func (r *Operation) HandleKey(msg tea.KeyMsg) tea.Cmd {
 	switch {
@@ -148,6 +149,14 @@ func (r *Operation) Render(commit *jj.Commit, pos operations.RenderPosition) str
 		r.styles.dimmed.Render("", ret, ""),
 		r.styles.changeId.Render(r.To.GetChangeId()),
 	)
+}
+
+func (r *Operation) RenderToDisplayContext(_ *render.DisplayContext, _ *jj.Commit, _ operations.RenderPosition, _ cellbuf.Rectangle, _ cellbuf.Position) int {
+	return 0
+}
+
+func (r *Operation) DesiredHeight(_ *jj.Commit, _ operations.RenderPosition) int {
+	return 0
 }
 
 func (r *Operation) Name() string {
