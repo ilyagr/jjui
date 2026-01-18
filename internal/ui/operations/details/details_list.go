@@ -84,7 +84,7 @@ func (d *DetailsList) current() *item {
 }
 
 // RenderFileList renders the file list to a DisplayContext
-func (d *DetailsList) RenderFileList(dl *render.DisplayContext, viewRect layout.Box, screenOffset cellbuf.Position) {
+func (d *DetailsList) RenderFileList(dl *render.DisplayContext, viewRect layout.Box) {
 	if len(d.files) == 0 {
 		return
 	}
@@ -124,8 +124,8 @@ func (d *DetailsList) RenderFileList(dl *render.DisplayContext, viewRect layout.
 		return FileClickedMsg{Index: index}
 	}
 
-	// Use the generic list renderer with screen offset for interactions
-	d.listRenderer.RenderWithOffset(
+	// Use the generic list renderer
+	d.listRenderer.Render(
 		dl,
 		viewRect,
 		len(d.files),
@@ -134,8 +134,8 @@ func (d *DetailsList) RenderFileList(dl *render.DisplayContext, viewRect layout.
 		measure,
 		renderItem,
 		clickMsg,
-		screenOffset,
 	)
+	d.listRenderer.RegisterScroll(dl, viewRect)
 }
 
 // renderItemContent renders a single item to a string

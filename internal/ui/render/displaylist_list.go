@@ -31,7 +31,7 @@ func NewListRenderer(scrollMsg tea.Msg) *ListRenderer {
 }
 
 // Render renders visible items to the DisplayContext.
-// Uses viewRect.Min as the screen offset for interactions.
+// Note: Scroll interaction registration is the caller's responsibility.
 func (r *ListRenderer) Render(
 	dl *DisplayContext,
 	viewRect layout.Box,
@@ -41,22 +41,6 @@ func (r *ListRenderer) Render(
 	measure MeasureItemFunc,
 	render RenderItemFunc,
 	clickMsg ClickMessageFunc,
-) {
-	r.RenderWithOffset(dl, viewRect, itemCount, cursor, ensureCursorVisible, measure, render, clickMsg, cellbuf.Pos(viewRect.R.Min.X, viewRect.R.Min.Y))
-}
-
-// RenderWithOffset renders visible items with a custom screen offset.
-// Use when the list is embedded and screen offset differs from viewRect position.
-func (r *ListRenderer) RenderWithOffset(
-	dl *DisplayContext,
-	viewRect layout.Box,
-	itemCount int,
-	cursor int,
-	ensureCursorVisible bool,
-	measure MeasureItemFunc,
-	render RenderItemFunc,
-	clickMsg ClickMessageFunc,
-	screenOffset cellbuf.Position,
 ) {
 	if itemCount <= 0 {
 		return
@@ -77,9 +61,6 @@ func (r *ListRenderer) RenderWithOffset(
 	if r.StartLine > maxStart {
 		r.StartLine = maxStart
 	}
-
-	screenOffsetX := screenOffset.X
-	screenOffsetY := screenOffset.Y
 
 	viewport := Viewport{
 		StartLine: r.StartLine,
@@ -134,20 +115,6 @@ func (r *ListRenderer) RenderWithOffset(
 		)
 	}
 
-	if r.ScrollMsg != nil {
-		scrollRect := cellbuf.Rect(
-			screenOffsetX,
-			screenOffsetY,
-			viewRect.R.Dx(),
-			viewRect.R.Dy(),
-		)
-		dl.AddInteraction(
-			scrollRect,
-			r.ScrollMsg,
-			InteractionScroll,
-			0,
-		)
-	}
 }
 
 func (r *ListRenderer) ensureCursorVisible(
@@ -199,4 +166,18 @@ func (r *ListRenderer) GetFirstRowIndex() int {
 
 func (r *ListRenderer) GetLastRowIndex() int {
 	return r.LastRowIndex
+}
+
+// RegisterScroll registers a scroll interaction for the given view rect.
+// Call this after Render if you want to enable mouse wheel scrolling.
+func (r *ListRenderer) RegisterScroll(dl *DisplayContext, viewRect layout.Box) {
+	if r.ScrollMsg == nil {
+		return
+	}
+	dl.AddInteraction(
+		viewRect.R,
+		r.ScrollMsg,
+		InteractionScroll,
+		0,
+	)
 }

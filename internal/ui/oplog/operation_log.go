@@ -271,9 +271,10 @@ func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
 		return OpLogClickedMsg{Index: index}
 	}
 
+	viewRect := layout.Box{R: box.R}
 	m.listRenderer.Render(
 		dl,
-		layout.Box{R: box.R},
+		viewRect,
 		len(m.rows),
 		m.cursor,
 		m.ensureCursorView,
@@ -281,6 +282,7 @@ func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
 		renderItem,
 		clickMsg,
 	)
+	m.listRenderer.RegisterScroll(dl, viewRect)
 
 	m.ensureCursorView = false
 }

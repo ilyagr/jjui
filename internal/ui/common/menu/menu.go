@@ -368,6 +368,7 @@ func (m *Menu) ViewRect(dl *render.DisplayContext, box layout.Box) {
 		},
 		func(index int) tea.Msg { return MenuClickMsg{Index: index} },
 	)
+	m.listRenderer.RegisterScroll(dl, listRect)
 	m.ensureCursorVisible = false
 }
 

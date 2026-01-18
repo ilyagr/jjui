@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/cellbuf"
 	"github.com/idursun/jjui/internal/parser"
+	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/layout"
 	"github.com/idursun/jjui/internal/ui/operations"
 	"github.com/idursun/jjui/internal/ui/render"
@@ -90,6 +91,11 @@ func (r *DisplayContextRenderer) Render(
 		renderItem,
 		clickMsg,
 	)
+
+	// Register scroll only when no overlay operation is active
+	if overlay, ok := operation.(common.Overlay); !ok || !overlay.IsOverlay() {
+		r.listRenderer.RegisterScroll(dl, viewRect)
+	}
 }
 
 // addHighlights adds highlight effects for lines with Highlightable flag

@@ -334,7 +334,7 @@ func (s *Operation) RenderToDisplayContext(dl *render.DisplayContext, commit *jj
 	// Render the file list to DisplayContext
 	// viewRect is already absolute, so don't reapply the parent screen offset.
 	viewRect := layout.Box{R: cellbuf.Rect(rect.Min.X, rect.Min.Y, rect.Dx(), height)}
-	s.RenderFileList(dl, viewRect, cellbuf.Pos(0, 0))
+	s.RenderFileList(dl, viewRect)
 
 	if s.confirmation != nil && confirmationHeight > 0 && height < rect.Dy() {
 		confirmRect := cellbuf.Rect(rect.Min.X, rect.Min.Y+height, rect.Dx(), confirmationHeight)
@@ -487,7 +487,7 @@ func (s *Operation) viewContent(width, maxHeight int) string {
 	dl := render.NewDisplayContext()
 	viewRect := layout.Box{R: cellbuf.Rect(0, 0, width, height)}
 	if height > 0 {
-		s.RenderFileList(dl, viewRect, cellbuf.Pos(0, 0))
+		s.RenderFileList(dl, viewRect)
 	}
 	filesView := strings.TrimRight(dl.RenderToString(width, height), "\n")
 	if confirmationView != "" {
