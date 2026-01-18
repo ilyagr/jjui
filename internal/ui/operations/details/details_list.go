@@ -22,12 +22,13 @@ func (f FileListScrollMsg) SetDelta(delta int, horizontal bool) tea.Msg {
 }
 
 type DetailsList struct {
-	files          []*item
-	cursor         int
-	listRenderer   *render.ListRenderer
-	selectedHint   string
-	unselectedHint string
-	styles         styles
+	files            []*item
+	cursor           int
+	listRenderer     *render.ListRenderer
+	selectedHint     string
+	unselectedHint   string
+	styles           styles
+	ensureCursorView bool
 }
 
 func NewDetailsList(styles styles) *DetailsList {
@@ -51,23 +52,27 @@ func (d *DetailsList) setItems(files []*item) {
 		d.cursor = 0
 	}
 	d.listRenderer.SetScrollOffset(0)
+	d.ensureCursorView = true
 }
 
 func (d *DetailsList) cursorUp() {
 	if d.cursor > 0 {
 		d.cursor--
+		d.ensureCursorView = true
 	}
 }
 
 func (d *DetailsList) cursorDown() {
 	if d.cursor < len(d.files)-1 {
 		d.cursor++
+		d.ensureCursorView = true
 	}
 }
 
 func (d *DetailsList) setCursor(index int) {
 	if index >= 0 && index < len(d.files) {
 		d.cursor = index
+		d.ensureCursorView = true
 	}
 }
 
@@ -125,7 +130,7 @@ func (d *DetailsList) RenderFileList(dl *render.DisplayContext, viewRect layout.
 		viewRect,
 		len(d.files),
 		d.cursor,
-		true, // ensureCursorVisible
+		d.ensureCursorView,
 		measure,
 		renderItem,
 		clickMsg,
@@ -182,6 +187,7 @@ func (d *DetailsList) getStatusStyle(s status) lipgloss.Style {
 
 // Scroll handles mouse wheel scrolling
 func (d *DetailsList) Scroll(delta int) {
+	d.ensureCursorView = false
 	d.listRenderer.SetScrollOffset(d.listRenderer.GetScrollOffset() + delta)
 }
 

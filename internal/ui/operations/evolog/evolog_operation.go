@@ -48,15 +48,16 @@ var _ common.Focusable = (*Operation)(nil)
 var _ common.Overlay = (*Operation)(nil)
 
 type Operation struct {
-	context    *context.MainContext
-	dlRenderer *render.ListRenderer
-	revision   *jj.Commit
-	mode       mode
-	rows       []parser.Row
-	cursor     int
-	keyMap     config.KeyMappings[key.Binding]
-	target     *jj.Commit
-	styles     styles
+	context          *context.MainContext
+	dlRenderer       *render.ListRenderer
+	revision         *jj.Commit
+	mode             mode
+	rows             []parser.Row
+	cursor           int
+	keyMap           config.KeyMappings[key.Binding]
+	target           *jj.Commit
+	styles           styles
+	ensureCursorView bool
 }
 
 func (o *Operation) IsOverlay() bool {
@@ -73,7 +74,7 @@ func (o *Operation) Init() tea.Cmd {
 
 func (o *Operation) ViewRect(dl *render.DisplayContext, box layout.Box) {
 	screenOffset := cellbuf.Pos(box.R.Min.X, box.R.Min.Y)
-	o.renderListToDisplayContext(dl, box.R, screenOffset, true)
+	o.renderListToDisplayContext(dl, box.R, screenOffset, o.ensureCursorView)
 }
 
 func (o *Operation) Len() int {
@@ -89,11 +90,13 @@ func (o *Operation) HandleKey(msg tea.KeyMsg) tea.Cmd {
 		case key.Matches(msg, o.keyMap.Up):
 			if o.cursor > 0 {
 				o.cursor--
+				o.ensureCursorView = true
 				return o.updateSelection()
 			}
 		case key.Matches(msg, o.keyMap.Down):
 			if o.cursor < len(o.rows)-1 {
 				o.cursor++
+				o.ensureCursorView = true
 				return o.updateSelection()
 			}
 		case key.Matches(msg, o.keyMap.Evolog.Diff):
@@ -149,16 +152,19 @@ func (o *Operation) Update(msg tea.Msg) tea.Cmd {
 	case updateEvologMsg:
 		o.rows = msg.rows
 		o.cursor = 0
+		o.ensureCursorView = true
 		return o.updateSelection()
 	case EvologClickedMsg:
 		if msg.Index >= 0 && msg.Index < len(o.rows) {
 			o.cursor = msg.Index
+			o.ensureCursorView = true
 			return o.updateSelection()
 		}
 	case EvologScrollMsg:
 		if msg.Horizontal {
 			return nil
 		}
+		o.ensureCursorView = false
 		o.scroll(msg.Delta)
 		return nil
 	case tea.KeyMsg:
@@ -239,7 +245,7 @@ func (o *Operation) RenderToDisplayContext(dl *render.DisplayContext, commit *jj
 		return 0
 	}
 
-	return o.renderListToDisplayContext(dl, rect, screenOffset, true)
+	return o.renderListToDisplayContext(dl, rect, screenOffset, o.ensureCursorView)
 }
 
 func (o *Operation) load() tea.Msg {
