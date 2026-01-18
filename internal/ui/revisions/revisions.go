@@ -234,7 +234,12 @@ func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 	case intents.Intent:
 		return m.handleIntent(msg)
 	case ItemClickedMsg:
-		if !m.InNormalMode() {
+		// Don't allow changing selection if the operation is editing (e.g. describe)
+		if editable, ok := m.op.(common.Editable); ok && editable.IsEditing() {
+			return nil
+		}
+		// Don't allow changing selection if the operation is an overlay (e.g. details)
+		if overlay, ok := m.op.(common.Overlay); ok && overlay.IsOverlay() {
 			return nil
 		}
 		m.SetCursor(msg.Index)
