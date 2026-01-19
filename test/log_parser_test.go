@@ -29,9 +29,10 @@ func TestParser_Parse_WorkingCopyCommit(t *testing.T) {
 func TestParser_Parse_DivergentLog(t *testing.T) {
 	file, _ := os.Open("testdata/divergent.log")
 	rows := parser.ParseRows(file)
-	assert.Len(t, rows, 2)
-	assert.Contains(t, rows[0].Commit.ChangeId, "/0")
-	assert.Contains(t, rows[1].Commit.ChangeId, "/1")
+	assert.Len(t, rows, 3)
+	assert.True(t, strings.HasSuffix(rows[0].Commit.ChangeId, "/0"))
+	assert.True(t, strings.HasSuffix(rows[1].Commit.ChangeId, "/1"))
+	assert.Equal(t, "zo/2", rows[2].Commit.ChangeId)
 }
 
 // TODO: what does no-commit-id mean?

@@ -58,7 +58,7 @@ func ParseRowsStreaming(reader io.Reader, controlChannel <-chan ControlMsg, batc
 					for nextIdx := changeIDIdx; nextIdx < len(rowLine.Segments); nextIdx++ {
 						nextSegment := strings.TrimSpace(rowLine.Segments[nextIdx].Text)
 						fullChangeID += nextSegment
-						if strings.HasPrefix(nextSegment, "/") || strings.HasSuffix(nextSegment, "??") {
+						if nextSegment == "" || strings.HasPrefix(nextSegment, "/") || strings.HasSuffix(nextSegment, "??") {
 							break
 						}
 					}
