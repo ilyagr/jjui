@@ -45,6 +45,7 @@ func (r *DisplayContextRenderer) Render(
 	cursor int,
 	viewRect layout.Box,
 	operation operations.Operation,
+	quickSearch string,
 	ensureCursorVisible bool,
 ) {
 	if len(items) == 0 {
@@ -67,7 +68,7 @@ func (r *DisplayContextRenderer) Render(
 		isSelected := index == cursor
 
 		// Render the item content
-		r.renderItemToDisplayContext(dl, item, rect, isSelected, operation, screenOffset)
+		r.renderItemToDisplayContext(dl, item, rect, isSelected, operation, quickSearch, screenOffset)
 
 		// Add highlights for selected item (only for Highlightable lines)
 		if isSelected {
@@ -190,6 +191,7 @@ func (r *DisplayContextRenderer) renderItemToDisplayContext(
 	rect cellbuf.Rectangle,
 	isSelected bool,
 	operation operations.Operation,
+	quickSearch string,
 	screenOffset cellbuf.Position,
 ) {
 	y := rect.Min.Y
@@ -211,6 +213,7 @@ func (r *DisplayContextRenderer) renderItemToDisplayContext(
 	ir.textStyle = r.textStyle
 	ir.dimmedStyle = r.dimmedStyle
 	ir.matchedStyle = r.matchedStyle
+	ir.SearchText = quickSearch
 
 	// Handle operation rendering for before section
 	if isSelected && operation != nil {
@@ -406,7 +409,7 @@ func (ir *itemRenderer) renderLine(tb *render.TextBuilder, line *parser.GraphRow
 				continue
 			}
 		}
-		tb.Styled(segment.Text, style)
+		ir.renderSegment(tb, segment)
 	}
 
 	// Add affected marker

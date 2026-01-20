@@ -970,6 +970,7 @@ func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
 		m.cursor,
 		layout.Box{R: area},
 		op,
+		m.quickSearch,
 		m.ensureCursorView,
 	)
 

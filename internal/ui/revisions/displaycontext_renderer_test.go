@@ -49,7 +49,7 @@ func TestDisplayContextRenderer_DetailsRendersBeforeElidedMarker(t *testing.T) {
 	width, height := 100, 15
 	dl := render.NewDisplayContext()
 	viewRect := layout.NewBox(cellbuf.Rect(0, 0, width, height))
-	r.Render(dl, []parser.Row{targetRow}, 0, viewRect, op, true)
+	r.Render(dl, []parser.Row{targetRow}, 0, viewRect, op, "", true)
 
 	screen := cellbuf.NewBuffer(width, height)
 	dl.Render(screen)
