@@ -150,7 +150,7 @@ func ProcessMouseEventWithWindows(interactions []interactionOp, windows []window
 	})
 
 	msgResult, handled := processMouseEvent(sorted, msg, func(interaction interactionOp) bool {
-		return windowMatch(interaction.windowID, windowID, windowHit)
+		return windowMatch(interaction.windowID, windowID, windowHit, len(windows) > 0)
 	})
 	if handled {
 		return msgResult, true
@@ -179,7 +179,11 @@ func topWindowAt(windows []windowOp, x, y int) (int, bool) {
 	return 0, false
 }
 
-func windowMatch(interactionWindowID, windowID int, windowHit bool) bool {
+func windowMatch(interactionWindowID, windowID int, windowHit bool, windowsExist bool) bool {
+	if windowsExist && !windowHit {
+		// Windows are open but click was outside them - block all root interactions
+		return false
+	}
 	if windowHit {
 		return interactionWindowID == windowID
 	}
