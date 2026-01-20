@@ -213,7 +213,7 @@ func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
 func (m *Model) renderRemotes(dl *render.DisplayContext, x, y, width int) {
 	// Create a window for remotes with higher z-index than menu
 	// so that clicks are routed to this window instead of the menu
-	remoteRect := cellbuf.Rect(x, y, width, menu.ZIndexContent)
+	remoteRect := cellbuf.Rect(x, y, width, 1)
 	windowedDl := dl.Window(remoteRect, menu.ZIndexContent)
 
 	// Render above menu content
