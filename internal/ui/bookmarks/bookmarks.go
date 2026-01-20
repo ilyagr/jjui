@@ -47,6 +47,7 @@ type Model struct {
 	remoteNames       []string
 	selectedRemoteIdx int
 	styles            styles
+	allItems          []menu.Item // Unfiltered items, used for filtering by remote
 }
 
 func (m *Model) ShortHelp() []key.Binding {
@@ -125,10 +126,74 @@ func (m *Model) cycleRemotes(step int) tea.Cmd {
 		m.selectedRemoteIdx = len(m.remoteNames) - 1
 	}
 
+	return m.updateMenuForRemote()
+}
+
+func (m *Model) updateMenuForRemote() tea.Cmd {
+	filteredItems := m.filterItemsByRemote(m.allItems)
 	if m.menu.Filter != "" {
+		// Re-apply the text filter on the remote-filtered items
+		m.menu.Items = filteredItems
 		return m.menu.Filtered(m.menu.Filter)
 	}
-	return m.menu.SetItems(m.menu.Items)
+	return m.menu.SetItems(filteredItems)
+}
+
+func (m *Model) filterItemsByRemote(allItems []menu.Item) []menu.Item {
+	if len(m.remoteNames) == 0 {
+		return allItems
+	}
+
+	selectedRemote := m.remoteNames[m.selectedRemoteIdx]
+	filtered := make([]menu.Item, 0)
+
+	// "local" mode shows local bookmark operations (delete, forget, move, track local, untrack all)
+	if selectedRemote == "local" {
+		for _, menuItem := range allItems {
+			bookmarkItem, ok := menuItem.(item)
+			if !ok {
+				filtered = append(filtered, menuItem)
+				continue
+			}
+
+			// Include delete, forget, move operations
+			if bookmarkItem.priority == deleteCommand || bookmarkItem.priority == forgetCommand || bookmarkItem.priority == moveCommand {
+				filtered = append(filtered, menuItem)
+				continue
+			}
+
+			// Include track items on local bookmarks (no @remote suffix)
+			if bookmarkItem.priority == trackCommand && !strings.Contains(bookmarkItem.name, "@") {
+				filtered = append(filtered, menuItem)
+				continue
+			}
+
+			// Include untrack items (bookmarks that are tracked on remotes)
+			if bookmarkItem.priority == untrackCommand {
+				filtered = append(filtered, menuItem)
+				continue
+			}
+		}
+		return filtered
+	}
+
+	// Remote mode shows track/untrack items for the selected remote only
+	for _, menuItem := range allItems {
+		bookmarkItem, ok := menuItem.(item)
+		if !ok {
+			filtered = append(filtered, menuItem)
+			continue
+		}
+
+		// Only include track/untrack items for the selected remote
+		if bookmarkItem.priority == trackCommand || bookmarkItem.priority == untrackCommand {
+			if strings.Contains(bookmarkItem.name, "@"+selectedRemote) {
+				filtered = append(filtered, menuItem)
+			}
+		}
+	}
+
+	return filtered
 }
 
 func (m *Model) loadMovables() tea.Msg {
@@ -194,7 +259,7 @@ func (m *Model) loadAll() tea.Msg {
 					name:     fmt.Sprintf("track '%s'", b.Name),
 					priority: trackCommand,
 					dist:     distance,
-					args:     jj.BookmarkTrack(b.Name),
+					args:     jj.BookmarkTrack(b.Name, ""),
 				})
 			}
 
@@ -212,7 +277,7 @@ func (m *Model) loadAll() tea.Msg {
 						name:     fmt.Sprintf("track '%s'", nameWithRemote),
 						priority: trackCommand,
 						dist:     distance,
-						args:     jj.BookmarkTrack(nameWithRemote),
+						args:     jj.BookmarkTrack(b.Name, remote.Remote),
 					})
 				}
 			}
@@ -226,10 +291,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 	case SelectRemoteMsg:
 		if msg.Index >= 0 && msg.Index < len(m.remoteNames) {
 			m.selectedRemoteIdx = msg.Index
-			if m.menu.Filter != "" {
-				return m.menu.Filtered(m.menu.Filter)
-			}
-			return m.menu.SetItems(m.menu.Items)
+			return m.updateMenuForRemote()
 		}
 		return nil
 	case intents.Intent:
@@ -263,9 +325,9 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			}
 		}
 	case updateItemsMsg:
-		m.menu.Items = append(m.menu.Items, msg.items...)
-		slices.SortFunc(m.menu.Items, itemSorter)
-		return m.menu.SetItems(m.menu.Items)
+		m.allItems = append(m.allItems, msg.items...)
+		slices.SortFunc(m.allItems, itemSorter)
+		return m.updateMenuForRemote()
 	}
 	return m.menu.Update(msg)
 }
@@ -386,6 +448,8 @@ func NewModel(c *context.MainContext, current *jj.Commit, commitIds []string) *M
 	var items []menu.Item
 	keymap := config.Current.GetKeyMap()
 	remotes := loadRemoteNames(c)
+	// Add "local" as the first option to view local bookmark operations
+	remotes = append([]string{"local"}, remotes...)
 
 	styles := styles{
 		promptStyle:   common.DefaultPalette.Get("title"),
@@ -407,6 +471,7 @@ func NewModel(c *context.MainContext, current *jj.Commit, commitIds []string) *M
 		remoteNames:       remotes,
 		selectedRemoteIdx: 0,
 		styles:            styles,
+		allItems:          make([]menu.Item, 0),
 	}
 
 	// Set FilterMatches after m is created so the closure can reference m
@@ -418,10 +483,19 @@ func NewModel(c *context.MainContext, current *jj.Commit, commitIds []string) *M
 		if len(m.remoteNames) > 0 && m.selectedRemoteIdx < len(m.remoteNames) {
 			selectedRemote := m.remoteNames[m.selectedRemoteIdx]
 			if strings.HasPrefix(filter, "track") || strings.HasPrefix(filter, "untrack") {
-				// Only show items that contain @selectedRemote
+				if selectedRemote == "local" {
+					// In local mode for "untrack", allow items with @remote (untracking remotes)
+					if strings.HasPrefix(filter, "untrack") {
+						return true
+					}
+					// In local mode for "track", only show track items without @remote
+					return !strings.Contains(i.FilterValue(), "@")
+				}
+				// In remote mode, only show items that contain @selectedRemote
 				if strings.Contains(i.FilterValue(), "@") {
 					return strings.Contains(i.FilterValue(), "@"+selectedRemote)
 				}
+				return false
 			}
 		}
 		return true
