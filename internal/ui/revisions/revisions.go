@@ -941,16 +941,14 @@ func (m *Model) updateGraphRows(rows []parser.Row, selectedRevision string) {
 }
 
 func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
-	area := box.R
-
 	if len(m.rows) == 0 {
 		content := ""
 		if m.isLoading {
-			content = lipgloss.Place(area.Dx(), area.Dy(), lipgloss.Center, lipgloss.Center, "loading")
+			content = lipgloss.Place(box.R.Dx(), box.R.Dy(), lipgloss.Center, lipgloss.Center, "loading")
 		} else {
-			content = lipgloss.Place(area.Dx(), area.Dy(), lipgloss.Center, lipgloss.Center, "(no matching revisions)")
+			content = lipgloss.Place(box.R.Dx(), box.R.Dy(), lipgloss.Center, lipgloss.Center, "(no matching revisions)")
 		}
-		dl.AddDraw(area, content, 0)
+		dl.AddDraw(box.R, content, 0)
 		return
 	}
 
@@ -968,7 +966,7 @@ func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
 		dl,
 		m.rows,
 		m.cursor,
-		layout.Box{R: area},
+		box,
 		op,
 		m.quickSearch,
 		m.ensureCursorView,

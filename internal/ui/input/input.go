@@ -6,7 +6,6 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/x/cellbuf"
 	"github.com/idursun/jjui/internal/config"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/layout"
@@ -44,9 +43,16 @@ func New() *Model {
 
 func NewWithTitle(title string, prompt string) *Model {
 	keymap := config.Current.GetKeyMap()
+	styles := styles{
+		border: common.DefaultPalette.GetBorder("input border", lipgloss.RoundedBorder()),
+		text:   common.DefaultPalette.Get("input text"),
+		title:  common.DefaultPalette.Get("input title"),
+	}
 	ti := textinput.New()
+	ti.Width = 40
 	ti.Focus()
 	ti.Prompt = prompt
+	ti.PromptStyle = styles.text
 	if ti.Prompt == "" {
 		ti.Prompt = "> "
 	}
@@ -56,11 +62,7 @@ func NewWithTitle(title string, prompt string) *Model {
 		title:  title,
 		prompt: prompt,
 		keymap: keymap,
-		styles: styles{
-			border: common.DefaultPalette.GetBorder("input border", lipgloss.RoundedBorder()),
-			text:   common.DefaultPalette.Get("input text"),
-			title:  common.DefaultPalette.Get("input title"),
-		},
+		styles: styles,
 	}
 }
 
@@ -97,19 +99,14 @@ func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
 	if m.title != "" {
 		rows = append(rows, m.styles.title.Render(m.title))
 	}
-
+	m.input.Width = min(box.R.Dx()-2, 40)
 	rows = append(rows, m.input.View())
 
 	content := lipgloss.JoinVertical(0, rows...)
 	content = m.styles.border.Padding(0, 1).Render(content)
-	w, h := lipgloss.Size(content)
-
-	pw, ph := box.R.Dx(), box.R.Dy()
-	sx := box.R.Min.X + max((pw-w)/2, 0)
-	sy := box.R.Min.Y + max((ph-h)/2, 0)
-	frame := cellbuf.Rect(sx, sy, w, h)
-	window := dl.Window(frame, 10)
-	window.AddDraw(frame, content, 0)
+	box = box.Center(lipgloss.Size(content))
+	window := dl.Window(box.R, 10)
+	window.AddDraw(box.R, content, 1)
 }
 
 func (m *Model) ShortHelp() []key.Binding {
@@ -131,8 +128,4 @@ func ShowWithTitle(title string, prompt string) tea.Cmd {
 	return func() tea.Msg {
 		return common.ShowInputMsg{Title: title, Prompt: prompt}
 	}
-}
-
-func Show() tea.Cmd {
-	return ShowWithTitle("", "")
 }

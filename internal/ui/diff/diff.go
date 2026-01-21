@@ -77,11 +77,10 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 }
 
 func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
-	area := box.R
-	m.view.Height = area.Dy()
-	m.view.Width = area.Dx()
-	dl.AddDraw(area, m.view.View(), 0)
-	dl.AddInteraction(area, ScrollMsg{}, render.InteractionScroll, 0)
+	m.view.Height = box.R.Dy()
+	m.view.Width = box.R.Dx()
+	dl.AddDraw(box.R, m.view.View(), 0)
+	dl.AddInteraction(box.R, ScrollMsg{}, render.InteractionScroll, 0)
 }
 
 func New(output string) *Model {

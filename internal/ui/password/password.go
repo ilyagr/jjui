@@ -4,7 +4,6 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/x/cellbuf"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/layout"
 	"github.com/idursun/jjui/internal/ui/render"
@@ -13,7 +12,7 @@ import (
 var _ common.ImmediateModel = (*Model)(nil)
 
 type Model struct {
-	textinput  textinput.Model
+	textInput  textinput.Model
 	passwordCh chan<- []byte
 	styles     styles
 }
@@ -34,7 +33,7 @@ func New(msg common.TogglePasswordMsg) *Model {
 
 	return &Model{
 		styles:     styles,
-		textinput:  ti,
+		textInput:  ti,
 		passwordCh: msg.Password,
 	}
 }
@@ -54,13 +53,13 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 				return common.TogglePasswordMsg{}
 			}
 		case tea.KeyEnter:
-			m.passwordCh <- []byte(m.textinput.Value())
+			m.passwordCh <- []byte(m.textInput.Value())
 			return func() tea.Msg {
 				return common.TogglePasswordMsg{}
 			}
 		default:
 			var cmd tea.Cmd
-			m.textinput, cmd = m.textinput.Update(msg)
+			m.textInput, cmd = m.textInput.Update(msg)
 			return cmd
 		}
 	}
@@ -68,11 +67,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 }
 
 func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
-	pw, ph := box.R.Dx(), box.R.Dy()
-	v := m.styles.border.Width(max(pw-2, 0)).Render(m.textinput.View())
-	w, h := lipgloss.Size(v)
-	sx := box.R.Min.X + max((pw-w)/2, 0)
-	sy := box.R.Min.Y + max((ph-h)/2, 0)
-	rect := cellbuf.Rect(sx, sy, w, h)
-	dl.AddDraw(rect, v, 300)
+	v := m.styles.border.Width(max(box.R.Dx()-2, 0)).Render(m.textInput.View())
+	box = box.Center(lipgloss.Size(v))
+	dl.AddDraw(box.R, v, 300)
 }

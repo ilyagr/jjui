@@ -231,7 +231,7 @@ func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
 	contentHeight := max(min(ph, 40)-4, 0)
 	menuWidth := max(contentWidth+2, 0)
 	menuHeight := max(contentHeight+2, 0)
-	frame := layout.NewBox(box.R).Center(menuWidth, menuHeight)
+	frame := box.Center(menuWidth, menuHeight)
 	if frame.R.Dx() <= 0 || frame.R.Dy() <= 0 {
 		return
 	}

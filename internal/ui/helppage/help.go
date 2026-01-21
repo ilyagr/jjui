@@ -8,7 +8,6 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/x/cellbuf"
 	"github.com/idursun/jjui/internal/config"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/context"
@@ -81,15 +80,12 @@ func (h *Model) Update(msg tea.Msg) tea.Cmd {
 
 func (h *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
 	// NOTE: add new lines between search bar and help menu
-	content := "\n\n" + h.renderMenu()
+	content := "\n" + h.renderMenu()
 
 	v := h.styles.border.Render(h.searchQuery.View(), content)
 	w, height := lipgloss.Size(v)
-	pw, ph := box.R.Dx(), box.R.Dy()
-	sx := box.R.Min.X + max((pw-w)/2, 0)
-	sy := box.R.Min.Y + max((ph-height)/2, 0)
-	frame := cellbuf.Rect(sx, sy, w, height)
-	dl.AddDraw(frame, v, 3)
+	box = box.Center(w, height)
+	dl.AddDraw(box.R, v, 3)
 }
 
 func (h *Model) filterMenu() {
