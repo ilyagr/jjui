@@ -7,7 +7,6 @@ import (
 
 	"github.com/charmbracelet/x/cellbuf"
 	"github.com/idursun/jjui/internal/jj"
-	"github.com/idursun/jjui/internal/ui/common/menu"
 	"github.com/idursun/jjui/internal/ui/layout"
 	"github.com/idursun/jjui/internal/ui/render"
 	"github.com/idursun/jjui/test"
@@ -27,7 +26,7 @@ func TestDistanceMap(t *testing.T) {
 }
 
 func Test_Sorting_MoveCommands(t *testing.T) {
-	items := []menu.Item{
+	items := []item{
 		item{name: "move feature", dist: 5, priority: moveCommand},
 		item{name: "move main", dist: 1, priority: moveCommand},
 		item{name: "move very-old-feature", dist: 15, priority: moveCommand},
@@ -36,13 +35,13 @@ func Test_Sorting_MoveCommands(t *testing.T) {
 	slices.SortFunc(items, itemSorter)
 	var sorted []string
 	for _, i := range items {
-		sorted = append(sorted, i.(item).name)
+		sorted = append(sorted, i.name)
 	}
 	assert.Equal(t, []string{"move main", "move feature", "move very-old-feature", "move backwards"}, sorted)
 }
 
 func Test_Sorting_MixedCommands(t *testing.T) {
-	items := []menu.Item{
+	items := []item{
 		item{name: "move very-old-feature", dist: 2, priority: moveCommand},
 		item{name: "move main", dist: 0, priority: moveCommand},
 		item{name: "delete very-old-feature", dist: 3, priority: deleteCommand},
@@ -51,13 +50,13 @@ func Test_Sorting_MixedCommands(t *testing.T) {
 	slices.SortFunc(items, itemSorter)
 	var sorted []string
 	for _, i := range items {
-		sorted = append(sorted, i.(item).name)
+		sorted = append(sorted, i.name)
 	}
 	assert.Equal(t, []string{"move main", "move very-old-feature", "delete main", "delete very-old-feature"}, sorted)
 }
 
 // TestBookmarks_ZIndex_RendersAboveMainContent verifies that the bookmarks
-// overlay renders at z-index >= menu.ZIndexBorder. This ensures the bookmarks
+// overlay renders at z-index >= zIndexBorder. This ensures the bookmarks
 // operations menu renders above the main revision list content.
 func TestBookmarks_ZIndex_RendersAboveMainContent(t *testing.T) {
 	commandRunner := test.NewTestCommandRunner(t)
@@ -78,7 +77,7 @@ func TestBookmarks_ZIndex_RendersAboveMainContent(t *testing.T) {
 	for i, draw := range draws {
 		msg := fmt.Sprintf("Draw operation %d has z-index %d, expected >= %d. "+
 			"Bookmarks overlay must render above main content.",
-			i, draw.Z, menu.ZIndexBorder)
-		assert.GreaterOrEqual(t, draw.Z, menu.ZIndexBorder, msg)
+			i, draw.Z, zIndexBorder)
+		assert.GreaterOrEqual(t, draw.Z, zIndexBorder, msg)
 	}
 }

@@ -7,7 +7,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/cellbuf"
 	"github.com/idursun/jjui/internal/jj"
-	"github.com/idursun/jjui/internal/ui/common/menu"
 	"github.com/idursun/jjui/internal/ui/layout"
 	"github.com/idursun/jjui/internal/ui/render"
 	"github.com/idursun/jjui/test"
@@ -77,7 +76,7 @@ func Test_PushChange(t *testing.T) {
 }
 
 // TestGit_ZIndex_RendersAboveMainContent verifies that the git overlay renders
-// at z-index >= menu.ZIndexBorder. This ensures the git operations menu
+// at z-index >= zIndexBorder. This ensures the git operations menu
 // renders above the main revision list content.
 func TestGit_ZIndex_RendersAboveMainContent(t *testing.T) {
 	commandRunner := test.NewTestCommandRunner(t)
@@ -96,7 +95,7 @@ func TestGit_ZIndex_RendersAboveMainContent(t *testing.T) {
 	for i, draw := range draws {
 		msg := fmt.Sprintf("Draw operation %d has z-index %d, expected >= %d. "+
 			"Git overlay must render above main content.",
-			i, draw.Z, menu.ZIndexBorder)
-		assert.GreaterOrEqual(t, draw.Z, menu.ZIndexBorder, msg)
+			i, draw.Z, zIndexBorder)
+		assert.GreaterOrEqual(t, draw.Z, zIndexBorder, msg)
 	}
 }
