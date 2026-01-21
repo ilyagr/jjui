@@ -122,18 +122,19 @@ func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
 
 		// first render without width to check natural size
 		naturalContent := style.Render(text)
-		naturalWidth, _ := lipgloss.Size(naturalContent)
+		w, h := lipgloss.Size(naturalContent)
 
 		var content string
-		if naturalWidth <= maxWidth {
+		if w <= maxWidth {
 			content = naturalContent
+			y -= h
 		} else {
 			// width doesn't fit within maxWidth, set Width for line wrap
 			content = style.Width(maxWidth).Render(text)
+			w, h = lipgloss.Size(content)
+			y -= h
 		}
 
-		w, h := lipgloss.Size(content)
-		y -= h
 		// Use z-index 1 for overlay rendering (flash messages appear above other content)
 		rect := cellbuf.Rect(area.Max.X-w, y, w, h)
 		dl.AddDraw(rect, content, 200)
