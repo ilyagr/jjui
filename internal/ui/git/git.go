@@ -434,7 +434,7 @@ func NewModel(c *context.MainContext, revisions jj.SelectedRevisions) *Model {
 	m.filteredItems = items
 	m.filterInput = textinput.New()
 	m.filterInput.Prompt = "Filter: "
-	m.filterInput.PromptStyle = m.menuStyles.matched
+	m.filterInput.PromptStyle = m.menuStyles.matched.PaddingLeft(1)
 	m.filterInput.TextStyle = m.menuStyles.text
 	m.filterInput.Cursor.Style = m.menuStyles.text
 	m.applyFilters(true)

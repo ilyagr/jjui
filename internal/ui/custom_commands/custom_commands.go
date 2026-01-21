@@ -296,7 +296,7 @@ func NewModel(ctx *context.MainContext) *Model {
 	}
 	m.filterInput = textinput.New()
 	m.filterInput.Prompt = "Filter: "
-	m.filterInput.PromptStyle = m.styles.matched
+	m.filterInput.PromptStyle = m.styles.matched.PaddingLeft(1)
 	m.filterInput.TextStyle = m.styles.text
 	m.filterInput.Cursor.Style = m.styles.text
 	m.applyFilters(true)
