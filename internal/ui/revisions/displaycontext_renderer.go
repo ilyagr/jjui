@@ -353,13 +353,18 @@ func (r *DisplayContextRenderer) renderItemToDisplayContext(
 
 			// Render description overlay
 			overlayLines := strings.Split(descriptionOverlay, "\n")
-			for _, overlayLine := range overlayLines {
+			extended := item.Extend()
+			for i, overlayLine := range overlayLines {
 				if y >= rect.Max.Y {
 					break
 				}
 
 				lineRect := cellbuf.Rect(rect.Min.X, y, rect.Dx(), 1)
-				r.renderOperationLine(dl, lineRect, line.Gutter, overlayLine)
+				gutter := line.Gutter
+				if i > 0 {
+					gutter = extended
+				}
+				r.renderOperationLine(dl, lineRect, gutter, overlayLine)
 				y++
 			}
 
