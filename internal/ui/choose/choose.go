@@ -18,24 +18,48 @@ type SelectedMsg struct {
 
 type CancelledMsg struct{}
 
+type itemClickMsg struct {
+	Index int
+}
+
+type itemScrollMsg struct {
+	Delta      int
+	Horizontal bool
+}
+
+func (m itemScrollMsg) SetDelta(delta int, horizontal bool) tea.Msg {
+	m.Delta = delta
+	m.Horizontal = horizontal
+	return m
+}
+
 var (
 	_ common.ImmediateModel = (*Model)(nil)
 	_ help.KeyMap           = (*Model)(nil)
 )
 
 type Model struct {
-	options  []string
-	selected int
-	title    string
-	keymap   config.KeyMappings[key.Binding]
-	styles   styles
+	options              []string
+	selected             int
+	title                string
+	keymap               config.KeyMappings[key.Binding]
+	styles               styles
+	listRenderer         *render.ListRenderer
+	ensureCursorVisible  bool
 }
 
 type styles struct {
-	border lipgloss.Style
-	text   lipgloss.Style
-	title  lipgloss.Style
+	border   lipgloss.Style
+	text     lipgloss.Style
+	title    lipgloss.Style
+	selected lipgloss.Style
 }
+
+const (
+	zIndexBorder  = 100
+	zIndexContent = 101
+	maxVisibleItems = 20
+)
 
 func New(options []string) *Model {
 	return NewWithTitle(options, "")
@@ -51,7 +75,9 @@ func NewWithTitle(options []string, title string) *Model {
 			border: common.DefaultPalette.GetBorder("choose border", lipgloss.RoundedBorder()),
 			text:   common.DefaultPalette.Get("choose text"),
 			title:  common.DefaultPalette.Get("choose title"),
+			selected: common.DefaultPalette.Get("choose selected"),
 		},
+		listRenderer: render.NewListRenderer(itemScrollMsg{}),
 	}
 }
 
@@ -74,6 +100,23 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		}
 	case common.CloseViewMsg:
 		return newCmd(CancelledMsg{})
+	case itemScrollMsg:
+		if msg.Horizontal {
+			return nil
+		}
+		if m.listRenderer == nil {
+			m.listRenderer = render.NewListRenderer(itemScrollMsg{})
+		}
+		m.listRenderer.StartLine += msg.Delta
+		if m.listRenderer.StartLine < 0 {
+			m.listRenderer.StartLine = 0
+		}
+	case itemClickMsg:
+		if msg.Index < 0 || msg.Index >= len(m.options) {
+			return nil
+		}
+		m.selected = msg.Index
+		return m.selectCurrent()
 	}
 	return nil
 }
@@ -90,7 +133,11 @@ func (m *Model) move(delta int) {
 	if next >= n {
 		next = n - 1
 	}
+	if next == m.selected {
+		return
+	}
 	m.selected = next
+	m.ensureCursorVisible = true
 }
 
 func (m *Model) selectCurrent() tea.Cmd {
@@ -102,28 +149,89 @@ func (m *Model) selectCurrent() tea.Cmd {
 }
 
 func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
-	var rows []string
-	if m.title != "" {
-		rows = append(rows, m.styles.title.Render(m.title))
+	if m.listRenderer == nil {
+		m.listRenderer = render.NewListRenderer(itemScrollMsg{})
 	}
-	for i, opt := range m.options {
-		style := m.styles.text
-		prefix := "  "
-		if i == m.selected {
-			prefix = "> "
-		}
-		rows = append(rows, style.Render(prefix+opt))
-	}
-	content := lipgloss.JoinVertical(0, rows...)
-	content = m.styles.border.Padding(0, 1).Render(content)
-	w, h := lipgloss.Size(content)
 
-	pw, ph := box.R.Dx(), box.R.Dy()
-	sx := box.R.Min.X + max((pw-w)/2, 0)
-	sy := box.R.Min.Y + max((ph-h)/2, 0)
-	frame := cellbuf.Rect(sx, sy, w, h)
-	window := dl.Window(frame, 10)
-	window.AddDraw(frame, content, 0)
+	maxContentWidth := max(box.R.Dx()-2, 0)
+	maxContentHeight := max(box.R.Dy()-2, 0)
+	if maxContentWidth <= 0 || maxContentHeight <= 0 {
+		return
+	}
+
+	titleHeight := 0
+	if m.title != "" {
+		titleHeight = 1
+	}
+
+	itemWidth := 0
+	for _, opt := range m.options {
+		itemWidth = max(itemWidth, lipgloss.Width(opt)+2)
+	}
+	if m.title != "" {
+		itemWidth = max(itemWidth, lipgloss.Width(m.title))
+	}
+	contentWidth := min(itemWidth, maxContentWidth)
+	listHeightLimit := maxContentHeight - titleHeight
+	if listHeightLimit < 0 {
+		listHeightLimit = 0
+	}
+	listHeight := min(min(len(m.options), listHeightLimit), maxVisibleItems)
+	contentHeight := titleHeight + listHeight
+	if contentWidth <= 0 || contentHeight <= 0 {
+		return
+	}
+
+	frame := box.Center(contentWidth+2, contentHeight+2)
+	if frame.R.Dx() <= 0 || frame.R.Dy() <= 0 {
+		return
+	}
+
+	window := dl.Window(frame.R, zIndexContent)
+	contentBox := frame.Inset(1)
+	if contentBox.R.Dx() <= 0 || contentBox.R.Dy() <= 0 {
+		return
+	}
+
+	borderBase := lipgloss.NewStyle().Width(contentBox.R.Dx()).Height(contentBox.R.Dy()).Render("")
+	window.AddDraw(frame.R, m.styles.border.Render(borderBase), zIndexBorder)
+
+	listBox := contentBox
+	if titleHeight > 0 {
+		var titleBox layout.Box
+		titleBox, listBox = contentBox.CutTop(1)
+		window.AddDraw(titleBox.R, m.styles.title.Render(m.title), zIndexContent)
+	}
+
+	if listBox.R.Dx() <= 0 || listBox.R.Dy() <= 0 {
+		return
+	}
+
+	itemCount := len(m.options)
+	itemHeight := 1
+	m.listRenderer.StartLine = render.ClampStartLine(m.listRenderer.StartLine, listBox.R.Dy(), itemCount, itemHeight)
+	m.listRenderer.Render(
+		window,
+		listBox,
+		itemCount,
+		m.selected,
+		m.ensureCursorVisible,
+		func(_ int) int { return itemHeight },
+		func(dl *render.DisplayContext, index int, rect cellbuf.Rectangle) {
+			if index < 0 || index >= itemCount || rect.Dx() <= 0 || rect.Dy() <= 0 {
+				return
+			}
+			style := m.styles.text
+			if index == m.selected {
+				style = m.styles.selected
+			}
+			line := style.Padding(0, 1).Width(rect.Dx()).Render(m.options[index])
+			dl.AddDraw(rect, line, zIndexContent)
+		},
+		func(index int) tea.Msg { return itemClickMsg{Index: index} },
+	)
+	m.listRenderer.RegisterScroll(window, listBox)
+	m.ensureCursorVisible = false
 }
 
 func (m *Model) ShortHelp() []key.Binding {
