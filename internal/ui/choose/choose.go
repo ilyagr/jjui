@@ -39,13 +39,13 @@ var (
 )
 
 type Model struct {
-	options              []string
-	selected             int
-	title                string
-	keymap               config.KeyMappings[key.Binding]
-	styles               styles
-	listRenderer         *render.ListRenderer
-	ensureCursorVisible  bool
+	options             []string
+	selected            int
+	title               string
+	keymap              config.KeyMappings[key.Binding]
+	styles              styles
+	listRenderer        *render.ListRenderer
+	ensureCursorVisible bool
 }
 
 type styles struct {
@@ -56,8 +56,8 @@ type styles struct {
 }
 
 const (
-	zIndexBorder  = 100
-	zIndexContent = 101
+	zIndexBorder    = 100
+	zIndexContent   = 101
 	maxVisibleItems = 20
 )
 
@@ -72,9 +72,9 @@ func NewWithTitle(options []string, title string) *Model {
 		title:   title,
 		keymap:  keymap,
 		styles: styles{
-			border: common.DefaultPalette.GetBorder("choose border", lipgloss.RoundedBorder()),
-			text:   common.DefaultPalette.Get("choose text"),
-			title:  common.DefaultPalette.Get("choose title"),
+			border:   common.DefaultPalette.GetBorder("choose border", lipgloss.RoundedBorder()),
+			text:     common.DefaultPalette.Get("choose text"),
+			title:    common.DefaultPalette.Get("choose title"),
 			selected: common.DefaultPalette.Get("choose selected"),
 		},
 		listRenderer: render.NewListRenderer(itemScrollMsg{}),
