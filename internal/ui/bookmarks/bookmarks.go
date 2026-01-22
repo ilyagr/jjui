@@ -750,20 +750,6 @@ func (m *Model) remoteFilterMatch(item item, filter string) bool {
 	return false
 }
 
-func (m *Model) clampScroll(listHeight int, itemCount int, itemHeight int) {
-	if m.listRenderer.StartLine < 0 {
-		m.listRenderer.StartLine = 0
-	}
-	totalLines := itemCount * itemHeight
-	maxStart := totalLines - listHeight
-	if maxStart < 0 {
-		maxStart = 0
-	}
-	if m.listRenderer.StartLine > maxStart {
-		m.listRenderer.StartLine = maxStart
-	}
-}
-
 func (m *Model) renderFilterView(dl *render.DisplayContext, box layout.Box) {
 	if box.R.Dx() <= 0 || box.R.Dy() <= 0 {
 		return
@@ -814,7 +800,7 @@ func (m *Model) renderList(dl *render.DisplayContext, listBox layout.Box) {
 	}
 
 	itemHeight := m.itemHeight()
-	m.clampScroll(listBox.R.Dy(), itemCount, itemHeight)
+	m.listRenderer.StartLine = render.ClampStartLine(m.listRenderer.StartLine, listBox.R.Dy(), itemCount, itemHeight)
 	m.listRenderer.Render(
 		dl,
 		listBox,
