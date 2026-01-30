@@ -35,8 +35,6 @@ type Operation struct {
 	input        textarea.Model
 	revision     *jj.Commit
 	originalDesc string
-	width        int
-	height       int
 }
 
 func (o *Operation) IsEditing() bool {
@@ -63,15 +61,34 @@ func (o *Operation) Render(commit *jj.Commit, pos operations.RenderPosition) str
 	if pos != operations.RenderOverDescription {
 		return ""
 	}
-	return o.viewContent(o.width)
+	return o.viewContent(80)
 }
 
-func (o *Operation) RenderToDisplayContext(_ *render.DisplayContext, _ *jj.Commit, _ operations.RenderPosition, _ cellbuf.Rectangle, _ cellbuf.Position) int {
-	return 0
+func (o *Operation) RenderToDisplayContext(dl *render.DisplayContext, commit *jj.Commit, pos operations.RenderPosition, rect cellbuf.Rectangle, screenOffset cellbuf.Position) int {
+	if pos != operations.RenderOverDescription {
+		return 0
+	}
+	width := rect.Dx()
+	height := o.DesiredHeight(commit, pos)
+
+	o.input.SetWidth(width)
+	o.input.SetHeight(height)
+	content := o.input.View()
+
+	drawRect := cellbuf.Rect(rect.Min.X, rect.Min.Y, width, height)
+	dl.AddDraw(drawRect, content, 0)
+	return height
 }
 
-func (o *Operation) DesiredHeight(_ *jj.Commit, _ operations.RenderPosition) int {
-	return 0
+func (o *Operation) DesiredHeight(_ *jj.Commit, pos operations.RenderPosition) int {
+	if pos != operations.RenderOverDescription {
+		return 0
+	}
+	h := lipgloss.Height(o.input.Value())
+	if h <= 0 {
+		h = 1
+	}
+	return h + 1
 }
 
 func (o *Operation) Name() string {
@@ -100,12 +117,6 @@ func (o *Operation) Update(msg tea.Msg) tea.Cmd {
 	}
 
 	o.input, cmd = o.input.Update(msg)
-
-	newValue := o.input.Value()
-	h := lipgloss.Height(newValue)
-	if h >= o.input.Height() {
-		o.setHeight(h + 1)
-	}
 
 	return cmd
 }
@@ -156,8 +167,6 @@ func (o *Operation) ViewRect(dl *render.DisplayContext, box layout.Box) {
 	content := o.viewContent(box.R.Dx())
 	w, h := lipgloss.Size(content)
 	rect := cellbuf.Rect(box.R.Min.X, box.R.Min.Y, w, h)
-	o.width = w
-	o.height = h
 	dl.AddDraw(rect, content, 0)
 }
 
@@ -172,13 +181,10 @@ func NewOperation(context *context.MainContext, revision *jj.Commit) *Operation 
 	// clear the stashed description regardless
 	stashed = nil
 
-	h := lipgloss.Height(desc)
-
 	selectedStyle := common.DefaultPalette.Get("revisions selected")
 
 	input := textarea.New()
 	input.CharLimit = 0
-	input.MaxHeight = 10
 	input.Prompt = ""
 	input.ShowLineNumbers = false
 	input.FocusedStyle.Base = selectedStyle.Underline(false).Strikethrough(false).Reverse(false).Blink(false)
@@ -192,7 +198,6 @@ func NewOperation(context *context.MainContext, revision *jj.Commit) *Operation 
 		input:        input,
 		originalDesc: originalDesc,
 		revision:     revision,
-		height:       h + 1,
 	}
 }
 
@@ -200,19 +205,13 @@ func (o *Operation) viewContent(width int) string {
 	if width <= 0 {
 		width = 80
 	}
-	o.width = width
-	if o.height <= 0 {
-		o.height = lipgloss.Height(o.input.Value()) + 1
-		if o.height <= 0 {
-			o.height = 1
-		}
+	h := lipgloss.Height(o.input.Value())
+	if h <= 0 {
+		h = 1
 	}
-	o.input.SetWidth(o.width)
-	o.input.SetHeight(o.height)
-	return o.input.View()
-}
+	height := h + 1
 
-func (o *Operation) setHeight(height int) {
-	o.height = height
+	o.input.SetWidth(width)
 	o.input.SetHeight(height)
+	return o.input.View()
 }

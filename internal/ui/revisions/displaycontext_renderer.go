@@ -109,13 +109,13 @@ func (r *DisplayContextRenderer) addHighlights(
 	y := rect.Min.Y
 
 	// Account for operation "before" lines
-	overlay := ""
+	overlayHeight := 0
 	if operation != nil {
 		before := operation.Render(item.Commit, operations.RenderPositionBefore)
 		if before != "" {
 			y += strings.Count(before, "\n") + 1
 		}
-		overlay = operation.Render(item.Commit, operations.RenderOverDescription)
+		overlayHeight = operation.DesiredHeight(item.Commit, operations.RenderOverDescription)
 	}
 	overlayRendered := false
 
@@ -133,8 +133,8 @@ func (r *DisplayContextRenderer) addHighlights(
 
 		// When overlay exists, render it once for the first description line, skip
 		// the rest
-		if descriptionLine && overlay != "" && !overlayRendered {
-			height := strings.Count(overlay, "\n") + 1
+		if descriptionLine && overlayHeight > 0 && !overlayRendered {
+			height := overlayHeight
 			// create a rectangle covering the overlay lines
 			rect := cellbuf.Rect(rect.Min.X, y, rect.Dx(), height)
 			dl.AddHighlight(rect, r.selectedStyle, 1)
@@ -170,11 +170,9 @@ func (r *DisplayContextRenderer) calculateItemHeight(
 		}
 
 		// Count lines in overlay section (replaces description)
-		overlay := operation.Render(item.Commit, operations.RenderOverDescription)
-		if overlay != "" {
-			// When overlay exists, we need to calculate more carefully
-			overlayLines := strings.Count(overlay, "\n") + 1
-
+		// Use DesiredHeight if available for DisplayContext operations
+		desiredOverlay := operation.DesiredHeight(item.Commit, operations.RenderOverDescription)
+		if desiredOverlay > 0 {
 			// Count how many description lines would be replaced
 			descLines := 0
 			for _, line := range item.Lines {
@@ -183,9 +181,8 @@ func (r *DisplayContextRenderer) calculateItemHeight(
 					descLines++
 				}
 			}
-
 			// Adjust height: remove replaced description lines, add overlay lines
-			height = height - descLines + overlayLines
+			height = height - descLines + desiredOverlay
 		}
 
 		// Count lines in after section
@@ -256,12 +253,6 @@ func (r *DisplayContextRenderer) renderItemToDisplayContext(
 				y++
 			}
 		}
-	}
-
-	// Handle main content and description overlay
-	descriptionOverlay := ""
-	if isSelected && operation != nil {
-		descriptionOverlay = operation.Render(item.Commit, operations.RenderOverDescription)
 	}
 
 	// If we render an "after" operation (e.g. details) we defer elided markers so
@@ -342,21 +333,46 @@ func (r *DisplayContextRenderer) renderItemToDisplayContext(
 		}
 
 		// Handle description overlay
-		if descriptionOverlay != "" && !descriptionRendered &&
+		if !descriptionRendered &&
 			line.Flags&parser.Highlightable == parser.Highlightable &&
-			line.Flags&parser.Revision != parser.Revision {
+			line.Flags&parser.Revision != parser.Revision &&
+			isSelected && operation != nil {
 
-			// Render description overlay
+			// Calculate gutter width using extended gutter for consistency
+			// (same approach as RenderPositionAfter)
 			extended := item.Extend()
-			r.renderOverlayLines(dl, rect, &y, line.Gutter, extended, descriptionOverlay)
-
-			descriptionRendered = true
-			// Skip remaining description lines
-			for i < len(item.Lines) && item.Lines[i].Flags&parser.Highlightable == parser.Highlightable {
-				i++
+			gutterWidth := 0
+			for _, segment := range extended.Segments {
+				gutterWidth += lipgloss.Width(segment.Text)
 			}
-			i-- // Adjust because loop will increment
-			continue
+
+			// Create content rect with proper width (minus gutter)
+			contentRect := cellbuf.Rect(rect.Min.X+gutterWidth, y, rect.Dx()-gutterWidth, rect.Max.Y-y)
+
+			// Try RenderToDisplayContext first
+			height := operation.RenderToDisplayContext(dl, item.Commit, operations.RenderOverDescription, contentRect, screenOffset)
+
+			if height > 0 {
+				// Render gutters for each line
+				for j := 0; j < height; j++ {
+					gutter := line.Gutter
+					if j > 0 {
+						gutter = extended
+					}
+					gutterContent := r.renderGutter(gutter)
+					gutterRect := cellbuf.Rect(rect.Min.X, y+j, gutterWidth, 1)
+					dl.AddDraw(gutterRect, gutterContent, 0)
+				}
+				y += height
+				descriptionRendered = true
+
+				// Skip remaining description lines
+				for i < len(item.Lines) && item.Lines[i].Flags&parser.Highlightable == parser.Highlightable {
+					i++
+				}
+				i-- // Adjust because loop will increment
+				continue
+			}
 		}
 
 		// Render normal line
@@ -373,10 +389,27 @@ func (r *DisplayContextRenderer) renderItemToDisplayContext(
 	}
 
 	// If we have a description overlay but haven't rendered it yet after looping through all commit lines,
-	// render it now.
-	if descriptionOverlay != "" && !descriptionRendered && y < rect.Max.Y {
+	// render it now. This handles the case where description is inline (no separate description line).
+	if !descriptionRendered && y < rect.Max.Y && isSelected && operation != nil {
 		extended := item.Extend()
-		r.renderOverlayLines(dl, rect, &y, extended, extended, descriptionOverlay)
+		gutterWidth := 0
+		for _, segment := range extended.Segments {
+			gutterWidth += lipgloss.Width(segment.Text)
+		}
+
+		// Try RenderToDisplayContext first
+		contentRect := cellbuf.Rect(rect.Min.X+gutterWidth, y, rect.Dx()-gutterWidth, rect.Max.Y-y)
+		height := operation.RenderToDisplayContext(dl, item.Commit, operations.RenderOverDescription, contentRect, screenOffset)
+
+		if height > 0 {
+			// Render gutters for each line
+			for j := 0; j < height; j++ {
+				gutterContent := r.renderGutter(extended)
+				gutterRect := cellbuf.Rect(rect.Min.X, y+j, gutterWidth, 1)
+				dl.AddDraw(gutterRect, gutterContent, 0)
+			}
+			y += height
+		}
 	}
 
 	// Render operation after section if it wasn't already inserted before elided markers.
