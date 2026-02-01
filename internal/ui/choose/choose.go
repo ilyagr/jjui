@@ -204,15 +204,14 @@ func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
 	}
 
 	itemCount := len(m.options)
-	itemHeight := 1
-	m.listRenderer.StartLine = render.ClampStartLine(m.listRenderer.StartLine, listBox.R.Dy(), itemCount, itemHeight)
+	m.listRenderer.StartLine = render.ClampStartLine(m.listRenderer.StartLine, listBox.R.Dy(), itemCount)
 	m.listRenderer.Render(
 		window,
 		listBox,
 		itemCount,
 		m.selected,
 		m.ensureCursorVisible,
-		func(_ int) int { return itemHeight },
+		func(_ int) int { return 1 },
 		func(dl *render.DisplayContext, index int, rect cellbuf.Rectangle) {
 			if index < 0 || index >= itemCount || rect.Dx() <= 0 || rect.Dy() <= 0 {
 				return

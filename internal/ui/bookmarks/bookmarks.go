@@ -793,7 +793,7 @@ func (m *Model) renderList(dl *render.DisplayContext, listBox layout.Box) {
 	}
 
 	itemHeight := m.itemHeight()
-	m.listRenderer.StartLine = render.ClampStartLine(m.listRenderer.StartLine, listBox.R.Dy(), itemCount, itemHeight)
+	m.listRenderer.StartLine = render.ClampStartLine(m.listRenderer.StartLine, listBox.R.Dy(), itemCount*itemHeight)
 	m.listRenderer.Render(
 		dl,
 		listBox,
