@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/cellbuf"
 	"github.com/idursun/jjui/internal/parser"
+	"github.com/idursun/jjui/internal/screen"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/layout"
 	"github.com/idursun/jjui/internal/ui/operations"
@@ -20,6 +21,70 @@ type DisplayContextRenderer struct {
 	dimmedStyle   lipgloss.Style
 	selectedStyle lipgloss.Style
 	matchedStyle  lipgloss.Style
+}
+
+// itemRenderer is a helper for rendering individual revision items
+type itemRenderer struct {
+	renderer      *DisplayContextRenderer
+	row           parser.Row
+	isHighlighted bool
+	op            operations.Operation
+	SearchText    string
+	AceJumpPrefix *string
+	isChecked     bool
+}
+
+// getSegmentStyleForLine returns the style for a segment, considering whether the line is highlightable.
+// Only lines with the Highlightable flag should get the selected style when the row is selected.
+func (ir itemRenderer) getSegmentStyleForLine(segment screen.Segment, lineIsHighlightable bool) lipgloss.Style {
+	style := segment.Style
+	if ir.isHighlighted && lineIsHighlightable {
+		style = style.Inherit(ir.renderer.selectedStyle)
+	} else {
+		style = style.Inherit(ir.renderer.textStyle)
+	}
+	return style
+}
+
+// renderSegmentForLine renders a segment considering whether the line is highlightable.
+func (ir itemRenderer) renderSegmentForLine(tb *render.TextBuilder, segment *screen.Segment, lineIsHighlightable bool) {
+	baseStyle := ir.getSegmentStyleForLine(*segment, lineIsHighlightable)
+	if ir.SearchText == "" {
+		tb.Styled(segment.Text, baseStyle)
+		return
+	}
+
+	lowerText := strings.ToLower(segment.Text)
+	searchText := ir.SearchText
+	if !strings.Contains(lowerText, searchText) {
+		tb.Styled(segment.Text, baseStyle)
+		return
+	}
+
+	matchStyle := baseStyle.Inherit(ir.renderer.matchedStyle)
+	start := 0
+	for {
+		offset := strings.Index(lowerText[start:], searchText)
+		if offset == -1 {
+			if start < len(segment.Text) {
+				tb.Styled(segment.Text[start:], baseStyle)
+			}
+			break
+		}
+		idx := start + offset
+		if idx > start {
+			tb.Styled(segment.Text[start:idx], baseStyle)
+		}
+		end := idx + len(searchText)
+		if end > len(segment.Text) {
+			end = len(segment.Text)
+		}
+		tb.Styled(segment.Text[idx:end], matchStyle)
+		start = end
+		if start >= len(segment.Text) {
+			break
+		}
+	}
 }
 
 // NewDisplayContextRenderer creates a new DisplayContext-based renderer
@@ -215,22 +280,17 @@ func (r *DisplayContextRenderer) renderItemToDisplayContext(
 
 	// Create an item renderer for this item
 	ir := itemRenderer{
+		renderer:      r,
 		row:           item,
 		isHighlighted: isSelected,
 		op:            operation,
+		SearchText:    quickSearch,
 	}
 
 	// Check if this revision is selected (for checkbox)
 	if item.Commit != nil && r.selections != nil {
 		ir.isChecked = r.selections[item.Commit.ChangeId]
 	}
-
-	// Setup styles from renderer
-	ir.selectedStyle = r.selectedStyle
-	ir.textStyle = r.textStyle
-	ir.dimmedStyle = r.dimmedStyle
-	ir.matchedStyle = r.matchedStyle
-	ir.SearchText = quickSearch
 
 	// Handle operation rendering for before section
 	if isSelected && operation != nil {
@@ -425,14 +485,14 @@ func (ir *itemRenderer) renderLine(tb *render.TextBuilder, line *parser.GraphRow
 
 	// Render gutter (no tracer support for now)
 	for _, segment := range line.Gutter.Segments {
-		style := segment.Style.Inherit(ir.textStyle)
+		style := segment.Style.Inherit(ir.renderer.textStyle)
 		tb.Styled(segment.Text, style)
 	}
 
 	// Add checkbox and operation content before ChangeID
 	if line.Flags&parser.Revision == parser.Revision {
 		if ir.isChecked {
-			tb.Styled("✓ ", ir.selectedStyle)
+			tb.Styled("✓ ", ir.renderer.selectedStyle)
 		}
 		beforeChangeID := ir.op.Render(ir.row.Commit, operations.RenderBeforeChangeId)
 		if beforeChangeID != "" {
@@ -464,8 +524,7 @@ func (ir *itemRenderer) renderLine(tb *render.TextBuilder, line *parser.GraphRow
 
 	// Add affected marker
 	if line.Flags&parser.Revision == parser.Revision && ir.row.IsAffected {
-		style := ir.dimmedStyle
-		tb.Styled(" (affected by last operation)", style)
+		tb.Styled(" (affected by last operation)", ir.renderer.dimmedStyle)
 	}
 }
 
