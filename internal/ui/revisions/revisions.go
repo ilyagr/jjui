@@ -264,7 +264,7 @@ func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 		m.quickSearch = strings.ToLower(string(msg))
 		m.SetCursor(m.search(0))
 		m.op = operations.NewDefault()
-		return nil
+		return m.updateSelection()
 	case common.CommandCompletedMsg:
 		m.output = msg.Output
 		m.err = msg.Err
@@ -507,7 +507,7 @@ func (m *Model) handleIntent(intent intents.Intent) tea.Cmd {
 		return nil
 	case intents.QuickSearchCycle:
 		m.SetCursor(m.search(m.cursor + 1))
-		return nil
+		return m.updateSelection()
 	case intents.RevisionsQuickSearchClear:
 		m.quickSearch = ""
 		return nil
