@@ -275,14 +275,6 @@ func GitRemoteList() CommandArgs {
 	return []string{"git", "remote", "list"}
 }
 
-func Show(revision string, extraArgs ...string) CommandArgs {
-	args := []string{"show", "-r", revision, "--color", "always", "--ignore-working-copy"}
-	if extraArgs != nil {
-		args = append(args, extraArgs...)
-	}
-	return args
-}
-
 func Rebase(from SelectedRevisions, to string, source string, target string, skipEmptied bool, ignoreImmutable bool) CommandArgs {
 	args := []string{"rebase"}
 	args = append(args, from.AsPrefixedArgs(source)...)
