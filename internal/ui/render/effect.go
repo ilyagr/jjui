@@ -1,8 +1,6 @@
 package render
 
 import (
-	"strings"
-
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/cellbuf"
 )
@@ -146,21 +144,52 @@ func (e HighlightEffect) Apply(buf *cellbuf.Buffer) {
 func (e HighlightEffect) GetZ() int                  { return e.Z }
 func (e HighlightEffect) GetRect() cellbuf.Rectangle { return e.Rect }
 
-func fillString(width, height int, ch rune, style lipgloss.Style) string {
-	if width <= 0 || height <= 0 {
-		return ""
+type FillEffect struct {
+	Rect  cellbuf.Rectangle
+	Char  rune
+	Style cellbuf.Style
+	Z     int
+}
+
+func (e FillEffect) Apply(buf *cellbuf.Buffer) {
+	cell := &cellbuf.Cell{
+		Rune:  e.Char,
+		Width: 1,
+		Style: e.Style,
 	}
-	line := strings.Repeat(string(ch), width)
-	styledLine := style.Render(line)
-	var b strings.Builder
-	b.Grow((len(styledLine) + 1) * height)
-	for i := 0; i < height; i++ {
-		if i > 0 {
-			b.WriteByte('\n')
-		}
-		b.WriteString(styledLine)
+	buf.FillRect(cell, e.Rect)
+}
+
+func (e FillEffect) GetZ() int                  { return e.Z }
+func (e FillEffect) GetRect() cellbuf.Rectangle { return e.Rect }
+
+func lipglossToStyle(ls lipgloss.Style) cellbuf.Style {
+	var cs cellbuf.Style
+	if _, isNoColor := ls.GetForeground().(lipgloss.NoColor); !isNoColor {
+		cs.Fg = ls.GetForeground()
 	}
-	return b.String()
+	if _, isNoColor := ls.GetBackground().(lipgloss.NoColor); !isNoColor {
+		cs.Bg = ls.GetBackground()
+	}
+	if ls.GetBold() {
+		cs.Bold(true)
+	}
+	if ls.GetFaint() {
+		cs.Faint(true)
+	}
+	if ls.GetItalic() {
+		cs.Italic(true)
+	}
+	if ls.GetUnderline() {
+		cs.Underline(true)
+	}
+	if ls.GetStrikethrough() {
+		cs.Strikethrough(true)
+	}
+	if ls.GetReverse() {
+		cs.Reverse(true)
+	}
+	return cs
 }
 
 // iterateCells iterates over all cells in a rectangle, applies a transformation,

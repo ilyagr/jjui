@@ -84,11 +84,12 @@ func (dl *DisplayContext) AddFill(rect cellbuf.Rectangle, ch rune, style lipglos
 	if rect.Dx() <= 0 || rect.Dy() <= 0 {
 		return
 	}
-	content := fillString(rect.Dx(), rect.Dy(), ch, style)
-	if content == "" {
-		return
-	}
-	dl.AddDraw(rect, content, z)
+	dl.AddEffect(FillEffect{
+		Rect:  rect,
+		Char:  ch,
+		Style: lipglossToStyle(style),
+		Z:     z,
+	})
 }
 
 // AddEffect adds a custom Effect to the display context.
