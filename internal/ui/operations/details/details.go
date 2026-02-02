@@ -32,6 +32,7 @@ type updateCommitStatusMsg struct {
 var (
 	_ operations.Operation = (*Operation)(nil)
 	_ common.Focusable     = (*Operation)(nil)
+	_ common.Editable      = (*Operation)(nil)
 	_ common.Overlay       = (*Operation)(nil)
 )
 
@@ -53,6 +54,10 @@ func (s *Operation) IsOverlay() bool {
 
 func (s *Operation) IsFocused() bool {
 	return true
+}
+
+func (s *Operation) IsEditing() bool {
+	return s.confirmation != nil
 }
 
 func (s *Operation) Init() tea.Cmd {
