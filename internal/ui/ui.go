@@ -27,7 +27,7 @@ import (
 	"github.com/idursun/jjui/internal/ui/diff"
 	"github.com/idursun/jjui/internal/ui/exec_process"
 	"github.com/idursun/jjui/internal/ui/git"
-	"github.com/idursun/jjui/internal/ui/helppage"
+
 	"github.com/idursun/jjui/internal/ui/input"
 	"github.com/idursun/jjui/internal/ui/leader"
 	"github.com/idursun/jjui/internal/ui/oplog"
@@ -118,6 +118,12 @@ func (m *Model) handleFocusInputMessage(msg tea.Msg) (tea.Cmd, bool) {
 		}
 
 		if m.stacked != nil {
+			// when stacked is activated (e.g., git, bookmarks) with status expanded,
+			// pressing `esc` closes expanded status
+			if key.Matches(msg, m.keyMap.Cancel) && m.status.StatusExpanded() {
+				m.status.ToggleStatusExpand()
+				return nil, true
+			}
 			return m.stacked.Update(msg), true
 		}
 	}
@@ -210,6 +216,12 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			return nil
 		}
 
+		// if status is expanded, pressing `esc` should always close expanded
+		// status first
+		if key.Matches(msg, m.keyMap.Cancel) && m.status.StatusExpanded() {
+			m.status.ToggleStatusExpand()
+			return nil
+		}
 		if key.Matches(msg, m.keyMap.Cancel) && (m.state == common.Error || m.stacked != nil || m.flash.Any()) {
 			return m.handleIntent(intents.Cancel{})
 		}
@@ -229,8 +241,8 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			return m.handleIntent(intents.Redo{})
 		case key.Matches(msg, m.keyMap.Bookmark.Mode) && m.revisions.InNormalMode():
 			return m.handleIntent(intents.OpenBookmarks{})
-		case key.Matches(msg, m.keyMap.Help):
-			return m.handleIntent(intents.HelpToggle{})
+		case key.Matches(msg, m.keyMap.ExpandStatus):
+			return m.handleIntent(intents.ExpandStatusToggle{})
 		case key.Matches(msg, m.keyMap.Preview.Mode):
 			return m.handleIntent(intents.PreviewToggle{})
 		case key.Matches(msg, m.keyMap.Preview.ToggleBottom):
@@ -286,14 +298,6 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		return exec_process.ExecLine(m.context, msg)
 	case common.ExecProcessCompletedMsg:
 		cmds = append(cmds, common.Refresh)
-	case common.ToggleHelpMsg:
-		if m.stacked == nil {
-			h := helppage.New(m.context)
-			m.stacked = h
-		} else {
-			m.stacked = nil
-		}
-		return nil
 	case common.ShowDiffMsg:
 		m.diff = diff.New(string(msg))
 		return m.diff.Init()
@@ -461,19 +465,16 @@ func (m *Model) View() string {
 
 	if m.diff != nil {
 		m.renderDiffLayout(box)
-		m.displayContext.Render(screenBuf)
-		content := cellbuf.Render(screenBuf)
-		return strings.ReplaceAll(content, "\r", "")
-	}
-
-	if m.previewModel.Visible() {
-		m.UpdatePreviewPosition()
-	}
-	m.syncPreviewSplitOrientation()
-	if m.oplog != nil {
-		m.renderOpLogLayout(box)
 	} else {
-		m.renderRevisionsLayout(box)
+		if m.previewModel.Visible() {
+			m.UpdatePreviewPosition()
+		}
+		m.syncPreviewSplitOrientation()
+		if m.oplog != nil {
+			m.renderOpLogLayout(box)
+		} else {
+			m.renderRevisionsLayout(box)
+		}
 	}
 
 	if m.stacked != nil {
@@ -606,8 +607,9 @@ func (m *Model) handleIntent(intent intents.Intent) tea.Cmd {
 		return tea.Quit
 	case intents.Suspend:
 		return tea.Suspend
-	case intents.HelpToggle:
-		return common.ToggleHelp
+	case intents.ExpandStatusToggle:
+		m.status.ToggleStatusExpand()
+		return nil
 	case intents.OpenBookmarks:
 		if !m.revisions.InNormalMode() {
 			return nil

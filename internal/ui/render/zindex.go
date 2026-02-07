@@ -29,8 +29,8 @@ const (
 	// ZOverlay is for overlays like sequence overlay and flash messages
 	ZOverlay = 200
 
-	// ZHelpPage is for the help page overlay
-	ZHelpPage = 250
+	// ZExpandedStatus is for the expanded status bar help overlay (highest UI overlay)
+	ZExpandedStatus = 275
 
 	// ZPassword is for password input (highest priority modal)
 	ZPassword = 300

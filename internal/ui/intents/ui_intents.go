@@ -24,9 +24,9 @@ type Suspend struct{}
 
 func (Suspend) isIntent() {}
 
-type HelpToggle struct{}
+type ExpandStatusToggle struct{}
 
-func (HelpToggle) isIntent() {}
+func (ExpandStatusToggle) isIntent() {}
 
 type OpenBookmarks struct{}
 
