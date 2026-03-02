@@ -61,7 +61,7 @@ func TestFlash_HistoryOnlyContainsCommandMessages(t *testing.T) {
 
 func TestCommandHistory_NavigationAdjustsSelection(t *testing.T) {
 	source := flash.New(test.NewTestContext(test.NewTestCommandRunner(t)))
-	for i := 0; i < 6; i++ {
+	for i := range 6 {
 		source.AddWithCommand(fmt.Sprintf("m-%d", i), fmt.Sprintf("jj cmd %d", i), nil)
 	}
 

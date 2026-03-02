@@ -34,8 +34,8 @@ func (p *Palette) add(key string, style lipgloss.Style) {
 		p.root = &node{children: make(map[string]*node)}
 	}
 	current := p.root
-	prefixes := strings.Fields(key)
-	for _, prefix := range prefixes {
+	prefixes := strings.FieldsSeq(key)
+	for prefix := range prefixes {
 		if child, ok := current.children[prefix]; ok {
 			current = child
 		} else {
@@ -193,8 +193,8 @@ func parseColor(c string) color.Color {
 	case "bright white":
 		return lipgloss.Color("15")
 	default:
-		if strings.HasPrefix(c, "ansi-color-") {
-			code := strings.TrimPrefix(c, "ansi-color-")
+		if after, ok := strings.CutPrefix(c, "ansi-color-"); ok {
+			code := after
 			if v, err := strconv.Atoi(code); err == nil && v >= 0 && v <= 255 {
 				return lipgloss.Color(code)
 			}

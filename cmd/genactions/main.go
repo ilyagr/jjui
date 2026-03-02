@@ -486,7 +486,7 @@ func parseBindDirectives(doc *ast.CommentGroup, intentType string) []parsedRule 
 			case "action":
 				rule.Action = v
 			case "set":
-				for _, assign := range strings.Split(v, ",") {
+				for assign := range strings.SplitSeq(v, ",") {
 					fv := strings.SplitN(assign, ":", 2)
 					if len(fv) != 2 {
 						errs = append(errs, fmt.Errorf("invalid set assignment %q in directive %q", assign, line))
@@ -758,8 +758,8 @@ func validateOwnerFormat(owner string) error {
 	if owner == "" {
 		return errors.New("owner is empty")
 	}
-	segments := strings.Split(owner, ".")
-	for _, segment := range segments {
+	segments := strings.SplitSeq(owner, ".")
+	for segment := range segments {
 		if segment == "" {
 			return errors.New("owner has empty segment")
 		}

@@ -37,22 +37,22 @@ func (l *LogBuilder) Write(line string) {
 	scanner.Split(bufio.ScanWords)
 	for scanner.Scan() {
 		text := scanner.Text()
-		if strings.HasPrefix(text, "short_id=") {
-			text = strings.TrimPrefix(text, "short_id=")
+		if after, ok := strings.CutPrefix(text, "short_id="); ok {
+			text = after
 			l.ShortId(text)
 			continue
 		}
-		if strings.HasPrefix(text, "id=") {
-			text = strings.TrimPrefix(text, "id=")
+		if after, ok := strings.CutPrefix(text, "id="); ok {
+			text = after
 			l.Id(text[:1], text[1:])
 			continue
 		}
-		if strings.HasPrefix(text, "author=") {
-			l.Author(strings.TrimPrefix(text, "author="))
+		if after, ok := strings.CutPrefix(text, "author="); ok {
+			l.Author(after)
 			continue
 		}
-		if strings.HasPrefix(text, "bookmarks=") {
-			text = strings.TrimPrefix(text, "bookmarks=")
+		if after, ok := strings.CutPrefix(text, "bookmarks="); ok {
+			text = after
 			values := strings.Split(text, ",")
 			l.Bookmarks(strings.Join(values, " "))
 			continue

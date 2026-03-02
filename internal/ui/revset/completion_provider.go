@@ -129,13 +129,13 @@ func (p *CompletionProvider) GetCompletionItems(input string, history []string) 
 	}
 
 	for _, si := range p.items {
-		if strings.HasPrefix(si.Name, lastToken) {
+		if after, ok := strings.CutPrefix(si.Name, lastToken); ok {
 			items = append(items, CompletionItem{
 				Name:          si.Name,
 				SignatureHelp: si.SignatureHelp,
 				Kind:          si.Kind,
 				MatchedPart:   lastToken,
-				RestPart:      strings.TrimPrefix(si.Name, lastToken),
+				RestPart:      after,
 				HasParameters: si.HasParameters,
 			})
 		}

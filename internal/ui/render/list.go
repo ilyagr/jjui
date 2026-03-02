@@ -76,7 +76,7 @@ func (r *ListRenderer) Render(
 
 	viewHeight := viewRect.R.Dy()
 	totalLines := 0
-	for i := 0; i < itemCount; i++ {
+	for i := range itemCount {
 		totalLines += measure(i)
 	}
 	r.StartLine = ClampStartLine(r.StartLine, viewHeight, totalLines)
@@ -142,20 +142,14 @@ func (r *ListRenderer) ensureCursorVisible(
 	cursorHeight := measure(cursor)
 	cursorEnd := cursorStart + cursorHeight
 
-	start := r.StartLine
-	if start < 0 {
-		start = 0
-	}
+	start := max(r.StartLine, 0)
 
 	viewportEnd := start + viewportHeight
 
 	if cursorStart < start {
 		r.StartLine = cursorStart
 	} else if cursorEnd > viewportEnd {
-		r.StartLine = cursorEnd - viewportHeight
-		if r.StartLine < 0 {
-			r.StartLine = 0
-		}
+		r.StartLine = max(cursorEnd-viewportHeight, 0)
 	}
 }
 
@@ -205,20 +199,14 @@ func layoutAll(
 	viewEnd := viewport.StartLine + viewport.ViewRect.R.Dy()
 	listY := 0
 
-	for i := 0; i < itemCount; i++ {
-		available := viewEnd - max(viewStart, listY)
-		if available < 0 {
-			available = 0
-		}
+	for i := range itemCount {
+		available := max(viewEnd-max(viewStart, listY), 0)
 		result := measure(measureRequest{
 			Index:         i,
 			AvailableLine: available,
 		})
 
-		height := result.DesiredLine
-		if height < result.MinLine {
-			height = result.MinLine
-		}
+		height := max(result.DesiredLine, result.MinLine)
 		if height < 0 {
 			height = 0
 		}
@@ -261,10 +249,7 @@ func ClampStartLine(startLine, viewHeight, totalLines int) int {
 	if startLine < 0 {
 		startLine = 0
 	}
-	maxStart := totalLines - viewHeight
-	if maxStart < 0 {
-		maxStart = 0
-	}
+	maxStart := max(totalLines-viewHeight, 0)
 	if startLine > maxStart {
 		startLine = maxStart
 	}

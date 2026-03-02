@@ -68,7 +68,7 @@ func drainCmds(first tea.Cmd, apply func(tea.Msg) tea.Cmd, observers ...func(tea
 	}
 }
 
-var cmdType = reflect.TypeOf((tea.Cmd)(nil))
+var cmdType = reflect.TypeFor[tea.Cmd]()
 
 // asCmdSlice returns the contents if msg is any named slice whose elements are tea.Cmd.
 func asCmdSlice(msg tea.Msg) ([]tea.Cmd, bool) {

@@ -75,10 +75,7 @@ func (ir *itemRenderer) renderSegmentForLine(tb *render.TextBuilder, segment *sc
 		if idx > start {
 			tb.Styled(segment.Text[start:idx], baseStyle)
 		}
-		end := idx + len(searchText)
-		if end > len(segment.Text) {
-			end = len(segment.Text)
-		}
+		end := min(idx+len(searchText), len(segment.Text))
 		tb.Styled(segment.Text[idx:end], matchStyle)
 		start = end
 		if start >= len(segment.Text) {
@@ -355,7 +352,7 @@ func (r *DisplayContextRenderer) renderItemToDisplayContext(
 
 		if height > 0 {
 			// Render gutters for each line
-			for i := 0; i < height; i++ {
+			for i := range height {
 				gutterContent := r.renderGutter(extended)
 				gutterRect := layout.Rect(rect.Min.X, y+i, gutterWidth, 1)
 				dl.AddDraw(gutterRect, gutterContent, 0)
@@ -370,8 +367,8 @@ func (r *DisplayContextRenderer) renderItemToDisplayContext(
 			return
 		}
 
-		lines := strings.Split(after, "\n")
-		for _, line := range lines {
+		lines := strings.SplitSeq(after, "\n")
+		for line := range lines {
 			if y >= rect.Max.Y {
 				break
 			}
@@ -418,7 +415,7 @@ func (r *DisplayContextRenderer) renderItemToDisplayContext(
 
 			if height > 0 {
 				// Render gutters for each line
-				for j := 0; j < height; j++ {
+				for j := range height {
 					gutter := line.Gutter
 					if j > 0 {
 						gutter = extended
@@ -467,7 +464,7 @@ func (r *DisplayContextRenderer) renderItemToDisplayContext(
 
 		if height > 0 {
 			// Render gutters for each line
-			for j := 0; j < height; j++ {
+			for j := range height {
 				gutterContent := r.renderGutter(extended)
 				gutterRect := layout.Rect(rect.Min.X, y+j, gutterWidth, 1)
 				dl.AddDraw(gutterRect, gutterContent, 0)

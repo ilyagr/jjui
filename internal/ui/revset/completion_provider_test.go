@@ -1,6 +1,7 @@
 package revset
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -68,13 +69,7 @@ func TestGetCompletions(t *testing.T) {
 		t.Run(test.input, func(t *testing.T) {
 			provider := NewCompletionProvider(nil)
 			suggestions := provider.GetCompletions(test.input)
-			found := false
-			for _, suggestion := range suggestions {
-				if suggestion == test.expected {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(suggestions, test.expected)
 			assert.True(t, found, "Expected suggestion '%s' not found for input: '%s'", test.expected, test.input)
 		})
 	}

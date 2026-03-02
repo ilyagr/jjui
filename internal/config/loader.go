@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
@@ -174,9 +175,7 @@ func LoadConfigFile() ([]byte, error) {
 
 func loadTheme(data []byte, base map[string]Color) (map[string]Color, error) {
 	colors := make(map[string]Color)
-	for key, color := range base {
-		colors[key] = color
-	}
+	maps.Copy(colors, base)
 	err := toml.Unmarshal(data, &colors)
 	if err != nil {
 		return nil, err

@@ -252,10 +252,7 @@ func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
 	}
 
 	contentWidth := min(itemWidth, maxContentWidth)
-	listHeightLimit := maxContentHeight - titleHeight - inputHeight
-	if listHeightLimit < 0 {
-		listHeightLimit = 0
-	}
+	listHeightLimit := max(maxContentHeight-titleHeight-inputHeight, 0)
 	// Use total options for height calculation to prevent resizing during filtering
 	listHeight := min(min(len(m.options), listHeightLimit), maxVisibleItems)
 	if listHeight == 0 && len(m.options) > 0 {

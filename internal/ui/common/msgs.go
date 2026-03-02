@@ -96,7 +96,7 @@ func CloseApplied() tea.Msg {
 	return CloseViewMsg{Applied: true}
 }
 
-func RestoreOperation(op interface{}) tea.Cmd {
+func RestoreOperation(op any) tea.Cmd {
 	return func() tea.Msg {
 		return RestoreOperationMsg{Operation: op}
 	}

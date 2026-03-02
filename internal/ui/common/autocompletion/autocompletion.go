@@ -242,7 +242,7 @@ func (ac *AutoCompletionInput) View() string {
 		builder.WriteString("\n")
 
 		visibleCount := len(ac.currentCompletions)
-		for i := 0; i < visibleCount; i++ {
+		for i := range visibleCount {
 			completion := ac.currentCompletions[i]
 
 			if i == ac.currentSuggestionIndex {

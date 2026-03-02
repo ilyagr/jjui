@@ -345,7 +345,7 @@ func registerAPI(L *lua.LState, ctx *uicontext.MainContext) {
 			keepEmpty = L.CheckBool(2)
 		}
 		tbl := L.NewTable()
-		for _, line := range strings.Split(text, "\n") {
+		for line := range strings.SplitSeq(text, "\n") {
 			line = strings.TrimSuffix(line, "\r")
 			if line == "" && !keepEmpty {
 				continue
@@ -472,7 +472,7 @@ func registerGeneratedActionAPI(L *lua.LState, root *lua.LTable) {
 
 func ensureOwnerTable(L *lua.LState, root *lua.LTable, owner string) *lua.LTable {
 	current := root
-	for _, segment := range strings.Split(owner, ".") {
+	for segment := range strings.SplitSeq(owner, ".") {
 		existing := current.RawGetString(segment)
 		if tbl, ok := existing.(*lua.LTable); ok {
 			current = tbl

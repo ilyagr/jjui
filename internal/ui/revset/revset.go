@@ -433,13 +433,13 @@ func (m *Model) formatSignature(item CompletionItem) string {
 	sig := item.SignatureHelp
 	// The signature format is "name(args): description"
 	// We want to show just the description or "(args): desc" if different from name
-	if colonIdx := strings.Index(sig, "):"); colonIdx != -1 {
+	if _, after, ok := strings.Cut(sig, "):"); ok {
 		// Return description part after "): "
-		return strings.TrimSpace(sig[colonIdx+2:])
+		return strings.TrimSpace(after)
 	}
-	if colonIdx := strings.Index(sig, ":"); colonIdx != -1 {
+	if _, after, ok := strings.Cut(sig, ":"); ok {
 		// Return description part after ": "
-		return strings.TrimSpace(sig[colonIdx+1:])
+		return strings.TrimSpace(after)
 	}
 	return sig
 }

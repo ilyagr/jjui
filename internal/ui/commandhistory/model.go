@@ -145,10 +145,7 @@ func (m *Model) clampViewport() {
 	}
 	m.selectedIndex = min(len(m.items)-1, max(0, m.selectedIndex))
 	maxStart := max(0, len(m.items)-historyWindowSize)
-	m.windowStart = min(maxStart, max(0, m.windowStart))
-	if m.selectedIndex < m.windowStart {
-		m.windowStart = m.selectedIndex
-	}
+	m.windowStart = min(m.selectedIndex, min(maxStart, max(0, m.windowStart)))
 	if m.selectedIndex >= m.windowStart+historyWindowSize {
 		m.windowStart = m.selectedIndex - historyWindowSize + 1
 	}

@@ -45,7 +45,7 @@ func (v *defaultView) ViewRect(dl *render.DisplayContext, box layout.Box, scroll
 	buf := uv.NewScreenBuffer(width, height)
 	firstLine := max(0, scrollY)
 	lineW := max(width, v.maxLineWidth)
-	for i := 0; i < height; i++ {
+	for i := range height {
 		physLine := firstLine + i
 		if physLine >= len(v.lines) {
 			break

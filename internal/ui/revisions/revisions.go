@@ -831,8 +831,8 @@ func (m *Model) highlightChanges() tea.Msg {
 		return nil
 	}
 
-	changes := strings.Split(m.output, "\n")
-	for _, change := range changes {
+	changes := strings.SplitSeq(m.output, "\n")
+	for change := range changes {
 		if !strings.HasPrefix(change, " ") {
 			continue
 		}

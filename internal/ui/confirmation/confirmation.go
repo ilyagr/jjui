@@ -98,10 +98,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		if len(m.options) == 0 {
 			return nil
 		}
-		next := m.selected + msg.Delta
-		if next < 0 {
-			next = 0
-		}
+		next := max(m.selected+msg.Delta, 0)
 		if next >= len(m.options) {
 			next = len(m.options) - 1
 		}

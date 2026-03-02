@@ -44,7 +44,7 @@ func (c *Color) UnmarshalTOML(text any) error {
 	switch v := text.(type) {
 	case string:
 		c.Fg = v
-	case map[string]interface{}:
+	case map[string]any:
 		if p, ok := v["fg"]; ok {
 			c.Fg = p.(string)
 		}
@@ -85,7 +85,7 @@ func (t *ThemeConfig) UnmarshalTOML(data any) error {
 	case string:
 		t.Dark = v
 		t.Light = v
-	case map[string]interface{}:
+	case map[string]any:
 		if dark, ok := v["dark"]; ok {
 			if darkStr, isString := dark.(string); isString {
 				t.Dark = darkStr

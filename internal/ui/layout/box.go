@@ -135,10 +135,7 @@ func (b Box) V(specs ...Spec) []Box {
 	}
 
 	// Calculate remaining space for Fill specs
-	remaining := height - consumed
-	if remaining < 0 {
-		remaining = 0
-	}
+	remaining := max(height-consumed, 0)
 
 	// Second pass: calculate Fill sizes
 	fillAllocated := 0
@@ -172,10 +169,7 @@ func (b Box) V(specs ...Spec) []Box {
 				Max: Pos(b.R.Max.X, b.R.Max.Y),
 			}}
 		} else {
-			nextY := y + size
-			if nextY > b.R.Max.Y {
-				nextY = b.R.Max.Y
-			}
+			nextY := min(y+size, b.R.Max.Y)
 			result[i] = Box{R: Rectangle{
 				Min: Pos(b.R.Min.X, y),
 				Max: Pos(b.R.Max.X, nextY),
@@ -226,10 +220,7 @@ func (b Box) H(specs ...Spec) []Box {
 	}
 
 	// Calculate remaining space for Fill specs
-	remaining := width - consumed
-	if remaining < 0 {
-		remaining = 0
-	}
+	remaining := max(width-consumed, 0)
 
 	// Second pass: calculate Fill sizes
 	fillAllocated := 0
@@ -263,10 +254,7 @@ func (b Box) H(specs ...Spec) []Box {
 				Max: Pos(b.R.Max.X, b.R.Max.Y),
 			}}
 		} else {
-			nextX := x + size
-			if nextX > b.R.Max.X {
-				nextX = b.R.Max.X
-			}
+			nextX := min(x+size, b.R.Max.X)
 			result[i] = Box{R: Rectangle{
 				Min: Pos(x, b.R.Min.Y),
 				Max: Pos(nextX, b.R.Max.Y),

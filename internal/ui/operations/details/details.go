@@ -365,10 +365,7 @@ func (s *Operation) RenderToDisplayContext(dl *render.DisplayContext, commit *jj
 		confirmationHeight = lipgloss.Height(s.confirmation.View())
 	}
 
-	availableListHeight := rect.Dy() - confirmationHeight
-	if availableListHeight < 0 {
-		availableListHeight = 0
-	}
+	availableListHeight := max(rect.Dy()-confirmationHeight, 0)
 
 	// Calculate available height
 	height := min(availableListHeight, s.Len())
@@ -441,8 +438,8 @@ func (s *Operation) createListItems(content string, selectedFiles []string) []*i
 		conflicts = append(conflicts, field == "true")
 	}
 
-	start := strings.IndexByte(content, '$')
-	scanner = bufio.NewScanner(strings.NewReader(content[start+1:]))
+	_, after, _ := strings.Cut(content, "$")
+	scanner = bufio.NewScanner(strings.NewReader(after))
 	index := 0
 	for scanner.Scan() {
 		file := strings.TrimSpace(scanner.Text())
@@ -537,10 +534,7 @@ func (s *Operation) viewContent(width, maxHeight int) string {
 	if width <= 0 {
 		width = 80 // sensible default
 	}
-	height := min(maxHeight-5-ch, s.Len())
-	if height < 0 {
-		height = 0
-	}
+	height := max(min(maxHeight-5-ch, s.Len()), 0)
 	dl := render.NewDisplayContext()
 	viewRect := layout.Box{R: layout.Rect(0, 0, width, height)}
 	if height > 0 {

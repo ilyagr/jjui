@@ -2,6 +2,7 @@ package bindings
 
 import (
 	"fmt"
+	"slices"
 )
 
 // Binding maps a key (or key sequence) to an action in a scope.
@@ -28,15 +29,11 @@ func (b Binding) validate() error {
 		return fmt.Errorf("binding %q in scope %q must set exactly one of key or seq", b.Action, b.Scope)
 	}
 
-	for _, key := range b.Key {
-		if key == "" {
-			return fmt.Errorf("binding %q in scope %q contains empty key", b.Action, b.Scope)
-		}
+	if slices.Contains(b.Key, "") {
+		return fmt.Errorf("binding %q in scope %q contains empty key", b.Action, b.Scope)
 	}
-	for _, seqKey := range b.Seq {
-		if seqKey == "" {
-			return fmt.Errorf("binding %q in scope %q contains empty sequence key", b.Action, b.Scope)
-		}
+	if slices.Contains(b.Seq, "") {
+		return fmt.Errorf("binding %q in scope %q contains empty sequence key", b.Action, b.Scope)
 	}
 	if len(b.Seq) == 1 {
 		return fmt.Errorf("binding %q in scope %q has seq with only one key; use key instead", b.Action, b.Scope)

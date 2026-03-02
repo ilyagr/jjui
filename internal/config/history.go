@@ -134,7 +134,7 @@ func (h *History) historyDir() string {
 	return filepath.Join(cacheDir, "jjui", "history")
 }
 
-type uniqueMap map[string]interface{}
+type uniqueMap map[string]any
 
 func (h *History) dedup(entries HistoryEntries) (HistoryEntries, uniqueMap) {
 	seen := uniqueMap{}
