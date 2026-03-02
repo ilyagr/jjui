@@ -65,6 +65,8 @@ const (
 	DiffHalfPageDown                       keybindings.Action = "diff.half_page_down"
 	DiffHalfPageUp                         keybindings.Action = "diff.half_page_up"
 	DiffLeft                               keybindings.Action = "diff.left"
+	DiffMoveBottom                         keybindings.Action = "diff.move_bottom"
+	DiffMoveTop                            keybindings.Action = "diff.move_top"
 	DiffPageDown                           keybindings.Action = "diff.page_down"
 	DiffPageUp                             keybindings.Action = "diff.page_up"
 	DiffRight                              keybindings.Action = "diff.right"
@@ -349,6 +351,10 @@ func ResolveIntent(owner string, action keybindings.Action, args map[string]any)
 			return intents.DiffScroll{Kind: intents.DiffHalfPageUp}, true
 		case keybindings.Action("diff.left"):
 			return intents.DiffScrollHorizontal{Kind: intents.DiffScrollLeft}, true
+		case keybindings.Action("diff.move_bottom"):
+			return intents.DiffScroll{Kind: intents.DiffMoveBottom}, true
+		case keybindings.Action("diff.move_top"):
+			return intents.DiffScroll{Kind: intents.DiffMoveTop}, true
 		case keybindings.Action("diff.page_down"):
 			return intents.DiffScroll{Kind: intents.DiffPageDown}, true
 		case keybindings.Action("diff.page_up"):

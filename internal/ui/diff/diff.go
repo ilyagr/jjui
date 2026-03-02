@@ -189,6 +189,10 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			m.scrollY -= m.viewportHeight / 2
 		case intents.DiffHalfPageDown:
 			m.scrollY += m.viewportHeight / 2
+		case intents.DiffMoveTop:
+			m.scrollY = 0
+		case intents.DiffMoveBottom:
+			m.scrollY = max(0, m.mode.totalLines(m.viewportWidth)-m.viewportHeight)
 		}
 		return nil
 

@@ -9,6 +9,8 @@ const (
 	DiffPageDown
 	DiffHalfPageUp
 	DiffHalfPageDown
+	DiffMoveTop
+	DiffMoveBottom
 )
 
 //jjui:bind scope=diff action=scroll_up set=Kind:DiffScrollUp
@@ -17,6 +19,8 @@ const (
 //jjui:bind scope=diff action=page_down set=Kind:DiffPageDown
 //jjui:bind scope=diff action=half_page_up set=Kind:DiffHalfPageUp
 //jjui:bind scope=diff action=half_page_down set=Kind:DiffHalfPageDown
+//jjui:bind scope=diff action=move_top set=Kind:DiffMoveTop
+//jjui:bind scope=diff action=move_bottom set=Kind:DiffMoveBottom
 type DiffScroll struct {
 	Kind DiffScrollKind
 }

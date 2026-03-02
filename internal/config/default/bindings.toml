@@ -311,6 +311,8 @@ bindings = [
     { key = ["pgdown", "f", "space"], action = "diff.page_down", scope = "diff", desc = "pgdown" },
     { key = ["u", "ctrl+u"], action = "diff.half_page_up", scope = "diff", desc = "half page up" },
     { key = ["d", "ctrl+d"], action = "diff.half_page_down", scope = "diff", desc = "half page down" },
+    { key = "g", action = "diff.move_top", scope = "diff", desc = "move top" },
+    { key = "G", action = "diff.move_bottom", scope = "diff", desc = "move bottom" },
     { key = ["left", "h"], action = "diff.left", scope = "diff", desc = "left" },
     { key = ["right", "l"], action = "diff.right", scope = "diff", desc = "right" },
     { key = "w", action = "diff.toggle_wrap", scope = "diff", desc = "toggle wrap" },
