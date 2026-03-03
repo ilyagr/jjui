@@ -285,6 +285,21 @@ func (s *Operation) handleIntent(intent intents.Intent) tea.Cmd {
 			return tea.Batch(common.Close, common.UpdateRevSet(fmt.Sprintf("files(%s)", jj.EscapeFileName(current.fileName))))
 		}
 		return nil
+	case intents.DetailsSelectFile:
+		for i := range s.files {
+			if s.files[i].fileName == intent.File {
+				if !s.files[i].selected {
+					s.files[i].selected = true
+					s.context.AddCheckedItem(context.SelectedFile{
+						ChangeId: s.revision.GetChangeId(),
+						CommitId: s.revision.CommitId,
+						File:     intent.File,
+					})
+				}
+				break
+			}
+		}
+		return nil
 	}
 	return nil
 }

@@ -119,6 +119,7 @@ var builtInActions = map[string]struct{}{
 	"revisions.details.refresh":                  {},
 	"revisions.details.restore":                  {},
 	"revisions.details.revisions_changing_file":  {},
+	"revisions.details.select_file":              {},
 	"revisions.details.split":                    {},
 	"revisions.details.split_parallel":           {},
 	"revisions.details.squash":                   {},
@@ -362,6 +363,7 @@ var builtInActionOwners = map[string][]string{
 	"revisions.details.refresh":                  {"revisions.details"},
 	"revisions.details.restore":                  {"revisions.details"},
 	"revisions.details.revisions_changing_file":  {"revisions.details"},
+	"revisions.details.select_file":              {"revisions.details"},
 	"revisions.details.split":                    {"revisions.details"},
 	"revisions.details.split_parallel":           {"revisions.details"},
 	"revisions.details.squash":                   {"revisions.details"},
@@ -508,6 +510,9 @@ var builtInActionArgSchemas = map[string]map[string]string{
 	"revisions.details.confirmation.apply": {
 		"force": "bool",
 	},
+	"revisions.details.select_file": {
+		"file": "string",
+	},
 	"revisions.duplicate.apply": {
 		"force": "bool",
 	},
@@ -541,6 +546,7 @@ var builtInActionArgSchemas = map[string]map[string]string{
 }
 
 var builtInActionRequiredArgs = map[string][]string{
+	"revisions.details.select_file":  {"file"},
 	"revisions.duplicate.set_target": {"target"},
 	"revisions.rebase.set_source":    {"source"},
 	"revisions.rebase.set_target":    {"target"},
@@ -654,6 +660,7 @@ var builtInActionOrder = []string{
 	"revisions.details.refresh",
 	"revisions.details.restore",
 	"revisions.details.revisions_changing_file",
+	"revisions.details.select_file",
 	"revisions.details.split",
 	"revisions.details.split_parallel",
 	"revisions.details.squash",
@@ -849,6 +856,10 @@ func ValidateBuiltInActionArgs(action string, args map[string]any) error {
 		case "bool":
 			if _, ok := value.(bool); !ok {
 				return fmt.Errorf("action %q arg %q expects bool", action, key)
+			}
+		case "string":
+			if _, ok := value.(string); !ok {
+				return fmt.Errorf("action %q arg %q expects string", action, key)
 			}
 		default:
 			if strings.HasPrefix(expectedType, "enum:") {

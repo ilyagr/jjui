@@ -54,3 +54,10 @@ func (DetailsToggleSelect) isIntent() {}
 type DetailsRevisionsChangingFile struct{}
 
 func (DetailsRevisionsChangingFile) isIntent() {}
+
+//jjui:bind scope=revisions.details action=select_file set=File:$string(file)
+type DetailsSelectFile struct {
+	File string
+}
+
+func (DetailsSelectFile) isIntent() {}

@@ -145,6 +145,7 @@ const (
 	RevisionsDetailsRefresh                keybindings.Action = "revisions.details.refresh"
 	RevisionsDetailsRestore                keybindings.Action = "revisions.details.restore"
 	RevisionsDetailsRevisionsChangingFile  keybindings.Action = "revisions.details.revisions_changing_file"
+	RevisionsDetailsSelectFile             keybindings.Action = "revisions.details.select_file"
 	RevisionsDetailsSplit                  keybindings.Action = "revisions.details.split"
 	RevisionsDetailsSplitParallel          keybindings.Action = "revisions.details.split_parallel"
 	RevisionsDetailsSquash                 keybindings.Action = "revisions.details.squash"
@@ -598,6 +599,8 @@ func ResolveIntent(owner string, action keybindings.Action, args map[string]any)
 			return intents.DetailsRestore{}, true
 		case keybindings.Action("revisions.details.revisions_changing_file"):
 			return intents.DetailsRevisionsChangingFile{}, true
+		case keybindings.Action("revisions.details.select_file"):
+			return intents.DetailsSelectFile{File: actionargs.StringArg(args, "file", "")}, true
 		case keybindings.Action("revisions.details.split"):
 			return intents.DetailsSplit{}, true
 		case keybindings.Action("revisions.details.split_parallel"):
