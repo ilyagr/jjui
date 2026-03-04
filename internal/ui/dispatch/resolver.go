@@ -55,7 +55,7 @@ func (r *Resolver) ResolveKey(msg tea.KeyMsg, scopes []keybindings.Scope, overri
 		}
 	}
 	if bindResult.Action != "" {
-		return r.resolveAction(bindResult.Scope, bindResult.Action, bindResult.Args, override)
+		return r.resolveAction(bindResult.Action, bindResult.Args, override, false)
 	}
 	if bindResult.Consumed {
 		return Result{Consumed: true}
@@ -64,8 +64,13 @@ func (r *Resolver) ResolveKey(msg tea.KeyMsg, scopes []keybindings.Scope, overri
 }
 
 // ResolveAction resolves a dispatched action through configured-action aliasing and intent resolution.
-func (r *Resolver) ResolveAction(scope keybindings.Scope, action keybindings.Action, args map[string]any, override IntentOverride) Result {
-	return r.resolveAction(scope, action, args, override)
+func (r *Resolver) ResolveAction(action keybindings.Action, args map[string]any, override IntentOverride) Result {
+	return r.resolveAction(action, args, override, false)
+}
+
+// ResolveBuiltInAction resolves an action while skipping configured Lua overrides.
+func (r *Resolver) ResolveBuiltInAction(action keybindings.Action, args map[string]any, override IntentOverride) Result {
+	return r.resolveAction(action, args, override, true)
 }
 
 // ResetSequence resets any in-progress key sequence.
@@ -75,7 +80,7 @@ func (r *Resolver) ResetSequence() {
 	}
 }
 
-func (r *Resolver) resolveAction(scope keybindings.Scope, action keybindings.Action, args map[string]any, override IntentOverride) Result {
+func (r *Resolver) resolveAction(action keybindings.Action, args map[string]any, override IntentOverride, skipConfigured bool) Result {
 	// 1. Try operation override first
 	if override != nil {
 		if intent, ok := override(action, args); ok {
@@ -84,19 +89,21 @@ func (r *Resolver) resolveAction(scope keybindings.Scope, action keybindings.Act
 		}
 	}
 
-	// 2. Try catalog resolution
-	if intent, owner, ok := r.resolveFromCatalog(action, args); ok {
-		return Result{Intent: intent, Owner: owner, Args: args, Consumed: true}
+	if !skipConfigured {
+		// try configured actions (Lua only).
+		cfg, hasCfg := r.configuredActions[action]
+		if hasCfg {
+			if script := strings.TrimSpace(cfg.Lua); script != "" {
+				return Result{LuaScript: script, Consumed: true}
+			}
+			// Configured action with no Lua is invalid config; treat as consumed no-op.
+			return Result{Consumed: true}
+		}
 	}
 
-	// 3. Try configured actions (Lua only).
-	cfg, hasCfg := r.configuredActions[action]
-	if hasCfg {
-		if script := strings.TrimSpace(cfg.Lua); script != "" {
-			return Result{LuaScript: script, Consumed: true}
-		}
-		// Configured action with no Lua is invalid config; treat as consumed no-op.
-		return Result{Consumed: true}
+	// try catalog resolution
+	if intent, owner, ok := r.resolveFromCatalog(action, args); ok {
+		return Result{Intent: intent, Owner: owner, Args: args, Consumed: true}
 	}
 
 	// 4. Unresolved — action was matched by binding but has no handler

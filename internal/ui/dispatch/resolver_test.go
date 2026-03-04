@@ -113,8 +113,21 @@ func TestResolveAction_DirectCall(t *testing.T) {
 		{Action: "ui.quit", Scope: "ui", Key: []string{"q"}},
 	}, nil)
 
-	result := r.ResolveAction("ui", "ui.quit", nil, nil)
+	result := r.ResolveAction("ui.quit", nil, nil)
 	assert.True(t, result.Consumed)
+	assert.NotNil(t, result.Intent)
+	_, isQuit := result.Intent.(intents.Quit)
+	assert.True(t, isQuit)
+}
+
+func TestResolveBuiltInAction_IgnoresConfiguredLuaOverride(t *testing.T) {
+	r := makeResolver(nil, map[keybindings.Action]config.ActionConfig{
+		"ui.quit": {Lua: "flash('override')"},
+	})
+
+	result := r.ResolveBuiltInAction("ui.quit", nil, nil)
+	assert.True(t, result.Consumed)
+	assert.Empty(t, result.LuaScript)
 	assert.NotNil(t, result.Intent)
 	_, isQuit := result.Intent.(intents.Quit)
 	assert.True(t, isQuit)
