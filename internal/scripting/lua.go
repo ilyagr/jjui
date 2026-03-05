@@ -16,7 +16,6 @@ import (
 	"github.com/idursun/jjui/internal/ui/input"
 	"github.com/idursun/jjui/internal/ui/intents"
 	"github.com/idursun/jjui/internal/ui/revisions"
-	"github.com/idursun/jjui/internal/ui/revset"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -189,13 +188,6 @@ func registerAPI(L *lua.LState, ctx *uicontext.MainContext) {
 	}))
 
 	revsetTable := L.NewTable()
-	revsetTable.RawSetString("set", L.NewFunction(func(L *lua.LState) int {
-		value := L.CheckString(1)
-		return yieldStep(L, step{cmd: revset.RevsetCmd(intents.Set{Value: value})})
-	}))
-	revsetTable.RawSetString("reset", L.NewFunction(func(L *lua.LState) int {
-		return yieldStep(L, step{cmd: revset.RevsetCmd(intents.Reset{})})
-	}))
 	revsetTable.RawSetString("current", L.NewFunction(func(L *lua.LState) int {
 		L.Push(lua.LString(ctx.CurrentRevset))
 		return 1
@@ -489,8 +481,21 @@ func ensureOwnerTable(L *lua.LState, root *lua.LTable, owner string) *lua.LTable
 }
 
 func generatedActionFn(L *lua.LState, canonical string, builtIn bool) *lua.LFunction {
+	var positionalKey string
+	if meta, ok := actionmeta.ActionMetadataFor(canonical); ok && len(meta.RequiredArgs) == 1 && meta.Args[meta.RequiredArgs[0]] == "string" {
+		positionalKey = meta.RequiredArgs[0]
+	}
 	return L.NewFunction(func(L *lua.LState) int {
-		args := optionalLuaMapArg(L, 1)
+		var args map[string]any
+		if positionalKey != "" && L.GetTop() >= 1 {
+			if s, ok := L.Get(1).(lua.LString); ok {
+				args = map[string]any{positionalKey: s.String()}
+			} else {
+				args = optionalLuaMapArg(L, 1)
+			}
+		} else {
+			args = optionalLuaMapArg(L, 1)
+		}
 		return yieldStep(L, step{cmd: func() tea.Msg {
 			return common.DispatchActionMsg{
 				Action:  canonical,

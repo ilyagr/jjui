@@ -1,17 +1,20 @@
 package intents
 
+//jjui:bind scope=revset action=edit set=Clear:$bool(clear)
 type Edit struct {
 	Clear bool
 }
 
 func (Edit) isIntent() {}
 
+//jjui:bind scope=revset action=set set=Value:$string(value)
 type Set struct {
 	Value string
 }
 
 func (Set) isIntent() {}
 
+//jjui:bind scope=revset action=reset
 type Reset struct{}
 
 func (Reset) isIntent() {}

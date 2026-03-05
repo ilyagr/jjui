@@ -7,9 +7,10 @@ import (
 )
 
 type ActionMetadata struct {
-	Action string
-	Owners []string
-	Args   map[string]string
+	Action       string
+	Owners       []string
+	Args         map[string]string
+	RequiredArgs []string
 }
 
 var builtInActions = map[string]struct{}{
@@ -218,8 +219,11 @@ var builtInActions = map[string]struct{}{
 	"revset.autocomplete":                        {},
 	"revset.autocomplete_back":                   {},
 	"revset.cancel":                              {},
+	"revset.edit":                                {},
 	"revset.move_down":                           {},
 	"revset.move_up":                             {},
+	"revset.reset":                               {},
+	"revset.set":                                 {},
 	"status.input.apply":                         {},
 	"status.input.autocomplete":                  {},
 	"status.input.cancel":                        {},
@@ -462,8 +466,11 @@ var builtInActionOwners = map[string][]string{
 	"revset.autocomplete":                        {"revset"},
 	"revset.autocomplete_back":                   {"revset"},
 	"revset.cancel":                              {"revset"},
+	"revset.edit":                                {"revset"},
 	"revset.move_down":                           {"revset"},
 	"revset.move_up":                             {"revset"},
+	"revset.reset":                               {"revset"},
+	"revset.set":                                 {"revset"},
 	"status.input.apply":                         {"status.input"},
 	"status.input.autocomplete":                  {"status.input"},
 	"status.input.cancel":                        {"status.input"},
@@ -543,6 +550,12 @@ var builtInActionArgSchemas = map[string]map[string]string{
 	"revisions.target_picker.apply": {
 		"force": "bool",
 	},
+	"revset.edit": {
+		"clear": "bool",
+	},
+	"revset.set": {
+		"value": "string",
+	},
 }
 
 var builtInActionRequiredArgs = map[string][]string{
@@ -551,6 +564,7 @@ var builtInActionRequiredArgs = map[string][]string{
 	"revisions.rebase.set_source":    {"source"},
 	"revisions.rebase.set_target":    {"target"},
 	"revisions.revert.set_target":    {"target"},
+	"revset.set":                     {"value"},
 }
 
 var builtInActionOrder = []string{
@@ -759,8 +773,11 @@ var builtInActionOrder = []string{
 	"revset.autocomplete",
 	"revset.autocomplete_back",
 	"revset.cancel",
+	"revset.edit",
 	"revset.move_down",
 	"revset.move_up",
+	"revset.reset",
+	"revset.set",
 	"status.input.apply",
 	"status.input.autocomplete",
 	"status.input.cancel",
@@ -820,6 +837,9 @@ func ActionMetadataFor(action string) (ActionMetadata, bool) {
 		for k, v := range schema {
 			meta.Args[k] = v
 		}
+	}
+	if required, ok := builtInActionRequiredArgs[action]; ok {
+		meta.RequiredArgs = append([]string(nil), required...)
 	}
 	return meta, true
 }

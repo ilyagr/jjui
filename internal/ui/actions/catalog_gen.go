@@ -244,8 +244,11 @@ const (
 	RevsetAutocomplete                     keybindings.Action = "revset.autocomplete"
 	RevsetAutocompleteBack                 keybindings.Action = "revset.autocomplete_back"
 	RevsetCancel                           keybindings.Action = "revset.cancel"
+	RevsetEdit                             keybindings.Action = "revset.edit"
 	RevsetMoveDown                         keybindings.Action = "revset.move_down"
 	RevsetMoveUp                           keybindings.Action = "revset.move_up"
+	RevsetReset                            keybindings.Action = "revset.reset"
+	RevsetSet                              keybindings.Action = "revset.set"
 	StatusInputApply                       keybindings.Action = "status.input.apply"
 	StatusInputAutocomplete                keybindings.Action = "status.input.autocomplete"
 	StatusInputCancel                      keybindings.Action = "status.input.cancel"
@@ -783,10 +786,16 @@ func ResolveIntent(owner string, action keybindings.Action, args map[string]any)
 			return intents.CompletionCycle{Reverse: true}, true
 		case keybindings.Action("revset.cancel"):
 			return intents.Cancel{}, true
+		case keybindings.Action("revset.edit"):
+			return intents.Edit{Clear: actionargs.BoolArg(args, "clear", false)}, true
 		case keybindings.Action("revset.move_down"):
 			return intents.CompletionMove{Delta: 1}, true
 		case keybindings.Action("revset.move_up"):
 			return intents.CompletionMove{Delta: -1}, true
+		case keybindings.Action("revset.reset"):
+			return intents.Reset{}, true
+		case keybindings.Action("revset.set"):
+			return intents.Set{Value: actionargs.StringArg(args, "value", "")}, true
 		}
 	case OwnerStatusInput:
 		switch action {

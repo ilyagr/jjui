@@ -223,6 +223,7 @@ func generateActionMetaSource(actionIDs []string, actionArgSchemas map[string]ma
 	b.WriteString("\tAction string\n")
 	b.WriteString("\tOwners []string\n")
 	b.WriteString("\tArgs map[string]string\n")
+	b.WriteString("\tRequiredArgs []string\n")
 	b.WriteString("}\n\n")
 
 	b.WriteString("var builtInActions = map[string]struct{}{\n")
@@ -315,6 +316,9 @@ func generateActionMetaSource(actionIDs []string, actionArgSchemas map[string]ma
 	b.WriteString("\t\tfor k, v := range schema {\n")
 	b.WriteString("\t\t\tmeta.Args[k] = v\n")
 	b.WriteString("\t\t}\n")
+	b.WriteString("\t}\n")
+	b.WriteString("\tif required, ok := builtInActionRequiredArgs[action]; ok {\n")
+	b.WriteString("\t\tmeta.RequiredArgs = append([]string(nil), required...)\n")
 	b.WriteString("\t}\n")
 	b.WriteString("\treturn meta, true\n")
 	b.WriteString("}\n\n")

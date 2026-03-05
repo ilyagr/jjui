@@ -187,6 +187,9 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		if m.Editing {
 			m.Editing = false
 		}
+		m.autoComplete.SetValue(string(msg))
+		m.userInput = string(msg)
+		return nil
 	case EditRevSetMsg:
 		return m.handleIntent(intents.Edit{Clear: msg.Clear})
 	}

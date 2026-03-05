@@ -178,6 +178,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			m.context.CurrentRevset = m.context.DefaultRevset
 		}
 		m.revsetModel.AddToHistory(m.context.CurrentRevset)
+		m.revsetModel.Update(msg)
 		return common.Refresh
 	case common.RunLuaScriptMsg:
 		if m.scriptRunner != nil && !m.scriptRunner.Done() {
@@ -711,9 +712,7 @@ func (m *Model) routeIntentByOwner(owner string, intent intents.Intent) (tea.Cmd
 			return m.status.Update(intent), true
 		}
 	case actions.OwnerRevset:
-		if m.revsetModel.Editing {
-			return m.revsetModel.Update(intent), true
-		}
+		return m.revsetModel.Update(intent), true
 	case actions.OwnerDiff:
 		if m.diff != nil {
 			return m.diff.Update(intent), true
