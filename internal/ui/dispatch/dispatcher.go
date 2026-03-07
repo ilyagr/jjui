@@ -1,6 +1,8 @@
 package dispatch
 
 import (
+	"strings"
+
 	tea "charm.land/bubbletea/v2"
 	"github.com/idursun/jjui/internal/ui/bindings"
 )
@@ -161,8 +163,12 @@ func (d *Dispatcher) initialSequenceCandidates(key tea.Key, scopes []bindings.Sc
 }
 
 func (d *Dispatcher) pendingContinuations() []Continuation {
-	seen := map[string]struct{}{}
-	continuations := make([]Continuation, 0, len(d.candidates))
+	type entry struct {
+		cont  Continuation
+		descs []string
+	}
+	order := make([]string, 0, len(d.candidates))
+	byKey := make(map[string]*entry, len(d.candidates))
 	for _, c := range d.candidates {
 		idx := len(d.buffered)
 		if idx >= len(c.binding.Seq) {
@@ -170,17 +176,33 @@ func (d *Dispatcher) pendingContinuations() []Continuation {
 		}
 
 		next := c.binding.Seq[idx]
-		if _, ok := seen[next]; ok {
-			continue
+		isLeaf := idx == len(c.binding.Seq)-1
+		desc := c.binding.Desc
+		if desc == "" {
+			desc = string(c.binding.Action)
 		}
-		seen[next] = struct{}{}
 
-		continuations = append(continuations, Continuation{
-			Key:    next,
-			Desc:   c.binding.Desc,
-			Action: c.binding.Action,
-			IsLeaf: idx == len(c.binding.Seq)-1,
-		})
+		if e, ok := byKey[next]; ok {
+			e.descs = append(e.descs, desc)
+			e.cont.IsLeaf = e.cont.IsLeaf && isLeaf
+		} else {
+			order = append(order, next)
+			byKey[next] = &entry{
+				cont: Continuation{
+					Key:    next,
+					Action: c.binding.Action,
+					IsLeaf: isLeaf,
+				},
+				descs: []string{desc},
+			}
+		}
+	}
+
+	continuations := make([]Continuation, 0, len(order))
+	for _, key := range order {
+		e := byKey[key]
+		e.cont.Desc = strings.Join(e.descs, ", ")
+		continuations = append(continuations, e.cont)
 	}
 	return continuations
 }
