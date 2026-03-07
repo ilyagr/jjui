@@ -4,7 +4,9 @@ import (
 	"errors"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/idursun/jjui/internal/config"
+	"github.com/idursun/jjui/internal/jj"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/context"
 	"github.com/stretchr/testify/assert"
@@ -80,4 +82,24 @@ func TestModel_BuildHelpGrid_ColumnMajorOrder(t *testing.T) {
 		"A  C  E",
 		"B  D  F",
 	}, lines)
+}
+
+func TestStatus_Update_FileSearchFocusesAndTypingUpdatesInput(t *testing.T) {
+	ctx := &context.MainContext{
+		Histories: config.NewHistories(),
+	}
+	m := New(ctx)
+
+	cmd := m.Update(common.FileSearchMsg{
+		Revset:       "@",
+		PreviewShown: false,
+		Commit:       &jj.Commit{ChangeId: "abc123", CommitId: "def456"},
+		RawFileOut:   []byte("a.txt\nb.txt"),
+	})
+	assert.NotNil(t, cmd)
+	assert.Equal(t, FocusFileSearch, m.FocusKind())
+	assert.True(t, m.IsFocused())
+
+	m.Update(tea.KeyPressMsg{Text: "x", Code: 'x'})
+	assert.Equal(t, "x", m.InputValue())
 }

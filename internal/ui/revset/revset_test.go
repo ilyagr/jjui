@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/idursun/jjui/internal/jj"
+	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/intents"
 	"github.com/idursun/jjui/test"
 	"github.com/stretchr/testify/assert"
@@ -125,4 +126,28 @@ func TestModel_Update_ApplyValidationErrorAndCancel(t *testing.T) {
 	cancelCmd := model.Update(intents.Cancel{})
 	assert.Nil(t, cancelCmd)
 	assert.False(t, model.Editing, "cancel should exit editing mode")
+}
+
+func TestModel_Update_ApplyEmptyUsesDefaultRevset(t *testing.T) {
+	commandRunner := test.NewTestCommandRunner(t)
+	commandRunner.Expect(jj.RevsetValidate("assume-passed-from-cli"))
+	defer commandRunner.Verify()
+
+	ctx := test.NewTestContext(commandRunner)
+	ctx.DefaultRevset = "assume-passed-from-cli"
+	model := New(ctx)
+	model.Editing = true
+	model.autoComplete.SetValue("")
+
+	cmd := model.Update(intents.Apply{})
+	require.NotNil(t, cmd)
+	assert.False(t, model.Editing, "successful apply should exit editing mode")
+
+	var updated string
+	test.SimulateModel(model, cmd, func(msg tea.Msg) {
+		if update, ok := msg.(common.UpdateRevSetMsg); ok {
+			updated = string(update)
+		}
+	})
+	assert.Equal(t, ctx.DefaultRevset, updated, "empty apply should resolve to default revset")
 }

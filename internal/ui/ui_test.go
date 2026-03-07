@@ -27,19 +27,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_Update_RevsetWithEmptyInputKeepsDefaultRevset(t *testing.T) {
-	commandRunner := test.NewTestCommandRunner(t)
-	defer commandRunner.Verify()
-
-	ctx := test.NewTestContext(commandRunner)
-	ctx.DefaultRevset = "assume-passed-from-cli"
-
-	model := NewUI(ctx)
-	model.Update(common.UpdateRevSetMsg(""))
-
-	assert.Equal(t, ctx.DefaultRevset, ctx.CurrentRevset)
-}
-
 func Test_Update_PreviewScrollKeysWorkWhenVisible(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -945,38 +932,6 @@ func Test_Update_InlineDescribeDispatcherKeysWorkWhileEditing(t *testing.T) {
 	assert.NotNil(t, cmd, "alt+enter should trigger inline_describe_accept via dispatcher")
 }
 
-func Test_Update_TargetPickerEscCancelsEditing(t *testing.T) {
-	origBindings := config.Current.Bindings
-	defer func() {
-		config.Current.Bindings = origBindings
-	}()
-	config.Current.Bindings = []config.BindingConfig{
-		{Action: "revisions.rebase.target_picker", Scope: "revisions.rebase", Key: config.StringList{"t"}},
-		{Action: "revisions.target_picker.cancel", Scope: "revisions.target_picker", Key: config.StringList{"esc"}},
-	}
-
-	commandRunner := test.NewTestCommandRunner(t)
-	commandRunner.Expect(jj.BookmarkListAll())
-	commandRunner.Expect(jj.TagList())
-	defer commandRunner.Verify()
-	ctx := test.NewTestContext(commandRunner)
-	model := NewUI(ctx)
-
-	op := rebase.NewOperation(
-		ctx,
-		jj.NewSelectedRevisions(&jj.Commit{ChangeId: "abc123", CommitId: "def456"}),
-		rebase.SourceRevision,
-		intents.ModeTargetDestination,
-	)
-	model.Update(common.RestoreOperationMsg{Operation: op})
-
-	test.SimulateModel(model, test.Type("t"))
-	assert.True(t, model.revisions.IsEditing(), "target picker should open on rebase_target action")
-
-	test.SimulateModel(model, test.Press(tea.KeyEsc))
-	assert.False(t, model.revisions.IsEditing(), "esc in target scope should cancel target picker editing")
-}
-
 func Test_Update_DetailsCancelPrecedenceOverFlashDismissal(t *testing.T) {
 	origBindings := config.Current.Bindings
 	defer func() {
@@ -1029,48 +984,4 @@ func Test_Update_SetBookmarkTypingDoesNotTogglePreview(t *testing.T) {
 
 	test.SimulateModel(model, test.Type("p"))
 	assert.True(t, model.previewModel.Visible(), "typing in set_bookmark should not toggle preview")
-}
-
-func Test_Update_QuickSearchEscClearsQuickSearchText(t *testing.T) {
-	origBindings := config.Current.Bindings
-	defer func() {
-		config.Current.Bindings = origBindings
-	}()
-	config.Current.Bindings = []config.BindingConfig{
-		{Action: "ui.quick_search", Scope: "ui", Key: config.StringList{"/"}},
-		{Action: "revisions.quick_search_clear", Scope: "revisions.quick_search", Key: config.StringList{"esc"}},
-	}
-
-	commandRunner := test.NewTestCommandRunner(t)
-	defer commandRunner.Verify()
-
-	ctx := test.NewTestContext(commandRunner)
-	ctx.Histories = config.NewHistories()
-	model := NewUI(ctx)
-
-	model.Update(common.QuickSearchMsg("second"))
-	assert.True(t, model.revisions.HasQuickSearch(), "quick search should be active after setting search text")
-
-	model.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
-	assert.False(t, model.revisions.HasQuickSearch(), "esc in quick_search scope should clear quick search text")
-}
-
-func Test_Update_FileSearchTypingUpdatesStatusInput(t *testing.T) {
-	commandRunner := test.NewTestCommandRunner(t)
-	defer commandRunner.Verify()
-
-	ctx := test.NewTestContext(commandRunner)
-	ctx.Histories = config.NewHistories()
-	model := NewUI(ctx)
-
-	model.Update(common.FileSearchMsg{
-		Revset:       "@",
-		PreviewShown: false,
-		Commit:       &jj.Commit{ChangeId: "abc123", CommitId: "def456"},
-		RawFileOut:   []byte("a.txt\nb.txt"),
-	})
-	assert.True(t, model.status.IsFocused(), "file search should focus status input")
-
-	model.Update(tea.KeyPressMsg{Text: "x", Code: 'x'})
-	assert.Equal(t, "x", model.status.InputValue(), "typed key should update file-search input")
 }

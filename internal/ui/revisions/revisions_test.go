@@ -120,6 +120,24 @@ func TestModel_ForwardsOperationIntentToFocusedOperation(t *testing.T) {
 	assert.True(t, model.IsEditing(), "rebase target picker should open via dispatched operation intent")
 }
 
+func TestModel_TargetPickerCancelClosesEditing(t *testing.T) {
+	commandRunner := test.NewTestCommandRunner(t)
+	commandRunner.Expect(jj.BookmarkListAll())
+	commandRunner.Expect(jj.TagList())
+	defer commandRunner.Verify()
+
+	ctx := test.NewTestContext(commandRunner)
+	model := New(ctx)
+	model.updateGraphRows(rows, "a")
+
+	test.SimulateModel(model, model.Update(intents.OpenRebase{}))
+	test.SimulateModel(model, model.Update(intents.RebaseOpenTargetPicker{}))
+	assert.True(t, model.IsEditing(), "target picker should be editing before cancel")
+
+	test.SimulateModel(model, model.Update(intents.TargetPickerCancel{}))
+	assert.False(t, model.IsEditing(), "target picker cancel should exit editing mode")
+}
+
 func TestModel_StartAceJumpMsg_OpensAceJumpOperation(t *testing.T) {
 	ctx := test.NewTestContext(test.NewTestCommandRunner(t))
 	model := New(ctx)
