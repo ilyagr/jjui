@@ -16,13 +16,13 @@ const (
 	RevsetPlaceholder       = "$revset"
 	PreviewWidthPlaceholder = "$preview_width"
 
-	// user checked file names, separated by `\t` tab.
-	// tab is a lot less common than spaces on filenames,
+	// CheckedFilesPlaceholder user checked file names, separated by `\t` tab.
+	// tab is a lot less common than spaces on filenames
 	// and is also part of shell's IFS separator.
 	// this allows programs like `ls -l ${checked_files[@]}`
 	CheckedFilesPlaceholder = "$checked_files"
 
-	// user checked commit ids, separated by `|`.
+	// CheckedCommitIdsPlaceholder user checked commit ids, separated by `|`.
 	// the reason is user can use checked commits as revsets
 	// given to jj commands.
 	CheckedCommitIdsPlaceholder = "$checked_commit_ids"
@@ -443,7 +443,8 @@ func FilesInRevision(revision *Commit) CommandArgs {
 }
 
 func GetIdsFromRevset(revset string) CommandArgs {
-	return []string{"log", "-r", revset, "--color", "never", "--no-graph", "--quiet", "--ignore-working-copy", "--template", "change_id.shortest() ++ '\n'"}
+	const template = `change_id.shortest() ++ if(divergent, "/" ++ change_offset) ++ "\n"`
+	return []string{"log", "-r", revset, "--color", "never", "--no-graph", "--quiet", "--ignore-working-copy", "--template", template}
 }
 
 func EscapeFileName(fileName string) string {
