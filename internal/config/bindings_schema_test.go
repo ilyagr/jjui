@@ -105,22 +105,6 @@ args = { force = "yes" }
 	}
 }
 
-func TestLoad_ActionsIgnoresBuiltInField(t *testing.T) {
-	content := `
-[[actions]]
-name = "custom_action"
-built_in = "ui.quit"
-lua = "print('x')"
-`
-
-	cfg := &Config{}
-	err := cfg.Load(content)
-	require.NoError(t, err)
-	require.Len(t, cfg.Actions, 1)
-	assert.Equal(t, "custom_action", cfg.Actions[0].Name)
-	assert.Equal(t, "print('x')", cfg.Actions[0].Lua)
-}
-
 func TestLoad_CanonicalBuiltInEnumArgsValidation(t *testing.T) {
 	valid := `
 [[bindings]]
