@@ -50,11 +50,6 @@ type OpenGit struct{}
 
 func (OpenGit) isIntent() {}
 
-//jjui:bind scope=ui action=open_revset
-type OpenRevset struct{}
-
-func (OpenRevset) isIntent() {}
-
 //jjui:bind scope=revisions action=open_set_bookmark
 type OpenSetBookmark struct{}
 

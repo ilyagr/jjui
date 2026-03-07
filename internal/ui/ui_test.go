@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -302,13 +303,13 @@ func Test_Update_GlobalBindingsFromConfigOverrideLegacyGlobalKeys(t *testing.T) 
 	ctx.Histories = config.NewHistories()
 	model := NewUI(ctx)
 
-	model.state = common.Error
+	model.flash.Update(intents.AddMessage{Text: "test error", Err: fmt.Errorf("test")})
 	model.Update(tea.KeyPressMsg{Code: 'x', Mod: tea.ModCtrl})
-	assert.Equal(t, common.Ready, model.state, "ctrl+x should use configured global cancel binding")
+	assert.False(t, model.flash.Any(), "ctrl+x should use configured global cancel binding")
 
-	model.state = common.Error
+	model.flash.Update(intents.AddMessage{Text: "test error", Err: fmt.Errorf("test")})
 	model.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
-	assert.Equal(t, common.Error, model.state, "esc should not act as global cancel when global bindings are configured")
+	assert.True(t, model.flash.Any(), "esc should not act as global cancel when global bindings are configured")
 }
 
 func Test_UpdateStatus_UsesBindingDeclarationOrderForRevisions(t *testing.T) {
@@ -361,7 +362,7 @@ func Test_Update_SequencePrefixBeatsSingleKeyBinding(t *testing.T) {
 	}()
 	config.Current.Bindings = []config.BindingConfig{
 		{Action: "ui.open_git", Scope: "revisions", Key: config.StringList{"g"}},
-		{Action: "ui.open_revset", Scope: "revisions", Seq: config.StringList{"g", "r"}},
+		{Action: "revset.edit", Scope: "revisions", Seq: config.StringList{"g", "r"}},
 	}
 
 	commandRunner := test.NewTestCommandRunner(t)
@@ -388,7 +389,7 @@ func Test_Update_PendingSequenceAutoExpandsStatusWithContinuations(t *testing.T)
 	}()
 	config.Current.Bindings = []config.BindingConfig{
 		{Action: "ui.open_git", Scope: "revisions", Key: config.StringList{"g"}},
-		{Action: "ui.open_revset", Scope: "revisions", Seq: config.StringList{"g", "r"}},
+		{Action: "revset.edit", Scope: "revisions", Seq: config.StringList{"g", "r"}},
 	}
 
 	commandRunner := test.NewTestCommandRunner(t)
@@ -413,7 +414,7 @@ func Test_Update_PendingSequenceMismatchClearsAutoExpandedStatus(t *testing.T) {
 	}()
 	config.Current.Bindings = []config.BindingConfig{
 		{Action: "ui.open_git", Scope: "revisions", Key: config.StringList{"g"}},
-		{Action: "ui.open_revset", Scope: "revisions", Seq: config.StringList{"g", "r"}},
+		{Action: "revset.edit", Scope: "revisions", Seq: config.StringList{"g", "r"}},
 	}
 
 	commandRunner := test.NewTestCommandRunner(t)
@@ -435,7 +436,7 @@ func Test_Update_RevsetEditingInterceptsQuitKey(t *testing.T) {
 		config.Current.Bindings = origBindings
 	}()
 	config.Current.Bindings = []config.BindingConfig{
-		{Action: "ui.open_revset", Scope: "revisions", Key: config.StringList{"L"}},
+		{Action: "revset.edit", Scope: "revisions", Key: config.StringList{"L"}},
 		{Action: "ui.quit", Scope: "ui", Key: config.StringList{"q"}},
 	}
 
@@ -604,7 +605,7 @@ func Test_HandleDelegatedIntent_EditEntersRevsetInNormalMode(t *testing.T) {
 	ctx := test.NewTestContext(commandRunner)
 	model := NewUI(ctx)
 
-	cmd, handled := model.handleDelegatedIntent(intents.Edit{Clear: true})
+	cmd, handled := model.handleDelegatedIntent(intents.Edit{})
 	assert.True(t, handled)
 	assert.NotNil(t, cmd)
 	assert.True(t, model.revsetModel.Editing)
@@ -626,7 +627,7 @@ func Test_HandleDelegatedIntent_EditIgnoredOutsideNormalMode(t *testing.T) {
 	model.Update(common.RestoreOperationMsg{Operation: op})
 	assert.False(t, model.revisions.InNormalMode())
 
-	cmd, handled := model.handleDelegatedIntent(intents.Edit{Clear: true})
+	cmd, handled := model.handleDelegatedIntent(intents.Edit{})
 	assert.True(t, handled)
 	assert.Nil(t, cmd)
 	assert.False(t, model.revsetModel.Editing)
@@ -640,7 +641,7 @@ func Test_Update_RevsetScopedConfiguredActionDispatchesWhileEditing(t *testing.T
 		config.Current.Actions = origActions
 	}()
 	config.Current.Bindings = []config.BindingConfig{
-		{Action: "ui.open_revset", Scope: "revisions", Key: config.StringList{"L"}},
+		{Action: "revset.edit", Scope: "revisions", Key: config.StringList{"L"}},
 		{Action: "revset_main_apply", Scope: "revset", Key: config.StringList{"ctrl+t"}},
 	}
 	config.Current.Actions = []config.ActionConfig{
@@ -681,11 +682,11 @@ func Test_Update_LuaActionDispatchesBuiltInAction(t *testing.T) {
 	defer scripting.CloseVM(ctx)
 	model := NewUI(ctx)
 
-	cmd := model.Update(common.RunLuaScriptMsg{Script: `jjui.ui.open_revset()`})
+	cmd := model.Update(common.RunLuaScriptMsg{Script: `jjui.revset.edit()`})
 	assert.NotNil(t, cmd)
 
 	test.SimulateModel(model, cmd)
-	assert.True(t, model.revsetModel.Editing, "lua-dispatched ui.open_revset should enter revset editing")
+	assert.True(t, model.revsetModel.Editing, "lua-dispatched revset.edit should enter revset editing")
 }
 
 func Test_Update_LuaBuiltinActionBypassesConfiguredOverride(t *testing.T) {
@@ -694,7 +695,7 @@ func Test_Update_LuaBuiltinActionBypassesConfiguredOverride(t *testing.T) {
 		config.Current.Actions = origActions
 	}()
 	config.Current.Actions = []config.ActionConfig{
-		{Name: "ui.open_revset", Lua: `flash("override")`},
+		{Name: "revset.edit", Lua: `flash("override")`},
 	}
 
 	commandRunner := test.NewTestCommandRunner(t)
@@ -707,12 +708,12 @@ func Test_Update_LuaBuiltinActionBypassesConfiguredOverride(t *testing.T) {
 	defer scripting.CloseVM(ctx)
 	model := NewUI(ctx)
 
-	cmd := model.Update(common.RunLuaScriptMsg{Script: `jjui.ui.open_revset()`})
+	cmd := model.Update(common.RunLuaScriptMsg{Script: `jjui.revset.edit()`})
 	require.NotNil(t, cmd)
 	test.SimulateModel(model, cmd)
 	assert.False(t, model.revsetModel.Editing, "override should replace default action behavior")
 
-	cmd = model.Update(common.RunLuaScriptMsg{Script: `jjui.builtin.ui.open_revset()`})
+	cmd = model.Update(common.RunLuaScriptMsg{Script: `jjui.builtin.revset.edit()`})
 	require.NotNil(t, cmd)
 	test.SimulateModel(model, cmd)
 	assert.True(t, model.revsetModel.Editing, "builtin action should bypass override and run default behavior")
@@ -836,44 +837,6 @@ func Test_Update_ExecHistoryUpDownNavigationInStatusInputScope(t *testing.T) {
 	secondNav := model.status.InputValue()
 	assert.NotEmpty(t, secondNav, "down should navigate to a history command")
 	assert.NotEqual(t, firstNav, secondNav, "down should move to a different history entry")
-}
-
-func Test_Update_RevsetEnterAppliesAndEscCancelsViaDispatcher(t *testing.T) {
-	origBindings := config.Current.Bindings
-	defer func() {
-		config.Current.Bindings = origBindings
-	}()
-	config.Current.Bindings = []config.BindingConfig{
-		{Action: "ui.open_revset", Scope: "revisions", Key: config.StringList{"L"}},
-		{Action: "revset.apply", Scope: "revset", Key: config.StringList{"enter"}},
-		{Action: "revset.cancel", Scope: "revset", Key: config.StringList{"esc"}},
-	}
-
-	commandRunner := test.NewTestCommandRunner(t)
-	commandRunner.Expect(jj.BookmarkListAll())
-	commandRunner.Expect(jj.TagList())
-	defer commandRunner.Verify()
-
-	ctx := test.NewTestContext(commandRunner)
-	ctx.DefaultRevset = "@"
-	model := NewUI(ctx)
-
-	// Enter should apply current text in revset editing.
-	model.Update(tea.KeyPressMsg{Text: "L", Code: 'L'})
-	assert.True(t, model.revsetModel.Editing)
-	model.Update(tea.KeyPressMsg{Text: "m", Code: 'm'})
-	model.Update(tea.KeyPressMsg{Text: "a", Code: 'a'})
-	model.Update(tea.KeyPressMsg{Text: "i", Code: 'i'})
-	model.Update(tea.KeyPressMsg{Text: "n", Code: 'n'})
-	cmd := model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
-	assert.NotNil(t, cmd)
-	assert.False(t, model.revsetModel.Editing)
-
-	// Esc should cancel revset editing mode.
-	model.Update(tea.KeyPressMsg{Text: "L", Code: 'L'})
-	assert.True(t, model.revsetModel.Editing)
-	model.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
-	assert.False(t, model.revsetModel.Editing)
 }
 
 func Test_UpdateStatus_RevsetEditingUsesDispatcherHelpWhenAvailable(t *testing.T) {

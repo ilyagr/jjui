@@ -648,11 +648,6 @@ func (m *Model) intentOverride() dispatch.IntentOverride {
 }
 
 func (m *Model) routeIntent(owner string, intent intents.Intent) tea.Cmd {
-	// OpenRevset is converted to Edit (depends on UI state).
-	if _, ok := intent.(intents.OpenRevset); ok {
-		return m.handleIntent(intents.Edit{Clear: m.state != common.Error})
-	}
-
 	// Cancel has priority-based routing that depends on UI state.
 	if cancel, ok := intent.(intents.Cancel); ok {
 		return m.routeCancel(owner, cancel)
@@ -687,9 +682,6 @@ func (m *Model) routeCancel(owner string, cancel intents.Cancel) tea.Cmd {
 
 func (m *Model) clearCancelUIState() bool {
 	switch {
-	case m.state == common.Error:
-		m.state = common.Ready
-		return true
 	case m.flash.Any():
 		m.flash.DeleteOldest()
 		return true
@@ -757,7 +749,7 @@ func (m *Model) shouldRouteCancelToRevisions() bool {
 	if m.revisions.HasQuickSearch() {
 		return false
 	}
-	if m.state == common.Error || m.flash.Any() || m.status.StatusExpanded() {
+	if m.flash.Any() || m.status.StatusExpanded() {
 		return false
 	}
 	return m.revisions.InNormalMode()

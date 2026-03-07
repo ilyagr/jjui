@@ -86,7 +86,6 @@ type State int
 const (
 	Loading State = iota
 	Ready
-	Error
 )
 
 func Close() tea.Msg {

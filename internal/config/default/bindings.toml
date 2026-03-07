@@ -27,7 +27,7 @@ bindings = [
     { key = "q", action = "ui.quit", scope = "revisions", desc = "quit" },
     { key = "ctrl+r", action = "revisions.refresh", scope = "revisions", desc = "refresh" },
     { key = "p", action = "ui.preview_toggle", scope = "revisions", desc = "preview" },
-    { key = "shift+l", action = "ui.open_revset", scope = "revisions", desc = "revset" },
+    { key = "shift+l", action = "revset.edit", scope = "revisions", desc = "revset", args = { clear = true } },
     { key = ["right", "l"], action = "revisions.open_details", scope = "revisions", desc = "details" },
     { key = "enter", action = "revisions.open_inline_describe", scope = "revisions", desc = "inline describe" },
     { key = "r", action = "revisions.open_rebase", scope = "revisions", desc = "rebase" },

@@ -1,5 +1,6 @@
 package intents
 
+//jjui:bind scope=ui action=open_revset set=Clear:true
 //jjui:bind scope=revset action=edit set=Clear:$bool(clear)
 type Edit struct {
 	Clear bool

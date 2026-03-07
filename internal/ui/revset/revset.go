@@ -5,6 +5,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/idursun/jjui/internal/jj"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/common/autocompletion"
 	appContext "github.com/idursun/jjui/internal/ui/context"
@@ -13,21 +14,12 @@ import (
 	"github.com/idursun/jjui/internal/ui/render"
 )
 
-type EditRevSetMsg struct {
-	Clear bool
-}
+type EditRevSetMsg struct{}
 
 var _ common.ImmediateModel = (*Model)(nil)
 
 type revsetMsg struct {
 	msg tea.Msg
-}
-
-// Allow a message to be targeted to this component.
-func RevsetCmd(msg tea.Msg) tea.Cmd {
-	return func() tea.Msg {
-		return revsetMsg{msg: msg}
-	}
 }
 
 const (
@@ -191,7 +183,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		m.userInput = string(msg)
 		return nil
 	case EditRevSetMsg:
-		return m.handleIntent(intents.Edit{Clear: msg.Clear})
+		return m.handleIntent(intents.Edit{})
 	}
 
 	prevValue := m.autoComplete.Value()
@@ -273,8 +265,6 @@ func (m *Model) handleIntent(intent intents.Intent) tea.Cmd {
 		m.autoComplete.Blur()
 		return nil
 	case intents.Apply:
-		m.Editing = false
-		m.autoComplete.Blur()
 		value := intent.Value
 		if value == "" {
 			value = m.autoComplete.Value()
@@ -282,6 +272,15 @@ func (m *Model) handleIntent(intent intents.Intent) tea.Cmd {
 		if strings.TrimSpace(value) == "" {
 			value = m.context.DefaultRevset
 		}
+
+		// Validate the revset before applying
+		_, err := m.context.RunCommandImmediate(jj.RevsetValidate(value))
+		if err != nil {
+			return intents.Invoke(intents.AddMessage{Text: err.Error(), Err: err})
+		}
+
+		m.Editing = false
+		m.autoComplete.Blur()
 		return tea.Batch(common.Close, common.UpdateRevSet(value))
 	case intents.CompletionCycle:
 		if len(m.completionItems) == 0 {

@@ -447,6 +447,10 @@ func GetIdsFromRevset(revset string) CommandArgs {
 	return []string{"log", "-r", revset, "--color", "never", "--no-graph", "--quiet", "--ignore-working-copy", "--template", template}
 }
 
+func RevsetValidate(revset string) CommandArgs {
+	return []string{"log", "-r", revset, "-n", "1", "--ignore-working-copy"}
+}
+
 func EscapeFileName(fileName string) string {
 	// Escape backslashes and quotes in the file name for shell compatibility
 	if strings.Contains(fileName, "\\") {

@@ -837,7 +837,7 @@ func ResolveIntent(owner string, action keybindings.Action, args map[string]any)
 		case keybindings.Action("ui.open_redo"):
 			return intents.Redo{}, true
 		case keybindings.Action("ui.open_revset"):
-			return intents.OpenRevset{}, true
+			return intents.Edit{Clear: true}, true
 		case keybindings.Action("ui.open_undo"):
 			return intents.Undo{}, true
 		case keybindings.Action("ui.preview_expand"):

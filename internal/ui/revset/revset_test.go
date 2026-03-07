@@ -1,12 +1,15 @@
 package revset
 
 import (
+	"errors"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/idursun/jjui/internal/jj"
 	"github.com/idursun/jjui/internal/ui/intents"
 	"github.com/idursun/jjui/test"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestModel_Init(t *testing.T) {
@@ -99,4 +102,27 @@ func TestModel_ApplyCompletion(t *testing.T) {
 			assert.Equal(t, test.expectedOutput, result, "applyCompletion(%q, %v) should return %q", test.input, test.item, test.expectedOutput)
 		})
 	}
+}
+
+func TestModel_Update_ApplyValidationErrorAndCancel(t *testing.T) {
+	commandRunner := test.NewTestCommandRunner(t)
+	commandRunner.Expect(jj.RevsetValidate("invalid")).SetError(errors.New("invalid revset"))
+	defer commandRunner.Verify()
+
+	ctx := test.NewTestContext(commandRunner)
+	model := New(ctx)
+	model.Editing = true
+	model.autoComplete.SetValue("invalid")
+
+	cmd := model.Update(intents.Apply{})
+	require.NotNil(t, cmd)
+	msg := cmd()
+	addMessage, ok := msg.(intents.AddMessage)
+	require.True(t, ok, "apply should report invalid revset as flash message")
+	assert.Equal(t, "invalid revset", addMessage.Text)
+	assert.True(t, model.Editing, "invalid apply should keep editing mode")
+
+	cancelCmd := model.Update(intents.Cancel{})
+	assert.Nil(t, cancelCmd)
+	assert.False(t, model.Editing, "cancel should exit editing mode")
 }
