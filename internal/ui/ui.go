@@ -861,12 +861,6 @@ func (m *Model) dispatchScopes() []keybindings.Scope {
 	return scopes
 }
 
-// activeScopeChain is kept as a compatibility shim for tests and callers that
-// still reference the old name. Dispatch now uses primary+always-on scopes.
-func (m *Model) activeScopeChain() []keybindings.Scope {
-	return m.dispatchScopes()
-}
-
 func (m *Model) commandHistoryOpen() bool {
 	return m.stacked != nil && m.stacked.StackedActionOwner() == actions.OwnerCommandHistory
 }

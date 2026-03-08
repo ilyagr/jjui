@@ -546,7 +546,7 @@ func (m *ownerOnlyStackedModel) StackedActionOwner() string {
 	return m.owner
 }
 
-func Test_ActiveScopeChain_UsesStackedOwnerScope(t *testing.T) {
+func Test_DispatchScopes_UsesStackedOwnerScope(t *testing.T) {
 	commandRunner := test.NewTestCommandRunner(t)
 	ctx := test.NewTestContext(commandRunner)
 	model := NewUI(ctx)
