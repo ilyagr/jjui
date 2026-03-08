@@ -27,6 +27,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func dispatchAction(model *Model, action keybindings.Action, args map[string]any) (tea.Cmd, bool) {
+	result := model.resolver.ResolveAction(action, args, model.intentOverride())
+	if result.LuaScript != "" {
+		return luaCmd(result.LuaScript), true
+	}
+	if result.Intent != nil {
+		return model.routeIntent(result.Owner, result.Intent), true
+	}
+	return nil, result.Consumed
+}
+
 func Test_Update_PreviewScrollKeysWorkWhenVisible(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -196,7 +207,7 @@ func Test_HandleDispatchedAction_UsesFlashScopeWhenVisible(t *testing.T) {
 	model.Update(intents.CommandHistoryToggle{})
 	assert.True(t, model.commandHistoryOpen())
 
-	cmd, handled := model.handleDispatchedAction(actions.CommandHistoryClose, nil)
+	cmd, handled := dispatchAction(model, actions.CommandHistoryClose, nil)
 	assert.True(t, handled)
 	require.NotNil(t, cmd)
 	closeMsg, ok := cmd().(common.CloseViewMsg)
@@ -511,7 +522,7 @@ func Test_Update_GitFilterEditingEnterDoesNotTriggerApply(t *testing.T) {
 	assert.Nil(t, cmd, "enter in filter-edit mode should not dispatch apply")
 
 	// Apply should now route through normal git scope after leaving filter-edit mode.
-	_, handled := model.handleDispatchedAction(actions.GitApply, nil)
+	_, handled := dispatchAction(model, actions.GitApply, nil)
 	assert.True(t, handled, "apply should dispatch after filter-edit mode")
 }
 
@@ -541,7 +552,7 @@ func Test_ActiveScopeChain_UsesStackedOwnerScope(t *testing.T) {
 	model := NewUI(ctx)
 
 	model.stacked = &ownerOnlyStackedModel{owner: actions.OwnerUndo}
-	scopes := model.activeScopeChain()
+	scopes := model.dispatchScopes()
 	require.NotEmpty(t, scopes)
 	assert.Equal(t, keybindings.Scope(actions.OwnerUndo), scopes[0])
 }
@@ -554,7 +565,7 @@ func Test_HandleDispatchedAction_UsesStackedOwnerScope(t *testing.T) {
 	stacked := &ownerOnlyStackedModel{owner: actions.OwnerChoose}
 	model.stacked = stacked
 
-	cmd, handled := model.handleDispatchedAction(actions.ChooseMoveDown, nil)
+	cmd, handled := dispatchAction(model, actions.ChooseMoveDown, nil)
 	assert.True(t, handled)
 	assert.Nil(t, cmd)
 
@@ -579,7 +590,7 @@ func Test_HandleDispatchedAction_RevisionsScopedActionInRebaseMode(t *testing.T)
 	model.Update(common.RestoreOperationMsg{Operation: op})
 	assert.False(t, model.revisions.InNormalMode(), "model should be in rebase mode")
 
-	_, handled := model.handleDispatchedAction("revisions.move_down", nil)
+	_, handled := dispatchAction(model, "revisions.move_down", nil)
 	assert.True(t, handled, "revisions navigation actions should remain handled in rebase scope")
 }
 
@@ -899,7 +910,7 @@ func Test_Update_InlineDescribeDispatcherKeysWorkWhileEditing(t *testing.T) {
 
 	op := describe.NewOperation(ctx, &jj.Commit{ChangeId: "abc123", CommitId: "def456"})
 	model.Update(common.RestoreOperationMsg{Operation: op})
-	require.Equal(t, keybindings.Scope(actions.OwnerInlineDescribe), model.activeScopeChain()[0])
+	require.Equal(t, keybindings.Scope(actions.OwnerInlineDescribe), model.dispatchScopes()[0])
 	foundCancel := false
 	foundAccept := false
 	for _, b := range config.BindingsToRuntime(config.Current.Bindings) {
@@ -915,7 +926,7 @@ func Test_Update_InlineDescribeDispatcherKeysWorkWhileEditing(t *testing.T) {
 	}
 	require.True(t, foundCancel)
 	require.True(t, foundAccept)
-	cmd, handled := model.handleDispatchedAction("revisions.inline_describe.cancel", nil)
+	cmd, handled := dispatchAction(model, "revisions.inline_describe.cancel", nil)
 	require.True(t, handled)
 	require.NotNil(t, cmd)
 

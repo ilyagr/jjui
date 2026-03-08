@@ -629,17 +629,6 @@ func (m *Model) handleUiRootIntent(intent intents.Intent) (tea.Cmd, bool) {
 	}
 }
 
-func (m *Model) handleDispatchedAction(action keybindings.Action, args map[string]any) (tea.Cmd, bool) {
-	result := m.resolver.ResolveAction(action, args, m.intentOverride())
-	if result.LuaScript != "" {
-		return luaCmd(result.LuaScript), true
-	}
-	if result.Intent != nil {
-		return m.routeIntent(result.Owner, result.Intent), true
-	}
-	return nil, result.Consumed
-}
-
 func luaCmd(script string) tea.Cmd {
 	return func() tea.Msg {
 		return common.RunLuaScriptMsg{Script: script}
