@@ -371,24 +371,6 @@ func (m *Model) renderRemotes(dl *render.DisplayContext, lineBox layout.Box) {
 	tb.Done()
 }
 
-func (m *Model) displayRemotes() string {
-	var w strings.Builder
-	w.WriteString(m.remoteStyles.promptStyle.PaddingRight(1).Render("Remotes:"))
-	if len(m.remoteNames) == 0 {
-		w.WriteString(m.remoteStyles.noRemoteStyle.Render("NO REMOTE FOUND"))
-		return w.String()
-	}
-	for idx, remoteName := range m.remoteNames {
-		if idx == m.selectedRemoteIdx {
-			w.WriteString(m.remoteStyles.selectedStyle.Render(remoteName))
-		} else {
-			w.WriteString(m.remoteStyles.textStyle.Render(remoteName))
-		}
-		w.WriteString(" ")
-	}
-	return w.String()
-}
-
 func loadBookmarks(c context.CommandRunner, changeId string) []jj.Bookmark {
 	bytes, _ := c.RunCommandImmediate(jj.BookmarkList(changeId))
 	bookmarks := jj.ParseBookmarkListOutput(string(bytes))

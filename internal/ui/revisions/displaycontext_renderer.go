@@ -559,30 +559,6 @@ func (r *DisplayContextRenderer) renderOperationLine(
 	tb.Done()
 }
 
-// renderOverlayLines renders description overlay lines with appropriate gutters
-func (r *DisplayContextRenderer) renderOverlayLines(
-	dl *render.DisplayContext,
-	rect layout.Rectangle,
-	y *int,
-	firstGutter, // gutter for the first line
-	extendedGutter parser.GraphGutter, // gutter for subsequent lines
-	overlay string,
-) {
-	overlayLines := strings.Split(overlay, "\n")
-	for i, overlayLine := range overlayLines {
-		if *y >= rect.Max.Y {
-			break
-		}
-		lineRect := layout.Rect(rect.Min.X, *y, rect.Dx(), 1)
-		gutter := firstGutter
-		if i > 0 {
-			gutter = extendedGutter
-		}
-		r.renderOperationLine(dl, lineRect, gutter, overlayLine)
-		(*y)++
-	}
-}
-
 // renderGutter renders just the gutter portion (for embedded operations)
 func (r *DisplayContextRenderer) renderGutter(gutter parser.GraphGutter) string {
 	var result strings.Builder
