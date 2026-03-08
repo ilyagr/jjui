@@ -1,6 +1,7 @@
 package undo
 
 import (
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -46,13 +47,9 @@ func TestUndo_ZIndex_RendersAbovePreview(t *testing.T) {
 
 	dl := render.NewDisplayContext()
 	box := layout.Box{R: layout.Rect(0, 0, 100, 40)}
+	dl.AddDraw(box.R, strings.Repeat("x", box.R.Dx()*box.R.Dy()), render.ZPreview)
 	model.ViewRect(dl, box)
 
-	draws := dl.DrawList()
-	assert.NotEmpty(t, draws, "Expected undo confirmation to produce draw operations")
-
-	for _, draw := range draws {
-		assert.GreaterOrEqual(t, draw.Z, render.ZDialogs,
-			"Undo confirmation must render above preview panel (ZDialogs)")
-	}
+	rendered := dl.RenderToString(box.R.Dx(), box.R.Dy())
+	assert.Contains(t, rendered, "undo", "undo confirmation should remain visible above preview content")
 }

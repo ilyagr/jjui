@@ -2,6 +2,7 @@ package flash
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/idursun/jjui/internal/ui/common"
@@ -67,15 +68,23 @@ func TestView_StacksFromBottomRight(t *testing.T) {
 	m.add("de", nil)
 
 	dl := render.NewDisplayContext()
-	m.ViewRect(dl, layout.NewBox(layout.Rect(0, 0, 30, 12)))
-	views := dl.DrawList()
+	box := layout.NewBox(layout.Rect(0, 0, 30, 12))
+	m.ViewRect(dl, box)
+	rendered := strings.Split(dl.RenderToString(box.R.Dx(), box.R.Dy()), "\n")
 
-	if assert.Len(t, views, 2) {
-		assert.Contains(t, views[0].Content, "abc")
-		assert.Contains(t, views[1].Content, "de")
-		assert.GreaterOrEqual(t, views[0].Rect.Min.X, 0)
-		assert.GreaterOrEqual(t, views[1].Rect.Min.X, 0)
-		assert.Greater(t, views[0].Rect.Min.Y, views[1].Rect.Min.Y)
+	abcY := -1
+	deY := -1
+	for i, line := range rendered {
+		if strings.Contains(line, "abc") {
+			abcY = i
+		}
+		if strings.Contains(line, "de") {
+			deY = i
+		}
+	}
+
+	if assert.NotEqual(t, -1, abcY) && assert.NotEqual(t, -1, deY) {
+		assert.Greater(t, abcY, deY, "newer flash messages should stack lower on screen")
 	}
 }
 

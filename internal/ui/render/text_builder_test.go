@@ -19,7 +19,10 @@ func TestTextBuilder_Write(t *testing.T) {
 		Write("Hello").
 		Done()
 
-	draws := dl.DrawList()
+	draws := make([]Draw, len(dl.draws))
+	for i, op := range dl.draws {
+		draws[i] = op.Draw
+	}
 	if len(draws) != 1 {
 		t.Fatalf("expected 1 draw, got %d", len(draws))
 	}
@@ -37,7 +40,10 @@ func TestTextBuilder_Styled(t *testing.T) {
 		Styled("Bold", style).
 		Done()
 
-	draws := dl.DrawList()
+	draws := make([]Draw, len(dl.draws))
+	for i, op := range dl.draws {
+		draws[i] = op.Draw
+	}
 	if len(draws) != 1 {
 		t.Fatalf("expected 1 draw, got %d", len(draws))
 	}
@@ -55,12 +61,18 @@ func TestTextBuilder_Clickable(t *testing.T) {
 		Clickable("Click", lipgloss.Style{}, testClickMsg{ID: 1}).
 		Done()
 
-	draws := dl.DrawList()
+	draws := make([]Draw, len(dl.draws))
+	for i, op := range dl.draws {
+		draws[i] = op.Draw
+	}
 	if len(draws) != 1 {
 		t.Fatalf("expected 1 draw, got %d", len(draws))
 	}
 
-	interactions := dl.InteractionsList()
+	interactions := make([]InteractionOp, len(dl.interactions))
+	for i, op := range dl.interactions {
+		interactions[i] = op.InteractionOp
+	}
 	if len(interactions) != 1 {
 		t.Fatalf("expected 1 interaction, got %d", len(interactions))
 	}
@@ -87,7 +99,10 @@ func TestTextBuilder_MultipleSegments(t *testing.T) {
 		Write("C").
 		Done()
 
-	draws := dl.DrawList()
+	draws := make([]Draw, len(dl.draws))
+	for i, op := range dl.draws {
+		draws[i] = op.Draw
+	}
 	if len(draws) != 3 {
 		t.Fatalf("expected 3 draws, got %d", len(draws))
 	}
@@ -104,7 +119,10 @@ func TestTextBuilder_MultipleSegments(t *testing.T) {
 	}
 
 	// Check only one interaction (for "B")
-	interactions := dl.InteractionsList()
+	interactions := make([]InteractionOp, len(dl.interactions))
+	for i, op := range dl.interactions {
+		interactions[i] = op.InteractionOp
+	}
 	if len(interactions) != 1 {
 		t.Fatalf("expected 1 interaction, got %d", len(interactions))
 	}
@@ -151,7 +169,10 @@ func TestTextBuilder_EmptyText(t *testing.T) {
 		Write("Hello").
 		Done()
 
-	draws := dl.DrawList()
+	draws := make([]Draw, len(dl.draws))
+	for i, op := range dl.draws {
+		draws[i] = op.Draw
+	}
 	// Empty string should be skipped
 	if len(draws) != 1 {
 		t.Fatalf("expected 1 draw (empty skipped), got %d", len(draws))
@@ -176,7 +197,10 @@ func TestTextBuilder_NewLineAndMeasure(t *testing.T) {
 	}
 
 	tb.Done()
-	draws := dl.DrawList()
+	draws := make([]Draw, len(dl.draws))
+	for i, op := range dl.draws {
+		draws[i] = op.Draw
+	}
 	if len(draws) != 2 {
 		t.Fatalf("expected 2 draws, got %d", len(draws))
 	}
@@ -198,7 +222,10 @@ func TestTextBuilder_Space(t *testing.T) {
 		Write("B").
 		Done()
 
-	draws := dl.DrawList()
+	draws := make([]Draw, len(dl.draws))
+	for i, op := range dl.draws {
+		draws[i] = op.Draw
+	}
 	if len(draws) != 3 {
 		t.Fatalf("expected 3 draws, got %d", len(draws))
 	}

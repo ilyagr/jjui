@@ -193,25 +193,3 @@ func TestEmptyDisplayContext(t *testing.T) {
 	// Empty buffer output may be empty or whitespace, both are valid
 	_ = buf.Render()
 }
-
-func TestDisplayContext_Reuse(t *testing.T) {
-	dl := NewDisplayContext()
-
-	// First frame
-	dl.AddDraw(layout.Rect(0, 0, 5, 1), "Frame1", 0)
-	if dl.Len() != 1 {
-		t.Errorf("Expected 1 op, got %d", dl.Len())
-	}
-
-	// Clear and reuse
-	dl.Clear()
-	if dl.Len() != 0 {
-		t.Errorf("Expected 0 ops after clear, got %d", dl.Len())
-	}
-
-	// Second frame
-	dl.AddDraw(layout.Rect(0, 0, 5, 1), "Frame2", 0)
-	if dl.Len() != 1 {
-		t.Errorf("Expected 1 op after reuse, got %d", dl.Len())
-	}
-}

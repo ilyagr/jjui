@@ -2,7 +2,6 @@ package commandhistory
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/idursun/jjui/internal/ui/common"
@@ -85,14 +84,9 @@ func TestCommandHistory_ViewOnlyShowsSelectedOutput(t *testing.T) {
 	history.Update(intents.CommandHistoryNavigate{Delta: 1}) // select older
 
 	dl := render.NewDisplayContext()
-	history.ViewRect(dl, layout.NewBox(layout.Rect(0, 0, 60, 12)))
-
-	var out strings.Builder
-	for _, view := range dl.DrawList() {
-		out.WriteString(view.Content)
-		out.WriteByte('\n')
-	}
-	rendered := out.String()
+	box := layout.NewBox(layout.Rect(0, 0, 60, 12))
+	history.ViewRect(dl, box)
+	rendered := dl.RenderToString(box.R.Dx(), box.R.Dy())
 	assert.Contains(t, rendered, "jj older")
 	assert.Contains(t, rendered, "older-output")
 	assert.Contains(t, rendered, "jj newer")

@@ -1,7 +1,7 @@
 package git
 
 import (
-	"fmt"
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -114,15 +114,9 @@ func TestGit_ZIndex_RendersAboveMainContent(t *testing.T) {
 
 	dl := render.NewDisplayContext()
 	box := layout.Box{R: layout.Rect(0, 0, 100, 40)}
+	dl.AddDraw(box.R, strings.Repeat("x", box.R.Dx()*box.R.Dy()), render.ZBase)
 	op.ViewRect(dl, box)
 
-	draws := dl.DrawList()
-	assert.NotEqual(t, 0, len(draws), "Expected git overlay to produce draw operations")
-
-	for i, draw := range draws {
-		msg := fmt.Sprintf("Draw operation %d has z-index %d, expected >= %d. "+
-			"Git overlay must render above main content.",
-			i, draw.Z, render.ZMenuBorder)
-		assert.GreaterOrEqual(t, draw.Z, render.ZMenuBorder, msg)
-	}
+	rendered := dl.RenderToString(box.R.Dx(), box.R.Dy())
+	assert.Contains(t, rendered, "Remotes:", "git overlay should remain visible above base content")
 }

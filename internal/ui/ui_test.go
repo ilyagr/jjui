@@ -258,22 +258,6 @@ func Test_GitWithExpandedStatus_EscClosesStackedFirst(t *testing.T) {
 	model.status.SetStatusExpanded(true)
 	assert.True(t, model.status.StatusExpanded(), "status should be expanded before pressing esc")
 
-	// Verify status has higher z-index than git
-	dl := render.NewDisplayContext()
-	box := layout.NewBox(layout.Rect(0, 0, 100, 40))
-	model.stacked.ViewRect(dl, box)
-	gitDraws := dl.DrawList()
-	assert.NotEmpty(t, gitDraws, "git should produce draw operations")
-
-	maxGitZ := 0
-	for _, draw := range gitDraws {
-		if draw.Z > maxGitZ {
-			maxGitZ = draw.Z
-		}
-	}
-	assert.Less(t, maxGitZ, render.ZExpandedStatus,
-		"git z-index (%d) should be less than ZExpandedStatus (%d)", maxGitZ, render.ZExpandedStatus)
-
 	// Press 'esc' to close stacked first.
 	test.SimulateModel(model, test.Press(tea.KeyEscape))
 	assert.True(t, model.status.StatusExpanded(), "status should remain expanded while stacked is closed first")

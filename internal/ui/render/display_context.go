@@ -114,15 +114,6 @@ func (dl *DisplayContext) AddInteractionFn(rect layout.Rectangle, fn func(tea.Mo
 	})
 }
 
-// Clear removes all operations from the display context.
-// Useful for reusing a DisplayContext across frames.
-func (dl *DisplayContext) Clear() {
-	dl.draws = dl.draws[:0]
-	dl.effects = dl.effects[:0]
-	dl.interactions = dl.interactions[:0]
-	dl.orderCounter = 0
-}
-
 // Render executes all operations in the display context to the given screen.
 // Order of execution:
 // 1. Draw sorted by Z-index (low to high)
@@ -171,71 +162,6 @@ func (dl *DisplayContext) RenderToString(width, height int) string {
 	buf := uv.NewScreenBuffer(width, height)
 	dl.Render(buf)
 	return buf.Render()
-}
-
-// DrawList returns a copy of all Draw calls (useful for debugging/inspection)
-func (dl *DisplayContext) DrawList() []Draw {
-	result := make([]Draw, len(dl.draws))
-	for i, op := range dl.draws {
-		result[i] = op.Draw
-	}
-	return result
-}
-
-// EffectsList returns a copy of all Effects (useful for debugging/inspection)
-func (dl *DisplayContext) EffectsList() []Effect {
-	result := make([]Effect, len(dl.effects))
-	for i, op := range dl.effects {
-		result[i] = op.effect
-	}
-	return result
-}
-
-// InteractionsList returns all interactions sorted by Z-index (highest first for priority).
-func (dl *DisplayContext) InteractionsList() []InteractionOp {
-	sorted := make([]interactionOp, len(dl.interactions))
-	copy(sorted, dl.interactions)
-	sort.SliceStable(sorted, func(i, j int) bool {
-		if sorted[i].Z != sorted[j].Z {
-			return sorted[i].Z > sorted[j].Z
-		}
-		return sorted[i].order < sorted[j].order
-	})
-	result := make([]InteractionOp, len(sorted))
-	for i, op := range sorted {
-		result[i] = op.InteractionOp
-	}
-	return result
-}
-
-// Merge adds all operations from another DisplayContext into this one.
-func (dl *DisplayContext) Merge(other *DisplayContext) {
-	for _, op := range other.draws {
-		dl.draws = append(dl.draws, drawOp{
-			Draw:  op.Draw,
-			order: dl.nextOrder(),
-		})
-	}
-
-	for _, op := range other.effects {
-		dl.effects = append(dl.effects, effectOp{
-			effect: op.effect,
-			order:  dl.nextOrder(),
-			z:      op.z,
-		})
-	}
-
-	for _, op := range other.interactions {
-		dl.interactions = append(dl.interactions, interactionOp{
-			InteractionOp: op.InteractionOp,
-			order:         dl.nextOrder(),
-		})
-	}
-}
-
-// Len returns the total number of operations in the display context
-func (dl *DisplayContext) Len() int {
-	return len(dl.draws) + len(dl.effects) + len(dl.interactions)
 }
 
 type drawOp struct {

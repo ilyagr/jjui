@@ -1,6 +1,7 @@
 package confirmation
 
 import (
+	"strings"
 	"testing"
 
 	"charm.land/bubbles/v2/key"
@@ -121,15 +122,12 @@ func TestViewRect_DefaultRendersAtZBase(t *testing.T) {
 
 	dl := render.NewDisplayContext()
 	box := layout.Box{R: layout.Rect(0, 0, 50, 20)}
+	dl.AddDraw(box.R, strings.Repeat("x", box.R.Dx()*box.R.Dy()), render.ZPreview)
 	model.ViewRect(dl, box)
 
-	draws := dl.DrawList()
-	assert.NotEmpty(t, draws, "Expected confirmation to produce draw operations")
-
-	for _, draw := range draws {
-		assert.Less(t, draw.Z, render.ZPreview,
-			"Default confirmation should render below preview (ZBase level)")
-	}
+	rendered := dl.RenderToString(box.R.Dx(), box.R.Dy())
+	assert.NotContains(t, rendered, "Test message",
+		"default confirmation should render below preview content")
 }
 
 func TestWithZIndex_RendersAtSpecifiedZIndex(t *testing.T) {
@@ -137,13 +135,10 @@ func TestWithZIndex_RendersAtSpecifiedZIndex(t *testing.T) {
 
 	dl := render.NewDisplayContext()
 	box := layout.Box{R: layout.Rect(0, 0, 50, 20)}
+	dl.AddDraw(box.R, strings.Repeat("x", box.R.Dx()*box.R.Dy()), render.ZPreview)
 	model.ViewRect(dl, box)
 
-	draws := dl.DrawList()
-	assert.NotEmpty(t, draws, "Expected confirmation to produce draw operations")
-
-	for _, draw := range draws {
-		assert.GreaterOrEqual(t, draw.Z, render.ZDialogs,
-			"Confirmation with WithZIndex(ZDialogs) should render above preview")
-	}
+	rendered := dl.RenderToString(box.R.Dx(), box.R.Dy())
+	assert.Contains(t, rendered, "Test message",
+		"confirmation with WithZIndex(ZDialogs) should render above preview")
 }
