@@ -66,10 +66,13 @@ func TestEffectOp_AppliesWithoutPanic(t *testing.T) {
 		name    string
 		applyFn func(dl *DisplayContext, rect layout.Rectangle)
 	}{
-		{"Bold", func(dl *DisplayContext, rect layout.Rectangle) { dl.AddBold(rect, 0) }},
-		{"Underline", func(dl *DisplayContext, rect layout.Rectangle) { dl.AddUnderline(rect, 0) }},
 		{"Dim", func(dl *DisplayContext, rect layout.Rectangle) { dl.AddDim(rect, 0) }},
-		{"Reverse", func(dl *DisplayContext, rect layout.Rectangle) { dl.AddReverse(rect, 0) }},
+		{"Highlight", func(dl *DisplayContext, rect layout.Rectangle) {
+			dl.AddHighlight(rect, lipgloss.NewStyle().Background(lipgloss.Color("4")), 0)
+		}},
+		{"Fill", func(dl *DisplayContext, rect layout.Rectangle) {
+			dl.AddFill(rect, 'x', lipgloss.NewStyle(), 0)
+		}},
 	}
 
 	for _, tc := range tests {
@@ -97,8 +100,8 @@ func TestEffectOp_MultipleEffects(t *testing.T) {
 	dl.AddDraw(layout.Rect(0, 0, 10, 1), "MultiStyle", 0)
 
 	// Apply multiple effects
-	dl.AddBold(layout.Rect(0, 0, 5, 1), 0)
-	dl.AddUnderline(layout.Rect(5, 0, 10, 1), 1)
+	dl.AddDim(layout.Rect(0, 0, 5, 1), 0)
+	dl.AddHighlight(layout.Rect(5, 0, 5, 1), lipgloss.NewStyle().Background(lipgloss.Color("4")), 1)
 
 	buf := uv.NewScreenBuffer(15, 1)
 	dl.Render(buf)
@@ -117,7 +120,7 @@ func TestEffectOp_EffectAfterDraw(t *testing.T) {
 
 	// Important: DrawOps must be rendered before EffectOps
 	dl.AddDraw(layout.Rect(0, 0, 6, 1), "Normal", 0)
-	dl.AddReverse(layout.Rect(0, 0, 6, 1), 0)
+	dl.AddDim(layout.Rect(0, 0, 6, 1), 0)
 
 	buf := uv.NewScreenBuffer(10, 1)
 	dl.Render(buf)
@@ -148,7 +151,7 @@ func TestIterateCells_BoundsChecking(t *testing.T) {
 	dl.AddDraw(layout.Rect(0, 0, 5, 1), "Hello", 0)
 
 	// Apply effect partially outside bounds
-	dl.AddReverse(layout.Rect(3, 0, 20, 1), 0)
+	dl.AddDim(layout.Rect(3, 0, 20, 1), 0)
 
 	// Should not panic
 	buf := uv.NewScreenBuffer(10, 1)

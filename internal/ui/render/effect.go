@@ -20,26 +20,6 @@ type Effect interface {
 	GetRect() layout.Rectangle
 }
 
-// ReverseEffect reverses foreground and background colors.
-type ReverseEffect struct {
-	Rect layout.Rectangle
-	Z    int
-}
-
-func (e ReverseEffect) Apply(buf uv.Screen) {
-	iterateCells(buf, e.Rect, func(cell *uv.Cell) *uv.Cell {
-		if cell == nil {
-			return nil
-		}
-		newCell := cell.Clone()
-		newCell.Style.Attrs |= uv.AttrReverse
-		return newCell
-	})
-}
-
-func (e ReverseEffect) GetZ() int                 { return e.Z }
-func (e ReverseEffect) GetRect() layout.Rectangle { return e.Rect }
-
 // DimEffect dims the content by setting the Faint attribute.
 type DimEffect struct {
 	Rect layout.Rectangle
@@ -59,67 +39,6 @@ func (e DimEffect) Apply(buf uv.Screen) {
 
 func (e DimEffect) GetZ() int                 { return e.Z }
 func (e DimEffect) GetRect() layout.Rectangle { return e.Rect }
-
-// UnderlineEffect adds underline to content.
-type UnderlineEffect struct {
-	Rect layout.Rectangle
-	Z    int
-}
-
-func (e UnderlineEffect) Apply(buf uv.Screen) {
-	iterateCells(buf, e.Rect, func(cell *uv.Cell) *uv.Cell {
-		if cell == nil {
-			return nil
-		}
-		newCell := cell.Clone()
-		newCell.Style.Underline = uv.UnderlineSingle
-		return newCell
-	})
-}
-
-func (e UnderlineEffect) GetZ() int                 { return e.Z }
-func (e UnderlineEffect) GetRect() layout.Rectangle { return e.Rect }
-
-// BoldEffect makes content bold.
-type BoldEffect struct {
-	Rect layout.Rectangle
-	Z    int
-}
-
-func (e BoldEffect) Apply(buf uv.Screen) {
-	iterateCells(buf, e.Rect, func(cell *uv.Cell) *uv.Cell {
-		if cell == nil {
-			return nil
-		}
-		newCell := cell.Clone()
-		newCell.Style.Attrs |= uv.AttrBold
-		return newCell
-	})
-}
-
-func (e BoldEffect) GetZ() int                 { return e.Z }
-func (e BoldEffect) GetRect() layout.Rectangle { return e.Rect }
-
-// StrikeEffect adds strikethrough to content.
-type StrikeEffect struct {
-	Rect layout.Rectangle
-	Z    int
-}
-
-func (e StrikeEffect) Apply(buf uv.Screen) {
-	iterateCells(buf, e.Rect, func(cell *uv.Cell) *uv.Cell {
-		if cell == nil {
-			return nil
-		}
-		if cell.Content != "" && cell.Content != " " {
-			cell.Style.Attrs |= uv.AttrStrikethrough
-		}
-		return cell
-	})
-}
-
-func (e StrikeEffect) GetZ() int                 { return e.Z }
-func (e StrikeEffect) GetRect() layout.Rectangle { return e.Rect }
 
 // HighlightEffect applies a highlight style by changing the background color.
 // Extracts the background color from the lipgloss.Style and applies it to cells.

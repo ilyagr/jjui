@@ -73,29 +73,9 @@ func (dl *DisplayContext) AddEffect(effect Effect) {
 	})
 }
 
-// AddReverse adds a ReverseEffect (reverses foreground/background colors).
-func (dl *DisplayContext) AddReverse(rect layout.Rectangle, z int) {
-	dl.AddEffect(ReverseEffect{Rect: rect, Z: z})
-}
-
 // AddDim adds a DimEffect (dims the content).
 func (dl *DisplayContext) AddDim(rect layout.Rectangle, z int) {
 	dl.AddEffect(DimEffect{Rect: rect, Z: z})
-}
-
-// AddUnderline adds an UnderlineEffect.
-func (dl *DisplayContext) AddUnderline(rect layout.Rectangle, z int) {
-	dl.AddEffect(UnderlineEffect{Rect: rect, Z: z})
-}
-
-// AddBold adds a BoldEffect.
-func (dl *DisplayContext) AddBold(rect layout.Rectangle, z int) {
-	dl.AddEffect(BoldEffect{Rect: rect, Z: z})
-}
-
-// AddStrike adds a StrikeEffect (strikethrough).
-func (dl *DisplayContext) AddStrike(rect layout.Rectangle, z int) {
-	dl.AddEffect(StrikeEffect{Rect: rect, Z: z})
 }
 
 // AddHighlight adds a HighlightEffect.
