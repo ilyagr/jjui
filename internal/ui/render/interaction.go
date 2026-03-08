@@ -13,7 +13,6 @@ const (
 	InteractionClick InteractionType = 1 << iota
 	InteractionScroll
 	InteractionDrag
-	InteractionHover
 )
 
 // InteractionOp represents an interactive region that responds to input.
