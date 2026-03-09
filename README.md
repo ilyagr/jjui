@@ -6,10 +6,6 @@
 
 If you are new `jjui`, have a look at [previously on jjui](https://github.com/idursun/jjui/discussions/443).
 
-> [!NOTE]
-> Trunk version is at **v0.10** which is not released and contains breaking changes.
-> See the [migration guide](https://idursun.github.io/jjui/migrating/v0_10/) for what changed and how to update your configuration.
-
 ## Features
 
 ### Change revset with auto-complete
