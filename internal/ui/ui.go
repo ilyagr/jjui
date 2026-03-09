@@ -6,6 +6,7 @@ import (
 	"time"
 
 	uv "github.com/charmbracelet/ultraviolet"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/idursun/jjui/internal/scripting"
 	"github.com/idursun/jjui/internal/ui/actionmeta"
@@ -366,6 +367,7 @@ func (m *Model) View() string {
 
 	box := layout.NewBox(layout.Rect(0, 0, m.width, m.height))
 	screenBuf := uv.NewScreenBuffer(m.width, m.height)
+	screenBuf.Method = ansi.GraphemeWidth
 
 	if m.diff != nil {
 		m.renderDiffLayout(box)
