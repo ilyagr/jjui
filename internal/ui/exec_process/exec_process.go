@@ -9,6 +9,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/term"
 	"github.com/idursun/jjui/internal/jj"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/context"
@@ -53,8 +54,9 @@ func ExecLine(ctx *context.MainContext, msg common.ExecMsg) tea.Cmd {
 // This is different from command_runner.RunInteractiveCommand.
 // This function does not capture any IO. We want all IO to be given to the program.
 //
-// If program terminates in less than 5-secs we ask to press a key to return to JJUI.
-// This is useful for programs that would otherwise terminate quickly and just flash.
+// If we detect tty mode changes while the child is running we treat it as interactive.
+// Otherwise, if the program terminates in less than 5 seconds, we ask the user to
+// press a key so output does not flash away immediately.
 //
 // Since programs are run interactively (without capturing stdio) users have
 // already seen output on the terminal, and we don't use the usual CommandRunning or
@@ -81,6 +83,13 @@ type process struct {
 	location string
 }
 
+type runResult struct {
+	err               error
+	stdinIsTTY        bool
+	rawModeChanged    bool
+	exitedBeforeTimer bool
+}
+
 // Run This is a blocking call.
 func (p *process) Run() error {
 	cmd := exec.Command(p.program, p.args...)
@@ -97,22 +106,55 @@ func (p *process) Run() error {
 	// this is useful for sub-programs to access context vars.
 	cmd.Env = append(os.Environ(), env...)
 
-	// If program terminates quickly (most likely non-interactive commands),
-	// we ask the user to press a key, so they can at least see the output.
-	askUserClose := true
-	go func() {
-		time.Sleep(5 * time.Second)
-		askUserClose = false
-	}()
+	stdinFile, stdinIsTTY := ttyFile(p.stdin)
+	stopObserve := func() bool { return false }
+	if stdinIsTTY {
+		if stop, ok := observeTTYChanges(stdinFile); ok {
+			stopObserve = stop
+		}
+	}
 
+	startedAt := time.Now()
 	err := cmd.Run()
-	// Dont auto-close on error.
-	if askUserClose || err != nil {
-		p.stderr.Write([]byte("\njjui: press enter to continue... "))
-		reader := bufio.NewReader(p.stdin)
-		reader.ReadByte()
+	result := runResult{
+		err:               err,
+		stdinIsTTY:        stdinIsTTY,
+		rawModeChanged:    stopObserve(),
+		exitedBeforeTimer: time.Since(startedAt) < 5*time.Second,
+	}
+
+	if shouldPrompt(result) {
+		_, _ = io.WriteString(p.stderr, "\njjui: press enter to continue... ")
+		_ = waitForEnter(stdinFile)
 	}
 	return err
+}
+
+func shouldPrompt(result runResult) bool {
+	if !result.stdinIsTTY {
+		return false
+	}
+	if result.err != nil {
+		return true
+	}
+	if result.rawModeChanged {
+		return false
+	}
+	return result.exitedBeforeTimer
+}
+
+func waitForEnter(r io.Reader) error {
+	reader := bufio.NewReader(r)
+	_, err := reader.ReadByte()
+	return err
+}
+
+func ttyFile(r io.Reader) (*os.File, bool) {
+	f, ok := r.(*os.File)
+	if !ok || !term.IsTerminal(f.Fd()) {
+		return nil, false
+	}
+	return f, true
 }
 
 func (p *process) SetStdin(stdin io.Reader) {
