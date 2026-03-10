@@ -6,7 +6,7 @@
         name = "jjui-dev";
         buildInputs = with pkgs; [
           # Go toolchain
-          go
+          go_1_25
           gotools
 
           jujutsu

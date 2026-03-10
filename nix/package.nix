@@ -1,10 +1,10 @@
 {
   lib,
-  buildGoModule,
+  buildGo125Module,
   version ? "dev",
 }:
 
-buildGoModule {
+buildGo125Module {
   inherit version;
   pname = "jjui";
 
