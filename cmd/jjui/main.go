@@ -162,6 +162,8 @@ func run() int {
 		fmt.Fprintf(os.Stderr, "Error loading config.lua: %v\n", err)
 		return 1
 	} else if luaSource != "" {
+		appContext.TerminalHasDarkBackground = lipgloss.HasDarkBackground(os.Stdin, os.Stdout)
+		appContext.TerminalThemeDetected = true
 		if err := scripting.RunSetup(appContext, config.Current, luaSource); err != nil {
 			fmt.Fprintf(os.Stderr, "Error in config.lua: %v\n", err)
 			return 1
@@ -169,9 +171,13 @@ func run() int {
 	}
 
 	var theme map[string]config.Color
+	if !appContext.TerminalThemeDetected {
+		appContext.TerminalHasDarkBackground = lipgloss.HasDarkBackground(os.Stdin, os.Stdout)
+		appContext.TerminalThemeDetected = true
+	}
 
 	var defaultThemeName string
-	if lipgloss.HasDarkBackground(os.Stdin, os.Stdout) {
+	if appContext.TerminalHasDarkBackground {
 		defaultThemeName = "default_dark"
 	} else {
 		defaultThemeName = "default_light"
@@ -184,7 +190,7 @@ func run() int {
 	}
 
 	var userThemeName string
-	if lipgloss.HasDarkBackground(os.Stdin, os.Stdout) {
+	if appContext.TerminalHasDarkBackground {
 		userThemeName = config.Current.UI.Theme.Dark
 	} else {
 		userThemeName = config.Current.UI.Theme.Light

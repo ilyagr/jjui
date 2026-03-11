@@ -23,14 +23,16 @@ type SelectedOperation = common.SelectedOperation
 
 type MainContext struct {
 	CommandRunner
-	SelectedItem  SelectedItem   // Single item where cursor is hover.
-	CheckedItems  []SelectedItem // Items checked ✓ by the user.
-	Location      string
-	JJConfig      *config.JJConfig
-	DefaultRevset string
-	CurrentRevset string
-	Histories     *config.Histories
-	ScriptVM      *lua.LState
+	SelectedItem              SelectedItem   // Single item where cursor is hover.
+	CheckedItems              []SelectedItem // Items checked ✓ by the user.
+	Location                  string
+	JJConfig                  *config.JJConfig
+	DefaultRevset             string
+	CurrentRevset             string
+	TerminalHasDarkBackground bool
+	TerminalThemeDetected     bool
+	Histories                 *config.Histories
+	ScriptVM                  *lua.LState
 }
 
 func NewAppContext(location string, aps *askpass.Server) *MainContext {

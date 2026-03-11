@@ -2,11 +2,9 @@ package scripting
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
-	"charm.land/lipgloss/v2"
 	"github.com/idursun/jjui/internal/config"
 	uicontext "github.com/idursun/jjui/internal/ui/context"
 	lua "github.com/yuin/gopher-lua"
@@ -61,7 +59,7 @@ func RunSetup(ctx *uicontext.MainContext, current *config.Config, source string)
 	configTable.RawSetString("repo", lua.LString(ctx.Location))
 
 	terminalTable := L.NewTable()
-	terminalTable.RawSetString("dark_mode", lua.LBool(lipgloss.HasDarkBackground(os.Stdin, os.Stdout)))
+	terminalTable.RawSetString("dark_mode", lua.LBool(ctx.TerminalHasDarkBackground))
 	terminalTable.RawSetString("bg", lua.LString(""))
 	terminalTable.RawSetString("fg", lua.LString(""))
 	configTable.RawSetString("terminal", terminalTable)
