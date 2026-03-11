@@ -177,7 +177,3 @@ func (s *SetBookmarkOperation) matchingSuggestions(input string) []string {
 	}
 	return matches
 }
-
-func (s *SetBookmarkOperation) ResolveAction(action keybindings.Action, args map[string]any) (intents.Intent, bool) {
-	return actions.ResolveByScopeStrict(s.Scope(), action, args)
-}

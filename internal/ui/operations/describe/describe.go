@@ -198,7 +198,3 @@ func (o *Operation) viewContent(width int) string {
 	o.input.SetHeight(height)
 	return o.input.View()
 }
-
-func (o *Operation) ResolveAction(action keybindings.Action, args map[string]any) (intents.Intent, bool) {
-	return actions.ResolveByScopeStrict(o.Scope(), action, args)
-}

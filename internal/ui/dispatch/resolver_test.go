@@ -35,7 +35,7 @@ func TestResolveKey_BuiltInAction(t *testing.T) {
 		{Action: "ui.quit", Scope: "ui", Key: []string{"q"}},
 	}, nil)
 
-	result := r.ResolveKey(keyMsg("q"), []keybindings.Scope{"ui"}, nil)
+	result := r.ResolveKey(keyMsg("q"), []keybindings.Scope{"ui"})
 	assert.True(t, result.Consumed)
 	assert.NotNil(t, result.Intent)
 	_, isQuit := result.Intent.(intents.Quit)
@@ -48,7 +48,7 @@ func TestResolveKey_Pending(t *testing.T) {
 		{Action: "ui.quit", Scope: "ui", Seq: []string{"g", "q"}},
 	}, nil)
 
-	result := r.ResolveKey(keyMsg("g"), []keybindings.Scope{"ui"}, nil)
+	result := r.ResolveKey(keyMsg("g"), []keybindings.Scope{"ui"})
 	assert.True(t, result.Pending)
 	assert.True(t, result.Consumed)
 	assert.Nil(t, result.Intent)
@@ -59,7 +59,7 @@ func TestResolveKey_Unmatched(t *testing.T) {
 		{Action: "ui.quit", Scope: "ui", Key: []string{"q"}},
 	}, nil)
 
-	result := r.ResolveKey(keyMsg("x"), []keybindings.Scope{"ui"}, nil)
+	result := r.ResolveKey(keyMsg("x"), []keybindings.Scope{"ui"})
 	assert.False(t, result.Consumed)
 	assert.Nil(t, result.Intent)
 }
@@ -71,29 +71,33 @@ func TestResolveKey_ConfiguredLuaAction(t *testing.T) {
 		"my_action": {Lua: "print('hello')"},
 	})
 
-	result := r.ResolveKey(keyMsg("m"), []keybindings.Scope{"ui"}, nil)
+	result := r.ResolveKey(keyMsg("m"), []keybindings.Scope{"ui"})
 	assert.True(t, result.Consumed)
 	assert.Nil(t, result.Intent)
 	assert.Equal(t, "print('hello')", result.LuaScript)
 }
 
-func TestResolveKey_OverrideTakesPrecedence(t *testing.T) {
+func TestResolveKey_BuiltInCatalogResolution(t *testing.T) {
 	r := makeResolver([]keybindings.Binding{
 		{Action: "revisions.move_down", Scope: "revisions", Key: []string{"j"}},
 	}, nil)
 
-	override := func(action keybindings.Action, args map[string]any) (intents.Intent, bool) {
-		if action == "revisions.move_down" {
-			return intents.Navigate{Delta: 42}, true
-		}
-		return nil, false
-	}
-
-	result := r.ResolveKey(keyMsg("j"), []keybindings.Scope{"revisions"}, override)
+	result := r.ResolveKey(keyMsg("j"), []keybindings.Scope{"revisions"})
 	assert.True(t, result.Consumed)
 	nav, ok := result.Intent.(intents.Navigate)
 	assert.True(t, ok)
-	assert.Equal(t, 42, nav.Delta)
+	assert.Equal(t, 1, nav.Delta)
+}
+
+func TestResolveAction_ConfiguredLuaTakesPrecedenceOverBuiltIn(t *testing.T) {
+	r := makeResolver(nil, map[keybindings.Action]config.ActionConfig{
+		"revisions.details.diff": {Lua: "flash('override')"},
+	})
+
+	result := r.ResolveAction("revisions.details.diff", nil)
+	assert.True(t, result.Consumed)
+	assert.Nil(t, result.Intent)
+	assert.Equal(t, "flash('override')", result.LuaScript)
 }
 
 func TestResolveKey_ConfiguredActionWithoutLuaIsNoop(t *testing.T) {
@@ -103,7 +107,7 @@ func TestResolveKey_ConfiguredActionWithoutLuaIsNoop(t *testing.T) {
 		"bad_action": {},
 	})
 
-	result := r.ResolveKey(keyMsg("a"), []keybindings.Scope{"ui"}, nil)
+	result := r.ResolveKey(keyMsg("a"), []keybindings.Scope{"ui"})
 	assert.True(t, result.Consumed)
 	assert.Nil(t, result.Intent)
 }
@@ -113,7 +117,7 @@ func TestResolveAction_DirectCall(t *testing.T) {
 		{Action: "ui.quit", Scope: "ui", Key: []string{"q"}},
 	}, nil)
 
-	result := r.ResolveAction("ui.quit", nil, nil)
+	result := r.ResolveAction("ui.quit", nil)
 	assert.True(t, result.Consumed)
 	assert.NotNil(t, result.Intent)
 	_, isQuit := result.Intent.(intents.Quit)
@@ -125,7 +129,7 @@ func TestResolveBuiltInAction_IgnoresConfiguredLuaOverride(t *testing.T) {
 		"ui.quit": {Lua: "flash('override')"},
 	})
 
-	result := r.ResolveBuiltInAction("ui.quit", nil, nil)
+	result := r.ResolveBuiltInAction("ui.quit", nil)
 	assert.True(t, result.Consumed)
 	assert.Empty(t, result.LuaScript)
 	assert.NotNil(t, result.Intent)

@@ -105,10 +105,6 @@ func (m *Model) handleIntent(intent intents.Intent) tea.Cmd {
 	return nil
 }
 
-func (m *Model) ResolveAction(action keybindings.Action, args map[string]any) (intents.Intent, bool) {
-	return actions.ResolveByScopeStrict(m.Scope(), action, args)
-}
-
 func (m *Model) Render(commit *jj.Commit, renderPosition operations.RenderPosition) string {
 	if renderPosition != operations.RenderBeforeChangeId {
 		return ""

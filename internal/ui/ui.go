@@ -16,7 +16,6 @@ import (
 	"github.com/idursun/jjui/internal/ui/helpkeys"
 	"github.com/idursun/jjui/internal/ui/intents"
 	"github.com/idursun/jjui/internal/ui/layout"
-	"github.com/idursun/jjui/internal/ui/operations"
 	"github.com/idursun/jjui/internal/ui/password"
 	"github.com/idursun/jjui/internal/ui/render"
 
@@ -140,7 +139,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		return nil
 	case tea.KeyMsg:
 		if m.resolver != nil {
-			result := m.resolver.ResolveKey(msg, m.dispatchScopes(), m.intentOverride())
+			result := m.resolver.ResolveKey(msg, m.dispatchScopes())
 			if result.Pending {
 				m.setSequenceStatusHelp(result.Continuations)
 				return nil
@@ -207,9 +206,9 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		action := keybindings.Action(strings.TrimSpace(msg.Action))
 		var result dispatch.Result
 		if msg.BuiltIn {
-			result = m.resolver.ResolveBuiltInAction(action, msg.Args, m.intentOverride())
+			result = m.resolver.ResolveBuiltInAction(action, msg.Args)
 		} else {
-			result = m.resolver.ResolveAction(action, msg.Args, m.intentOverride())
+			result = m.resolver.ResolveAction(action, msg.Args)
 		}
 		if result.LuaScript != "" {
 			return luaCmd(result.LuaScript)
@@ -226,7 +225,7 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		m.stacked = nil
 		if action, ok := m.paletteActions[msg.Value]; ok {
 			m.paletteActions = nil
-			result := m.resolver.ResolveAction(action, nil, m.intentOverride())
+			result := m.resolver.ResolveAction(action, nil)
 			if result.LuaScript != "" {
 				return luaCmd(result.LuaScript)
 			}
@@ -637,15 +636,6 @@ func luaCmd(script string) tea.Cmd {
 	}
 }
 
-func (m *Model) intentOverride() dispatch.IntentOverride {
-	if resolver, ok := m.revisions.CurrentOperation().(operations.ActionIntentResolver); ok {
-		return func(action keybindings.Action, args map[string]any) (intents.Intent, bool) {
-			return resolver.ResolveAction(action, args)
-		}
-	}
-	return nil
-}
-
 func (m *Model) routeIntent(owner string, intent intents.Intent) tea.Cmd {
 	// Cancel has priority-based routing that depends on UI state.
 	if cancel, ok := intent.(intents.Cancel); ok {
@@ -724,15 +714,8 @@ func (m *Model) routeIntentByOwner(owner string, intent intents.Intent) (tea.Cmd
 			return m.stacked.Update(intent), true
 		}
 	default:
-		if dispatch.IsRevisionsOwner(owner) {
-			if _, ok := intent.(intents.Cancel); ok {
-				// Route through HandleDispatchedAction so the active operation
-				// receives cancel before the revisions model resets it.
-				if cmd, handled := m.revisions.HandleDispatchedAction(keybindings.Action(owner+".cancel"), nil); handled {
-					return cmd, true
-				}
-			}
-			return m.revisions.Update(intent), true
+		if cmd, handled := m.revisions.RouteOwnedIntent(owner, intent); handled {
+			return cmd, true
 		}
 	}
 

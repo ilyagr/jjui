@@ -160,10 +160,6 @@ func (r *Operation) handleIntent(intent intents.Intent) tea.Cmd {
 	return nil
 }
 
-func (r *Operation) ResolveAction(action keybindings.Action, args map[string]any) (intents.Intent, bool) {
-	return actions.ResolveByScopeStrict(r.Scope(), action, args)
-}
-
 func rebaseSourceFromIntent(source intents.RebaseSource) Source {
 	switch source {
 	case intents.RebaseSourceRevision:

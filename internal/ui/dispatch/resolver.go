@@ -21,10 +21,6 @@ type Result struct {
 	Continuations []Continuation
 }
 
-// IntentOverride lets the caller (e.g. active operation) override
-// the default action-to-intent mapping.
-type IntentOverride func(action keybindings.Action, args map[string]any) (intents.Intent, bool)
-
 // Resolver wraps a Dispatcher and extends the pipeline to resolve
 // keys all the way to intents and owners.
 type Resolver struct {
@@ -41,7 +37,7 @@ func NewResolver(d *Dispatcher, configured map[keybindings.Action]config.ActionC
 }
 
 // ResolveKey resolves a key press through the full pipeline: key → binding → action → intent.
-func (r *Resolver) ResolveKey(msg tea.KeyMsg, scopes []keybindings.Scope, override IntentOverride) Result {
+func (r *Resolver) ResolveKey(msg tea.KeyMsg, scopes []keybindings.Scope) Result {
 	if r.dispatcher == nil {
 		return Result{}
 	}
@@ -55,7 +51,7 @@ func (r *Resolver) ResolveKey(msg tea.KeyMsg, scopes []keybindings.Scope, overri
 		}
 	}
 	if bindResult.Action != "" {
-		return r.resolveAction(bindResult.Action, bindResult.Args, override, false)
+		return r.resolveAction(bindResult.Action, bindResult.Args, false)
 	}
 	if bindResult.Consumed {
 		return Result{Consumed: true}
@@ -64,13 +60,13 @@ func (r *Resolver) ResolveKey(msg tea.KeyMsg, scopes []keybindings.Scope, overri
 }
 
 // ResolveAction resolves a dispatched action through configured-action aliasing and intent resolution.
-func (r *Resolver) ResolveAction(action keybindings.Action, args map[string]any, override IntentOverride) Result {
-	return r.resolveAction(action, args, override, false)
+func (r *Resolver) ResolveAction(action keybindings.Action, args map[string]any) Result {
+	return r.resolveAction(action, args, false)
 }
 
 // ResolveBuiltInAction resolves an action while skipping configured Lua overrides.
-func (r *Resolver) ResolveBuiltInAction(action keybindings.Action, args map[string]any, override IntentOverride) Result {
-	return r.resolveAction(action, args, override, true)
+func (r *Resolver) ResolveBuiltInAction(action keybindings.Action, args map[string]any) Result {
+	return r.resolveAction(action, args, true)
 }
 
 // ResetSequence resets any in-progress key sequence.
@@ -80,17 +76,9 @@ func (r *Resolver) ResetSequence() {
 	}
 }
 
-func (r *Resolver) resolveAction(action keybindings.Action, args map[string]any, override IntentOverride, skipConfigured bool) Result {
-	// 1. Try operation override first
-	if override != nil {
-		if intent, ok := override(action, args); ok {
-			owner := DeriveOwner(action)
-			return Result{Intent: intent, Owner: owner, Args: args, Consumed: true}
-		}
-	}
-
+func (r *Resolver) resolveAction(action keybindings.Action, args map[string]any, skipConfigured bool) Result {
 	if !skipConfigured {
-		// try configured actions (Lua only).
+		// Configured Lua actions override built-ins during normal dispatch.
 		cfg, hasCfg := r.configuredActions[action]
 		if hasCfg {
 			if script := strings.TrimSpace(cfg.Lua); script != "" {

@@ -166,7 +166,3 @@ func (o *Operation) findAceKeys() *AceJump {
 	}
 	return aj
 }
-
-func (o *Operation) ResolveAction(action keybindings.Action, args map[string]any) (intents.Intent, bool) {
-	return actions.ResolveByScopeStrict(o.Scope(), action, args)
-}

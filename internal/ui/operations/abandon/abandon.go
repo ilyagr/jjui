@@ -101,10 +101,6 @@ func (a *Operation) handleIntent(intent intents.Intent) tea.Cmd {
 	return nil
 }
 
-func (a *Operation) ResolveAction(action keybindings.Action, args map[string]any) (intents.Intent, bool) {
-	return actions.ResolveByScopeStrict(a.Scope(), action, args)
-}
-
 func (a *Operation) SetSelectedRevision(commit *jj.Commit) tea.Cmd {
 	a.current = commit
 	return nil

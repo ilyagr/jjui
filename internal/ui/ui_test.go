@@ -28,7 +28,7 @@ import (
 )
 
 func dispatchAction(model *Model, action keybindings.Action, args map[string]any) (tea.Cmd, bool) {
-	result := model.resolver.ResolveAction(action, args, model.intentOverride())
+	result := model.resolver.ResolveAction(action, args)
 	if result.LuaScript != "" {
 		return luaCmd(result.LuaScript), true
 	}
@@ -699,6 +699,33 @@ func Test_Update_LuaBuiltinActionBypassesConfiguredOverride(t *testing.T) {
 	require.NotNil(t, cmd)
 	test.SimulateModel(model, cmd)
 	assert.True(t, model.revsetModel.Editing, "builtin action should bypass override and run default behavior")
+}
+
+func Test_Update_OperationScopedConfiguredActionOverridesBuiltInIntent(t *testing.T) {
+	origActions := config.Current.Actions
+	defer func() {
+		config.Current.Actions = origActions
+	}()
+	config.Current.Actions = []config.ActionConfig{
+		{Name: "revisions.details.diff", Lua: `flash("override")`},
+	}
+
+	commandRunner := test.NewTestCommandRunner(t)
+	defer commandRunner.Verify()
+
+	ctx := test.NewTestContext(commandRunner)
+	model := NewUI(ctx)
+
+	op := details.NewOperation(ctx, &jj.Commit{ChangeId: "abc123", CommitId: "def456"})
+	model.Update(common.RestoreOperationMsg{Operation: op})
+	require.False(t, model.revisions.InNormalMode(), "details operation should be active")
+
+	cmd := model.Update(common.DispatchActionMsg{Action: "revisions.details.diff"})
+	require.NotNil(t, cmd)
+	msg := cmd()
+	runLua, ok := msg.(common.RunLuaScriptMsg)
+	require.True(t, ok, "configured action should run before operation intent resolution")
+	assert.Contains(t, runLua.Script, `flash("override")`)
 }
 
 func Test_Update_LuaInputEscCancelsAndFinishesScript(t *testing.T) {

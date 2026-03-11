@@ -49,23 +49,6 @@ type confirmationTrackingOp struct {
 	gotNavigate bool
 }
 
-func (o *confirmationTrackingOp) ResolveAction(action keybindings.Action, args map[string]any) (intents.Intent, bool) {
-	_ = args
-
-	switch action {
-	case actions.RevisionsDetailsConfirmationPrev:
-		return intents.OptionSelect{Delta: -1}, true
-	case actions.RevisionsDetailsConfirmationNext:
-		return intents.OptionSelect{Delta: 1}, true
-	case actions.RevisionsDetailsConfirmationApply:
-		return intents.Apply{}, true
-	case actions.RevisionsDetailsConfirmationCancel:
-		return intents.Cancel{}, true
-	default:
-		return nil, false
-	}
-}
-
 func (o *confirmationTrackingOp) Update(msg tea.Msg) tea.Cmd {
 	intent, ok := msg.(intents.OptionSelect)
 	if ok {
@@ -80,6 +63,7 @@ func (o *confirmationTrackingOp) ViewRect(_ *render.DisplayContext, _ layout.Box
 func (o *confirmationTrackingOp) IsFocused() bool                                 { return true }
 func (o *confirmationTrackingOp) IsEditing() bool                                 { return true }
 func (o *confirmationTrackingOp) Name() string                                    { return "details" }
+func (o *confirmationTrackingOp) Scope() keybindings.Scope                        { return actions.OwnerDetails }
 func (o *confirmationTrackingOp) Render(_ *jj.Commit, _ operations.RenderPosition) string {
 	return ""
 }
@@ -110,15 +94,6 @@ type applyTrackingOp struct {
 	force bool
 }
 
-func (o *applyTrackingOp) ResolveAction(action keybindings.Action, args map[string]any) (intents.Intent, bool) {
-	switch action {
-	case actions.RevisionsSquashApply:
-		return intents.Apply{Force: operations.BoolArg(args, "force", false)}, true
-	default:
-		return nil, false
-	}
-}
-
 func (o *applyTrackingOp) Update(msg tea.Msg) tea.Cmd {
 	if apply, ok := msg.(intents.Apply); ok {
 		o.force = apply.Force
@@ -131,6 +106,7 @@ func (o *applyTrackingOp) ViewRect(_ *render.DisplayContext, _ layout.Box) {}
 func (o *applyTrackingOp) IsFocused() bool                                 { return true }
 func (o *applyTrackingOp) IsEditing() bool                                 { return true }
 func (o *applyTrackingOp) Name() string                                    { return "squash" }
+func (o *applyTrackingOp) Scope() keybindings.Scope                        { return actions.OwnerSquash }
 func (o *applyTrackingOp) Render(_ *jj.Commit, _ operations.RenderPosition) string {
 	return ""
 }

@@ -304,10 +304,6 @@ func (s *Operation) handleIntent(intent intents.Intent) tea.Cmd {
 	return nil
 }
 
-func (s *Operation) ResolveAction(action keybindings.Action, args map[string]any) (intents.Intent, bool) {
-	return actions.ResolveByScopeStrict(s.Scope(), action, args)
-}
-
 func (s *Operation) ViewRect(dl *render.DisplayContext, box layout.Box) {
 	content := s.viewContent(box.R.Dx(), box.R.Dy())
 	content = lipgloss.Place(

@@ -202,10 +202,6 @@ func (o *Operation) navigate(delta int, page bool) tea.Cmd {
 	return o.updateSelection()
 }
 
-func (o *Operation) ResolveAction(action keybindings.Action, args map[string]any) (intents.Intent, bool) {
-	return actions.ResolveByScopeStrict(o.Scope(), action, args)
-}
-
 func (o *Operation) getSelectedEvolog() *jj.Commit {
 	return o.rows[o.cursor].Commit
 }
