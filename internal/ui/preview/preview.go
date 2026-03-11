@@ -16,10 +16,6 @@ import (
 	"github.com/idursun/jjui/internal/ui/render"
 )
 
-const (
-	scrollAmount = 3
-)
-
 var _ common.ImmediateModel = (*Model)(nil)
 
 type Model struct {
@@ -40,13 +36,6 @@ const (
 
 type previewMsg struct {
 	msg tea.Msg
-}
-
-// Allow a message to be targetted to this component.
-func PreviewCmd(msg tea.Msg) tea.Cmd {
-	return func() tea.Msg {
-		return previewMsg{msg: msg}
-	}
 }
 
 type updatePreviewContentMsg struct {

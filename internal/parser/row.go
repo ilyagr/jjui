@@ -201,15 +201,3 @@ func (row *Row) RowLinesIter(predicate RowLinesIteratorPredicate) func(yield fun
 }
 
 type RowLinesIteratorPredicate func(f RowLineFlags) bool
-
-func Including(flags RowLineFlags) RowLinesIteratorPredicate {
-	return func(f RowLineFlags) bool {
-		return f&flags == flags
-	}
-}
-
-func Excluding(flags RowLineFlags) RowLinesIteratorPredicate {
-	return func(f RowLineFlags) bool {
-		return f&flags != flags
-	}
-}

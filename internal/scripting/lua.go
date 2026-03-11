@@ -561,25 +561,6 @@ func stringVal(payload map[string]any, key string) string {
 	return ""
 }
 
-func stringSlice(payload map[string]any, key string) []string {
-	v, ok := payload[key]
-	if !ok {
-		return nil
-	}
-	var out []string
-	switch vv := v.(type) {
-	case []string:
-		return vv
-	case []any:
-		for _, item := range vv {
-			if s, ok := item.(string); ok {
-				out = append(out, s)
-			}
-		}
-	}
-	return out
-}
-
 func argsFromLua(L *lua.LState) []string {
 	if L.GetTop() == 0 {
 		return nil
@@ -679,30 +660,6 @@ func matchUpdateRevisionsSuccess(msg tea.Msg) (bool, []lua.LValue) {
 		return true, nil
 	default:
 		return false, nil
-	}
-}
-
-func parseRebaseSource(val string) intents.RebaseSource {
-	switch strings.ToLower(val) {
-	case "branch":
-		return intents.RebaseSourceBranch
-	case "descendants", "source":
-		return intents.RebaseSourceDescendants
-	default:
-		return intents.RebaseSourceRevision
-	}
-}
-
-func parseModeTarget(val string) intents.ModeTarget {
-	switch strings.ToLower(val) {
-	case "after":
-		return intents.ModeTargetAfter
-	case "before":
-		return intents.ModeTargetBefore
-	case "insert":
-		return intents.ModeTargetInsert
-	default:
-		return intents.ModeTargetDestination
 	}
 }
 

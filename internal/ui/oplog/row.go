@@ -25,6 +25,15 @@ func (rl *rowLine) GetSegments() []*screen.Segment {
 	return rl.Segments
 }
 
+func (rl *rowLine) FindIdIndex() int {
+	for i, segment := range rl.Segments {
+		if isOperationId(segment.Text) {
+			return i
+		}
+	}
+	return -1
+}
+
 func isOperationId(text string) bool {
 	if len(text) != 12 {
 		return false
@@ -35,15 +44,6 @@ func isOperationId(text string) bool {
 		}
 	}
 	return true
-}
-
-func (l *rowLine) FindIdIndex() int {
-	for i, segment := range l.Segments {
-		if isOperationId(segment.Text) {
-			return i
-		}
-	}
-	return -1
 }
 
 func newRowLine(segments []*screen.Segment) rowLine {

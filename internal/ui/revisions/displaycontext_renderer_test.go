@@ -1,10 +1,11 @@
 package revisions
 
 import (
-	uv "github.com/charmbracelet/ultraviolet"
 	"os"
 	"strings"
 	"testing"
+
+	uv "github.com/charmbracelet/ultraviolet"
 
 	"charm.land/lipgloss/v2"
 	"github.com/idursun/jjui/internal/jj"

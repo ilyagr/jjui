@@ -815,7 +815,7 @@ func renderItem(dl *render.DisplayContext, rect layout.Rectangle, width int, sty
 		return
 	}
 
-	if width > 0 && len(title) > width {
+	if len(title) > width {
 		title = title[:width-1] + "…"
 	}
 

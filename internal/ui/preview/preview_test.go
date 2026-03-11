@@ -1,8 +1,9 @@
 package preview
 
 import (
-	"github.com/idursun/jjui/internal/ui/layout"
 	"testing"
+
+	"github.com/idursun/jjui/internal/ui/layout"
 
 	"github.com/idursun/jjui/test"
 	"github.com/stretchr/testify/assert"
