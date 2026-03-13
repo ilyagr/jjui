@@ -18,7 +18,7 @@ You can rebase a revision or a branch onto another revision in the revision tree
 
 ![GIF](https://raw.github.com/idursun/jjui/docs/public/gifs/jjui_rebase.gif)
 
-See [Rebase](https://idursun.github.io/jjui/operations/rebase/) for detailed information.
+See [Rebase](https://idursun.github.io/jjui/revisions/rebase/) for detailed information.
 
 ### Squash
 You can squash revisions into one revision, by pressing `S`. The following revision will be automatically selected. However, you can change the selection using `j` and `k`.
@@ -36,7 +36,7 @@ In this mode, you can:
 
 ![GIF](https://raw.github.com/idursun/jjui/docs/public/gifs/jjui_details.gif)
 
-For detailed information, see [Details](https://idursun.github.io/jjui/features/details/) wiki page.
+For detailed information, see [Details](https://idursun.github.io/jjui/details/) page.
 
 ### Bookmarks
 You can move bookmarks to the revision you selected.
@@ -45,7 +45,7 @@ You can move bookmarks to the revision you selected.
 
 
 ### Op Log
-You can switch to op log view by pressing `o`. Pressing `r` restores the selected operation. For more information, see [Op log](https://idursun.github.io/jjui/features/oplog/) wiki page.
+You can switch to op log view by pressing `o`. Pressing `r` restores the selected operation. For more information, see [Op log](https://idursun.github.io/jjui/features/oplog/) page.
 
 ![GIF](https://raw.github.com/idursun/jjui/docs/public/gifs/jjui_oplog.gif)
 
@@ -56,7 +56,7 @@ While the preview window is showing, you can press; `ctrl+n` to scroll one line 
 
 Additionally, you can press `d` to show the contents of preview in diff view.
 
-For detailed information, see [Preview](https://idursun.github.io/jjui/features/preview/) wiki page.
+For detailed information, see [Preview](https://idursun.github.io/jjui/preview/) page.
 
 ![GIF](https://raw.github.com/idursun/jjui/docs/public/gifs/jjui_preview.gif)
 
@@ -76,7 +76,7 @@ Additionally,
 
 ## Configuration
 
-See [configuration](https://idursun.github.io/jjui/customization/configuration/) section in the wiki.
+See [configuration](https://idursun.github.io/jjui/customization/config-toml/) section in the documentation.
 
 ## Installation
 
