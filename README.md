@@ -45,7 +45,7 @@ You can move bookmarks to the revision you selected.
 
 
 ### Op Log
-You can switch to op log view by pressing `o`. Pressing `r` restores the selected operation. For more information, see [Op log](https://idursun.github.io/jjui/features/oplog/) page.
+You can switch to op log view by pressing `o`. Pressing `r` restores the selected operation. For more information, see [Op log](https://idursun.github.io/jjui/oplog/) page.
 
 ![GIF](https://raw.github.com/idursun/jjui/docs/public/gifs/jjui_oplog.gif)
 
