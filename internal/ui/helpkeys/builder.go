@@ -27,20 +27,24 @@ func BuildFromBindings(
 		bindingsByScope[scope] = append(bindingsByScope[scope], binding)
 	}
 
-	seenActions := map[keybindings.Action]struct{}{}
+	seenLeaves := map[keybindings.Action]struct{}{}
 	entries := make([]Entry, 0)
 
 	for _, scope := range scopes {
 		scopeBindings := bindingsByScope[scope]
 		scopeEntries := make([]Entry, 0, len(scopeBindings))
+		seenInScope := map[keybindings.Action]struct{}{}
 		for i := len(scopeBindings) - 1; i >= 0; i-- {
 			b := scopeBindings[i]
 			action := keybindings.Action(strings.TrimSpace(b.Action))
 			if action == "" {
 				continue
 			}
-			dedupeKey := actionLeaf(action)
-			if _, seen := seenActions[dedupeKey]; seen {
+			leaf := actionLeaf(action)
+			if _, seen := seenInScope[action]; seen {
+				continue
+			}
+			if _, seen := seenLeaves[leaf]; seen {
 				continue
 			}
 
@@ -53,10 +57,16 @@ func BuildFromBindings(
 				Label: label,
 				Desc:  bindingDesc(b),
 			})
-			seenActions[dedupeKey] = struct{}{}
+			seenInScope[action] = struct{}{}
 		}
+		// Mark leaves as seen after processing the entire scope,
+		// so that different actions with the same leaf within one scope
+		// are all shown, while outer scopes are still shadowed.
 		for i := len(scopeEntries) - 1; i >= 0; i-- {
 			entries = append(entries, scopeEntries[i])
+		}
+		for action := range seenInScope {
+			seenLeaves[actionLeaf(action)] = struct{}{}
 		}
 	}
 

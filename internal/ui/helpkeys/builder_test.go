@@ -54,6 +54,20 @@ func TestBuildFromBindings_SameScopeLastBindingWins(t *testing.T) {
 	}, entries)
 }
 
+func TestBuildFromBindings_SameScopeDifferentActionsWithSameLeaf(t *testing.T) {
+	bindings := []config.BindingConfig{
+		{Action: "revset.edit", Scope: "revisions", Key: config.StringList{"shift+l"}, Desc: "revset"},
+		{Action: "revisions.edit", Scope: "revisions", Key: config.StringList{"e"}, Desc: "edit"},
+	}
+	scopes := []keybindings.Scope{"revisions"}
+
+	entries := BuildFromBindings(scopes, bindings)
+	assert.Equal(t, []Entry{
+		{Label: "shift+l", Desc: "revset"},
+		{Label: "e", Desc: "edit"},
+	}, entries)
+}
+
 func TestBuildFromContinuations_SortsAndAnnotatesNonLeaf(t *testing.T) {
 	entries := BuildFromContinuations([]dispatch.Continuation{
 		{Key: "g", Action: "ui.open_git", IsLeaf: false},
