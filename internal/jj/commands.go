@@ -273,9 +273,9 @@ func GitRemoteList() CommandArgs {
 	return []string{"git", "remote", "list"}
 }
 
-func Rebase(from SelectedRevisions, to string, source string, target string, skipEmptied bool, ignoreImmutable bool) CommandArgs {
+func Rebase(from SelectedRevisions, sourcePrefix string, to string, target string, skipEmptied bool, ignoreImmutable bool) CommandArgs {
 	args := []string{"rebase"}
-	args = append(args, from.AsPrefixedArgs(source)...)
+	args = append(args, from.AsPrefixedArgs(sourcePrefix)...)
 	args = append(args, target, to)
 	if ignoreImmutable {
 		args = append(args, "--ignore-immutable")
@@ -286,9 +286,9 @@ func Rebase(from SelectedRevisions, to string, source string, target string, ski
 	return args
 }
 
-func RebaseInsert(from SelectedRevisions, insertAfter string, insertBefore string, skipEmptied bool, ignoreImmutable bool) CommandArgs {
+func RebaseInsert(from SelectedRevisions, sourcePrefix string, insertAfter string, insertBefore string, skipEmptied bool, ignoreImmutable bool) CommandArgs {
 	args := []string{"rebase"}
-	args = append(args, from.AsArgs()...)
+	args = append(args, from.AsPrefixedArgs(sourcePrefix)...)
 	args = append(args, "--insert-before", insertBefore)
 	args = append(args, "--insert-after", insertAfter)
 	if ignoreImmutable {
