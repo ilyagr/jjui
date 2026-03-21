@@ -241,11 +241,13 @@ key = "k"
 }
 
 func TestEnvConfigDir_InvalidFallsBackToStandardConfig(t *testing.T) {
+	home := t.TempDir()
 	configHome := t.TempDir()
 	standardConfigDir := filepath.Join(configHome, "jjui")
 	require.NoError(t, os.MkdirAll(standardConfigDir, 0o700))
 	require.NoError(t, os.WriteFile(filepath.Join(standardConfigDir, "config.toml"), []byte("limit = 10\n"), 0o600))
 
+	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", configHome)
 	t.Setenv("JJUI_CONFIG_DIR", filepath.Join(t.TempDir(), "missing"))
 
