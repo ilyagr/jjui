@@ -209,6 +209,7 @@ func generateActionMetaSource(actionIDs []string, actionArgSchemas map[string]ma
 	b.WriteString("package actionmeta\n\n")
 	b.WriteString("import (\n")
 	b.WriteString("\t\"fmt\"\n")
+	b.WriteString("\t\"sort\"\n")
 	b.WriteString("\t\"strings\"\n")
 	b.WriteString(")\n\n")
 
@@ -282,12 +283,6 @@ func generateActionMetaSource(actionIDs []string, actionArgSchemas map[string]ma
 	}
 	b.WriteString("}\n\n")
 
-	b.WriteString("var builtInActionOrder = []string{\n")
-	for _, action := range actionIDs {
-		b.WriteString(fmt.Sprintf("\t%q,\n", action))
-	}
-	b.WriteString("}\n\n")
-
 	b.WriteString("func ActionOwners(action string) []string {\n")
 	b.WriteString("\taction = strings.TrimSpace(action)\n")
 	b.WriteString("\towners, ok := builtInActionOwners[action]\n")
@@ -317,8 +312,11 @@ func generateActionMetaSource(actionIDs []string, actionArgSchemas map[string]ma
 	b.WriteString("}\n\n")
 
 	b.WriteString("func BuiltInActions() []string {\n")
-	b.WriteString("\tout := make([]string, len(builtInActionOrder))\n")
-	b.WriteString("\tcopy(out, builtInActionOrder)\n")
+	b.WriteString("\tout := make([]string, 0, len(builtInActions))\n")
+	b.WriteString("\tfor action := range builtInActions {\n")
+	b.WriteString("\t\tout = append(out, action)\n")
+	b.WriteString("\t}\n")
+	b.WriteString("\tsort.Strings(out)\n")
 	b.WriteString("\treturn out\n")
 	b.WriteString("}\n\n")
 

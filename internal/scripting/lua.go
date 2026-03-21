@@ -3,7 +3,6 @@ package scripting
 import (
 	stdcontext "context"
 	"fmt"
-	"sort"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -450,7 +449,6 @@ func registerAPI(L *lua.LState, ctx *uicontext.MainContext) {
 
 func registerGeneratedActionAPI(L *lua.LState, root *lua.LTable, builtIn bool) {
 	actions := actionmeta.BuiltInActions()
-	sort.Strings(actions)
 	for _, actionID := range actions {
 		owners := actionmeta.ActionOwners(actionID)
 		for _, owner := range owners {
