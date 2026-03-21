@@ -3,12 +3,13 @@ package actions
 import (
 	"testing"
 
+	keybindings "github.com/idursun/jjui/internal/ui/bindings"
 	"github.com/idursun/jjui/internal/ui/intents"
 	"github.com/stretchr/testify/require"
 )
 
 func TestResolveIntent_ApplyForceFromArgs(t *testing.T) {
-	intent, ok := ResolveIntent(OwnerSquash, RevisionsSquashApply, map[string]any{"force": true})
+	intent, ok := ResolveIntent(OwnerSquash, keybindings.Action("revisions.squash.apply"), map[string]any{"force": true})
 	require.True(t, ok)
 	apply, ok := intent.(intents.Apply)
 	require.True(t, ok)
@@ -16,7 +17,7 @@ func TestResolveIntent_ApplyForceFromArgs(t *testing.T) {
 }
 
 func TestResolveIntent_TargetPickerApplyForceFromArgs(t *testing.T) {
-	intent, ok := ResolveIntent(OwnerTargetPicker, RevisionsTargetPickerApply, map[string]any{"force": true})
+	intent, ok := ResolveIntent(OwnerTargetPicker, keybindings.Action("revisions.target_picker.apply"), map[string]any{"force": true})
 	require.True(t, ok)
 	apply, ok := intent.(intents.TargetPickerApply)
 	require.True(t, ok)
@@ -24,10 +25,10 @@ func TestResolveIntent_TargetPickerApplyForceFromArgs(t *testing.T) {
 }
 
 func TestResolveIntent_UnknownOwnerOrAction(t *testing.T) {
-	_, ok := ResolveIntent("unknown.owner", RevisionsApply, nil)
+	_, ok := ResolveIntent("unknown.owner", keybindings.Action("revisions.apply"), nil)
 	require.False(t, ok)
 
-	_, ok = ResolveIntent(OwnerSquash, UiOpenGit, nil)
+	_, ok = ResolveIntent(OwnerSquash, keybindings.Action("ui.open_git"), nil)
 	require.False(t, ok)
 }
 

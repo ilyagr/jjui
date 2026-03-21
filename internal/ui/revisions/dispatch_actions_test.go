@@ -26,20 +26,20 @@ func TestHandleDispatchedAction_RevisionsModeOpeners(t *testing.T) {
 	model := New(ctx)
 	model.updateGraphRows(rows, "a")
 
-	_, handled := model.HandleDispatchedAction(actions.RevisionsOpenDetails, nil)
+	_, handled := model.HandleDispatchedAction(keybindings.Action("revisions.open_details"), nil)
 	assert.True(t, handled, "open_details should be handled by revisions dispatcher")
 	assert.Equal(t, "details", model.CurrentOperation().Name())
 
 	model.Update(intents.Cancel{})
 	model.updateGraphRows(rows, "a")
 
-	_, handled = model.HandleDispatchedAction(actions.RevisionsOpenRebase, nil)
+	_, handled = model.HandleDispatchedAction(keybindings.Action("revisions.open_rebase"), nil)
 	assert.True(t, handled, "open_rebase should be handled by revisions dispatcher")
 	assert.Equal(t, "rebase", model.CurrentOperation().Name())
 
 	model.Update(intents.Cancel{})
 	model.updateGraphRows(rows, "a")
-	_, handled = model.HandleDispatchedAction(actions.RevisionsOpenDuplicate, nil)
+	_, handled = model.HandleDispatchedAction(keybindings.Action("revisions.open_duplicate"), nil)
 	assert.True(t, handled, "open_duplicate should be handled by revisions dispatcher")
 	assert.Equal(t, "duplicate", model.CurrentOperation().Name())
 }
@@ -83,7 +83,7 @@ func TestHandleDispatchedAction_DetailsConfirmationMoveDoesNotMoveRevisionsCurso
 	op := &confirmationTrackingOp{}
 	model.op = op
 
-	_, handled := model.HandleDispatchedAction(actions.RevisionsDetailsConfirmationNext, nil)
+	_, handled := model.HandleDispatchedAction(keybindings.Action("revisions.details.confirmation.next"), nil)
 	assert.True(t, handled, "move_down should be handled in details confirmation scope")
 	assert.True(t, op.gotNavigate, "details confirmation should receive DetailsConfirmationNavigate intent")
 	assert.Equal(t, 1, op.lastIntent.Delta, "move_down should navigate confirmation to the right/down option")
@@ -125,7 +125,7 @@ func TestHandleDispatchedAction_ApplyArgsFlowToOperationResolver(t *testing.T) {
 	op := &applyTrackingOp{}
 	model.op = op
 
-	_, handled := model.HandleDispatchedAction(actions.RevisionsSquashApply, map[string]any{"force": true})
+	_, handled := model.HandleDispatchedAction(keybindings.Action("revisions.squash.apply"), map[string]any{"force": true})
 	assert.True(t, handled, "apply should be handled by operation resolver")
 	assert.True(t, op.force, "force arg from binding should map to intents.Apply{Force:true}")
 }
@@ -142,7 +142,7 @@ func TestHandleDispatchedAction_CancelClearsSelectionsInNormalMode(t *testing.T)
 	before := len(ctx.CheckedItems)
 	assert.Greater(t, before, 0, "setup should create at least one selected revision")
 
-	_, handled := model.HandleDispatchedAction(actions.UiCancel, nil)
+	_, handled := model.HandleDispatchedAction(keybindings.Action("ui.cancel"), nil)
 	assert.True(t, handled, "revisions cancel should be consumed in normal mode")
 	assert.Equal(t, 0, len(ctx.CheckedItems), "cancel in normal mode should clear selected revisions")
 }
@@ -154,7 +154,7 @@ func TestHandleDispatchedAction_CancelNoopWithoutSelectionsInNormalMode(t *testi
 
 	assert.Equal(t, 0, len(ctx.CheckedItems), "setup should start with no selected revisions")
 
-	_, handled := model.HandleDispatchedAction(actions.UiCancel, nil)
+	_, handled := model.HandleDispatchedAction(keybindings.Action("ui.cancel"), nil)
 	assert.True(t, handled, "revisions cancel should be consumed in normal mode")
 	assert.Equal(t, 0, len(ctx.CheckedItems), "cancel should be a no-op when there are no selected revisions")
 }

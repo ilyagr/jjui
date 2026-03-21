@@ -208,7 +208,7 @@ func Test_HandleDispatchedAction_UsesFlashScopeWhenVisible(t *testing.T) {
 	model.Update(intents.CommandHistoryToggle{})
 	assert.True(t, model.commandHistoryOpen())
 
-	cmd, handled := dispatchAction(model, actions.CommandHistoryClose, nil)
+	cmd, handled := dispatchAction(model, keybindings.Action("command_history.close"), nil)
 	assert.True(t, handled)
 	require.NotNil(t, cmd)
 	closeMsg, ok := cmd().(common.CloseViewMsg)
@@ -507,7 +507,7 @@ func Test_Update_GitFilterEditingEnterDoesNotTriggerApply(t *testing.T) {
 	assert.Nil(t, cmd, "enter in filter-edit mode should not dispatch apply")
 
 	// Apply should now route through normal git scope after leaving filter-edit mode.
-	_, handled := dispatchAction(model, actions.GitApply, nil)
+	_, handled := dispatchAction(model, keybindings.Action("git.apply"), nil)
 	assert.True(t, handled, "apply should dispatch after filter-edit mode")
 }
 
@@ -550,7 +550,7 @@ func Test_HandleDispatchedAction_UsesStackedOwnerScope(t *testing.T) {
 	stacked := &ownerOnlyStackedModel{owner: actions.OwnerChoose}
 	model.stacked = stacked
 
-	cmd, handled := dispatchAction(model, actions.ChooseMoveDown, nil)
+	cmd, handled := dispatchAction(model, keybindings.Action("choose.move_down"), nil)
 	assert.True(t, handled)
 	assert.Nil(t, cmd)
 

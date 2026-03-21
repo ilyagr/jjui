@@ -670,7 +670,7 @@ func (m *Model) routeCancel(owner string, cancel intents.Cancel) tea.Cmd {
 	}
 
 	if m.shouldRouteCancelToRevisions() {
-		if cmd, handled := m.revisions.HandleDispatchedAction(actions.UiCancel, nil); handled {
+		if cmd, handled := m.revisions.HandleDispatchedAction(keybindings.Action("ui.cancel"), nil); handled {
 			return cmd
 		}
 	}

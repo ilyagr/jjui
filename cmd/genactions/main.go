@@ -84,7 +84,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	src, err := generateCatalogSource(rules, actionIDs, intents, enums)
+	src, err := generateCatalogSource(rules, intents, enums)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "generate catalog: %v\n", err)
 		os.Exit(1)
@@ -127,7 +127,7 @@ func findRepoRoot() (string, error) {
 	}
 }
 
-func generateCatalogSource(rules []bindRule, actionIDs []string, intents map[string]intentTypeMeta, enums map[string][]enumValueMeta) ([]byte, error) {
+func generateCatalogSource(rules []bindRule, intents map[string]intentTypeMeta, enums map[string][]enumValueMeta) ([]byte, error) {
 	owners := uniqueOwners(rules)
 	revisionsOwners := revisionsOwnerList(owners)
 	ownerRules := rulesByOwner(rules)
@@ -145,15 +145,8 @@ func generateCatalogSource(rules []bindRule, actionIDs []string, intents map[str
 	b.WriteString(")\n\n")
 
 	b.WriteString("const (\n")
-	usedConstNames := map[string]struct{}{}
 	for _, owner := range owners {
 		b.WriteString(fmt.Sprintf("\t%s = %q\n", ownerConst(owner), owner))
-	}
-	b.WriteString("\n")
-	for _, actionID := range actionIDs {
-		name := actionConst(actionID)
-		usedConstNames[name] = struct{}{}
-		b.WriteString(fmt.Sprintf("\t%s keybindings.Action = %q\n", name, actionID))
 	}
 	b.WriteString(")\n\n")
 
@@ -1087,11 +1080,6 @@ func ownerConst(owner string) string {
 		parts[i] = toCamel(parts[i])
 	}
 	return "Owner" + strings.Join(parts, "")
-}
-
-func actionConst(action string) string {
-	action = strings.ReplaceAll(action, ".", "_")
-	return toCamel(action)
 }
 
 func toCamel(s string) string {

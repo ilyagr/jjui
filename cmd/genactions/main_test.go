@@ -78,7 +78,7 @@ func TestGeneratedCatalogIsUpToDate(t *testing.T) {
 	require.NoError(t, err)
 	actionIDs := deriveActionIDs(rules)
 
-	generated, err := generateCatalogSource(rules, actionIDs, intents, enums)
+	generated, err := generateCatalogSource(rules, intents, enums)
 	require.NoError(t, err)
 
 	current, err := os.ReadFile(filepath.Join(root, "internal/ui/actions/catalog_gen.go"))
