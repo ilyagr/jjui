@@ -217,7 +217,7 @@ func (m *Model) handleIntent(intent intents.Intent) tea.Cmd {
 		if !ok {
 			return nil
 		}
-		return m.context.RunCommand(jj.Args(selected.command...), common.Refresh, common.CloseApplied)
+		return tea.Batch(common.CloseApplied, m.context.RunCommand(jj.Args(selected.command...), common.Refresh))
 	case intents.GitFilter:
 		filter := string(msg.Kind)
 		if filter == "" {
@@ -259,7 +259,7 @@ func (m *Model) handleIntent(intent intents.Intent) tea.Cmd {
 		}
 		for _, listItem := range m.visibleItems() {
 			if listItem.key == msg.Key {
-				return m.context.RunCommand(jj.Args(listItem.command...), common.Refresh, common.CloseApplied)
+				return tea.Batch(common.CloseApplied, m.context.RunCommand(jj.Args(listItem.command...), common.Refresh))
 			}
 		}
 		return nil
@@ -282,18 +282,18 @@ func (m *Model) executeDefaultForFilter(kind intents.GitFilterKind) tea.Cmd {
 	if ok {
 		for _, listItem := range m.visibleItems() {
 			if slices.Equal(listItem.command, defaultCommand) {
-				return m.context.RunCommand(jj.Args(listItem.command...), common.Refresh, common.CloseApplied)
+				return tea.Batch(common.CloseApplied, m.context.RunCommand(jj.Args(listItem.command...), common.Refresh))
 			}
 		}
 	}
 
 	if selected, ok := m.selectedItem(); ok {
-		return m.context.RunCommand(jj.Args(selected.command...), common.Refresh, common.CloseApplied)
+		return tea.Batch(common.CloseApplied, m.context.RunCommand(jj.Args(selected.command...), common.Refresh))
 	}
 
 	for _, listItem := range m.visibleItems() {
 		if string(listItem.category) == string(kind) {
-			return m.context.RunCommand(jj.Args(listItem.command...), common.Refresh, common.CloseApplied)
+			return tea.Batch(common.CloseApplied, m.context.RunCommand(jj.Args(listItem.command...), common.Refresh))
 		}
 	}
 	return nil
