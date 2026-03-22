@@ -486,8 +486,8 @@ func ensureOwnerTable(L *lua.LState, root *lua.LTable, owner string) *lua.LTable
 
 func generatedActionFn(L *lua.LState, canonical string, builtIn bool) *lua.LFunction {
 	var positionalKey string
-	if meta, ok := actionmeta.ActionMetadataFor(canonical); ok && len(meta.RequiredArgs) == 1 && meta.Args[meta.RequiredArgs[0]] == "string" {
-		positionalKey = meta.RequiredArgs[0]
+	if required := actionmeta.ActionRequiredArgs(canonical); len(required) == 1 && actionmeta.ActionArgSchema(canonical)[required[0]] == "string" {
+		positionalKey = required[0]
 	}
 	return L.NewFunction(func(L *lua.LState) int {
 		var args map[string]any

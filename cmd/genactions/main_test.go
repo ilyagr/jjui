@@ -91,7 +91,7 @@ func TestGeneratedCatalogIsUpToDate(t *testing.T) {
 	owners := deriveActionOwners(rules)
 	err = validateActionMetadata(actionIDs, owners)
 	require.NoError(t, err)
-	metaGenerated, err := generateActionMetaSource(actionIDs, schemas, requiredArgs, owners)
+	metaGenerated, err := generateActionMetaSource(schemas, requiredArgs, owners)
 	require.NoError(t, err)
 	metaCurrent, err := os.ReadFile(filepath.Join(root, "internal/ui/actionmeta/builtins_gen.go"))
 	require.NoError(t, err)

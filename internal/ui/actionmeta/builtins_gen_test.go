@@ -28,15 +28,17 @@ func TestValidateBuiltInActionArgs(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestActionMetadataFor(t *testing.T) {
-	meta, ok := ActionMetadataFor("revisions.squash.apply")
-	require.True(t, ok)
-	require.Equal(t, "revisions.squash.apply", meta.Action)
-	require.Contains(t, meta.Args, "force")
-	require.NotEmpty(t, meta.Owners)
+func TestActionArgSchemaAndRequiredArgs(t *testing.T) {
+	schema := ActionArgSchema("revisions.squash.apply")
+	require.NotNil(t, schema)
+	require.Contains(t, schema, "force")
 
-	_, ok = ActionMetadataFor("not_real")
-	require.False(t, ok)
+	require.Nil(t, ActionArgSchema("not_real"))
+
+	required := ActionRequiredArgs("revisions.revert.set_target")
+	require.Contains(t, required, "target")
+
+	require.Nil(t, ActionRequiredArgs("not_real"))
 }
 
 func TestBuiltInActions(t *testing.T) {
