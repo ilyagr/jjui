@@ -87,8 +87,11 @@ type SquashOpenTargetPicker struct{}
 
 func (SquashOpenTargetPicker) isIntent() {}
 
-//jjui:bind scope=revisions.inline_describe action=accept
-type InlineDescribeAccept struct{}
+//jjui:bind scope=revisions.inline_describe action=accept set=Force:$bool(force)
+//jjui:bind scope=revisions.inline_describe action=force_accept set=Force:true
+type InlineDescribeAccept struct {
+	Force bool
+}
 
 func (InlineDescribeAccept) isIntent() {}
 

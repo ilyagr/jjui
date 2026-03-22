@@ -449,11 +449,13 @@ func ResolveIntent(owner string, action keybindings.Action, args map[string]any)
 	case OwnerInlineDescribe:
 		switch action {
 		case keybindings.Action("revisions.inline_describe.accept"):
-			return intents.InlineDescribeAccept{}, true
+			return intents.InlineDescribeAccept{Force: actionargs.BoolArg(args, "force", false)}, true
 		case keybindings.Action("revisions.inline_describe.cancel"):
 			return intents.Cancel{}, true
 		case keybindings.Action("revisions.inline_describe.editor"):
 			return intents.InlineDescribeEditor{}, true
+		case keybindings.Action("revisions.inline_describe.force_accept"):
+			return intents.InlineDescribeAccept{Force: true}, true
 		}
 	case OwnerQuickSearchInput:
 		switch action {

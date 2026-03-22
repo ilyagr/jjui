@@ -104,7 +104,7 @@ func (o *Operation) Update(msg tea.Msg) tea.Cmd {
 }
 
 func (o *Operation) handleIntent(intent intents.Intent) tea.Cmd {
-	switch intent.(type) {
+	switch intent := intent.(type) {
 	case intents.Cancel:
 		unsavedDescription := o.input.Value()
 		if o.originalDesc == "" {
@@ -120,7 +120,7 @@ func (o *Operation) handleIntent(intent intents.Intent) tea.Cmd {
 	case intents.InlineDescribeEditor:
 		return o.runInlineDescribeEditor()
 	case intents.InlineDescribeAccept:
-		return o.runInlineDescribeAccept()
+		return o.runInlineDescribeAccept(intent.Force)
 	default:
 		return nil
 	}
@@ -128,7 +128,7 @@ func (o *Operation) handleIntent(intent intents.Intent) tea.Cmd {
 
 func (o *Operation) runInlineDescribeEditor() tea.Cmd {
 	selectedRevisions := jj.NewSelectedRevisions(o.revision)
-	cmd := jj.SetDescription(o.revision.GetChangeId(), o.input.Value())
+	cmd := jj.SetDescription(o.revision.GetChangeId(), o.input.Value(), false)
 	return o.context.RunCommandWithInput(
 		cmd.Args, cmd.Input,
 		common.CloseApplied,
@@ -136,8 +136,8 @@ func (o *Operation) runInlineDescribeEditor() tea.Cmd {
 	)
 }
 
-func (o *Operation) runInlineDescribeAccept() tea.Cmd {
-	cmd := jj.SetDescription(o.revision.GetChangeId(), o.input.Value())
+func (o *Operation) runInlineDescribeAccept(force bool) tea.Cmd {
+	cmd := jj.SetDescription(o.revision.GetChangeId(), o.input.Value(), force)
 	return o.context.RunCommandWithInput(cmd.Args, cmd.Input, common.CloseApplied, common.Refresh)
 }
 

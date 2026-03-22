@@ -104,9 +104,13 @@ func Describe(revisions SelectedRevisions) CommandArgs {
 	return args
 }
 
-func SetDescription(revision string, description string) CommandWithStdin {
+func SetDescription(revision string, description string, ignoreImmutable bool) CommandWithStdin {
+	args := []string{"describe", "-r", revision, "--stdin"}
+	if ignoreImmutable {
+		args = append(args, "--ignore-immutable")
+	}
 	return CommandWithStdin{
-		Args:  []string{"describe", "-r", revision, "--stdin"},
+		Args:  args,
 		Input: description,
 	}
 }

@@ -161,6 +161,7 @@ var builtInActions = map[string]struct{}{
 	"revisions.inline_describe.accept":           {},
 	"revisions.inline_describe.cancel":           {},
 	"revisions.inline_describe.editor":           {},
+	"revisions.inline_describe.force_accept":     {},
 	"revisions.jump_to_children":                 {},
 	"revisions.jump_to_parent":                   {},
 	"revisions.jump_to_working_copy":             {},
@@ -421,6 +422,7 @@ var builtInActionOwners = map[string][]string{
 	"revisions.inline_describe.accept":           {"revisions.inline_describe"},
 	"revisions.inline_describe.cancel":           {"revisions.inline_describe"},
 	"revisions.inline_describe.editor":           {"revisions.inline_describe"},
+	"revisions.inline_describe.force_accept":     {"revisions.inline_describe"},
 	"revisions.jump_to_children":                 {"revisions"},
 	"revisions.jump_to_parent":                   {"revisions"},
 	"revisions.jump_to_working_copy":             {"revisions"},
@@ -557,6 +559,9 @@ var builtInActionArgSchemas = map[string]map[string]string{
 		"target": "enum:onto|after|before|insert",
 	},
 	"revisions.evolog.apply": {
+		"force": "bool",
+	},
+	"revisions.inline_describe.accept": {
 		"force": "bool",
 	},
 	"revisions.rebase.apply": {
