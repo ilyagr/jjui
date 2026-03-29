@@ -122,7 +122,10 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		}
 		return nil
 	case tea.FocusMsg:
-		return common.RefreshAndKeepSelections
+		if m.state == common.Ready {
+			return common.RefreshAndKeepSelections
+		}
+		return nil
 	case tea.MouseReleaseMsg:
 		if m.splitActive {
 			m.splitActive = false
