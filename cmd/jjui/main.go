@@ -123,7 +123,7 @@ func run() int {
 		return 1
 	}
 
-	if len(os.Getenv("DEBUG")) > 0 {
+	if len(os.Getenv("JJUI_DEBUG")) > 0 {
 		f, err := tea.LogToFile("debug.log", "debug")
 		if err != nil {
 			log.Fatalf("failed to set logging file: %v", err)
