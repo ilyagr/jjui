@@ -138,14 +138,6 @@ func (o *Operation) Render(*jj.Commit, operations.RenderPosition) string {
 	return ""
 }
 
-func (o *Operation) RenderToDisplayContext(_ *render.DisplayContext, _ *jj.Commit, _ operations.RenderPosition, _ layout.Rectangle, _ layout.Position) int {
-	return 0
-}
-
-func (o *Operation) DesiredHeight(_ *jj.Commit, _ operations.RenderPosition) int {
-	return 0
-}
-
 func (o *Operation) findAceKeys() *AceJump {
 	aj := NewAceJump()
 	if o.first == -1 || o.last == -1 {

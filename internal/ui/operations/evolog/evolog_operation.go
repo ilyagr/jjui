@@ -43,6 +43,7 @@ const (
 )
 
 var _ operations.Operation = (*Operation)(nil)
+var _ operations.EmbeddedOperation = (*Operation)(nil)
 var _ common.Focusable = (*Operation)(nil)
 var _ common.Overlay = (*Operation)(nil)
 
@@ -238,8 +239,26 @@ func (o *Operation) Render(commit *jj.Commit, pos operations.RenderPosition) str
 	if !isSelected || pos != operations.RenderPositionAfter {
 		return ""
 	}
-	// In selectMode with isSelected and pos==After, RenderToDisplayContext handles rendering
 	return ""
+}
+
+func (o *Operation) CanEmbed(commit *jj.Commit, pos operations.RenderPosition) bool {
+	isSelected := commit.GetChangeId() == o.revision.GetChangeId()
+	return isSelected && pos == operations.RenderPositionAfter && o.mode == selectMode
+}
+
+func (o *Operation) EmbeddedHeight(commit *jj.Commit, pos operations.RenderPosition, _ int) int {
+	if !o.CanEmbed(commit, pos) {
+		return 0
+	}
+	if len(o.rows) == 0 {
+		return 1
+	}
+	total := 0
+	for _, row := range o.rows {
+		total += len(row.Lines)
+	}
+	return total
 }
 
 func (o *Operation) Name() string {
@@ -251,33 +270,6 @@ func (o *Operation) Name() string {
 
 func (o *Operation) Scope() keybindings.Scope {
 	return keybindings.Scope(actions.OwnerEvolog)
-}
-
-// DesiredHeight returns the desired height for the operation
-func (o *Operation) DesiredHeight(commit *jj.Commit, pos operations.RenderPosition) int {
-	isSelected := commit.GetChangeId() == o.revision.GetChangeId()
-	if !isSelected || pos != operations.RenderPositionAfter || o.mode != selectMode {
-		return 0
-	}
-	if len(o.rows) == 0 {
-		return 1 // "loading" message
-	}
-	// Sum up all row heights
-	total := 0
-	for _, row := range o.rows {
-		total += len(row.Lines)
-	}
-	return total
-}
-
-// RenderToDisplayContext renders the evolog list directly to the DisplayContext
-func (o *Operation) RenderToDisplayContext(dl *render.DisplayContext, commit *jj.Commit, pos operations.RenderPosition, rect layout.Rectangle, _ layout.Position) int {
-	isSelected := commit.GetChangeId() == o.revision.GetChangeId()
-	if !isSelected || pos != operations.RenderPositionAfter || o.mode != selectMode {
-		return 0
-	}
-
-	return o.renderListToDisplayContext(dl, rect, o.ensureCursorView)
 }
 
 func (o *Operation) load() tea.Msg {

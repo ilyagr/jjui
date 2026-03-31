@@ -28,14 +28,6 @@ func (n *Default) Render(*jj.Commit, RenderPosition) string {
 	return ""
 }
 
-func (n *Default) RenderToDisplayContext(_ *render.DisplayContext, _ *jj.Commit, _ RenderPosition, _ layout.Rectangle, _ layout.Position) int {
-	return 0
-}
-
-func (n *Default) DesiredHeight(_ *jj.Commit, _ RenderPosition) int {
-	return 0
-}
-
 func (n *Default) Name() string {
 	return "normal"
 }

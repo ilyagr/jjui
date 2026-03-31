@@ -119,14 +119,6 @@ func (a *Operation) Render(commit *jj.Commit, pos operations.RenderPosition) str
 	return ""
 }
 
-func (a *Operation) RenderToDisplayContext(_ *render.DisplayContext, _ *jj.Commit, _ operations.RenderPosition, _ layout.Rectangle, _ layout.Position) int {
-	return 0
-}
-
-func (a *Operation) DesiredHeight(_ *jj.Commit, _ operations.RenderPosition) int {
-	return 0
-}
-
 func (a *Operation) RenderSegment(currentStyle lipgloss.Style, segment *screen.Segment, row parser.Row) string {
 	if row.Commit == nil || !a.selectedRevisions.Contains(row.Commit) {
 		return ""

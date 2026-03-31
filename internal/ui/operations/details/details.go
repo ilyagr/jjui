@@ -30,10 +30,11 @@ type updateCommitStatusMsg struct {
 }
 
 var (
-	_ operations.Operation = (*Operation)(nil)
-	_ common.Focusable     = (*Operation)(nil)
-	_ common.Editable      = (*Operation)(nil)
-	_ common.Overlay       = (*Operation)(nil)
+	_ operations.Operation         = (*Operation)(nil)
+	_ operations.EmbeddedOperation = (*Operation)(nil)
+	_ common.Focusable             = (*Operation)(nil)
+	_ common.Editable              = (*Operation)(nil)
+	_ common.Overlay               = (*Operation)(nil)
 )
 
 type Operation struct {
@@ -305,16 +306,9 @@ func (s *Operation) handleIntent(intent intents.Intent) tea.Cmd {
 }
 
 func (s *Operation) ViewRect(dl *render.DisplayContext, box layout.Box) {
-	content := s.viewContent(box.R.Dx(), box.R.Dy())
-	content = lipgloss.Place(
-		box.R.Dx(),
-		box.R.Dy(),
-		lipgloss.Left,
-		lipgloss.Top,
-		content,
-		lipgloss.WithWhitespaceStyle(s.styles.Text),
-	)
-	dl.AddDraw(box.R, content, 0)
+	background := lipgloss.NewStyle().Background(s.styles.Text.GetBackground())
+	dl.AddFill(box.R, ' ', background, 0)
+	s.renderIntoRect(dl, box.R)
 }
 
 func (s *Operation) SetSelectedRevision(commit *jj.Commit) tea.Cmd {
@@ -330,21 +324,20 @@ func (s *Operation) SetSelectedRevision(commit *jj.Commit) tea.Cmd {
 }
 
 func (s *Operation) Render(commit *jj.Commit, pos operations.RenderPosition) string {
-	// RenderToDisplayContext handles the actual rendering
-	// This method is only called as a fallback when DesiredHeight returns 0,
-	// which only happens when !isSelected || pos != After - the same conditions
-	// that would make this return "" anyway.
 	return ""
 }
 
-// DesiredHeight returns the desired height for the operation
-func (s *Operation) DesiredHeight(commit *jj.Commit, pos operations.RenderPosition) int {
+func (s *Operation) CanEmbed(commit *jj.Commit, pos operations.RenderPosition) bool {
 	isSelected := s.Current != nil && s.Current.GetChangeId() == commit.GetChangeId()
-	if !isSelected || pos != operations.RenderPositionAfter {
+	return isSelected && pos == operations.RenderPositionAfter
+}
+
+func (s *Operation) EmbeddedHeight(commit *jj.Commit, pos operations.RenderPosition, _ int) int {
+	if !s.CanEmbed(commit, pos) {
 		return 0
 	}
 	if s.Len() == 0 {
-		return 1 // "No changes" message
+		return 1
 	}
 	confirmationHeight := 0
 	if s.confirmation != nil {
@@ -353,13 +346,7 @@ func (s *Operation) DesiredHeight(commit *jj.Commit, pos operations.RenderPositi
 	return s.Len() + confirmationHeight
 }
 
-// RenderToDisplayContext renders the file list directly to the DisplayContext
-func (s *Operation) RenderToDisplayContext(dl *render.DisplayContext, commit *jj.Commit, pos operations.RenderPosition, rect layout.Rectangle, screenOffset layout.Position) int {
-	isSelected := s.Current != nil && s.Current.GetChangeId() == commit.GetChangeId()
-	if !isSelected || pos != operations.RenderPositionAfter {
-		return 0
-	}
-
+func (s *Operation) renderIntoRect(dl *render.DisplayContext, rect layout.Rectangle) int {
 	if s.Len() == 0 {
 		// Render "No changes" message
 		content := s.styles.Dimmed.Render("No changes")
@@ -526,30 +513,4 @@ func NewOperation(context *context.MainContext, selected *jj.Commit) *Operation 
 		styles:      s,
 	}
 	return op
-}
-
-func (s *Operation) viewContent(width, maxHeight int) string {
-	confirmationView := ""
-	ch := 0
-	if s.confirmation != nil {
-		confirmationView = s.confirmation.View()
-		ch = lipgloss.Height(confirmationView)
-	}
-	if s.Len() == 0 {
-		return s.styles.Dimmed.Render("No changes")
-	}
-	if width <= 0 {
-		width = 80 // sensible default
-	}
-	height := max(min(maxHeight-5-ch, s.Len()), 0)
-	dl := render.NewDisplayContext()
-	viewRect := layout.Box{R: layout.Rect(0, 0, width, height)}
-	if height > 0 {
-		s.RenderFileList(dl, viewRect)
-	}
-	filesView := strings.TrimRight(dl.RenderToString(width, height), "\n")
-	if confirmationView != "" {
-		return lipgloss.JoinVertical(lipgloss.Top, filesView, confirmationView)
-	}
-	return filesView
 }

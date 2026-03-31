@@ -125,14 +125,6 @@ func (m *Model) Render(commit *jj.Commit, renderPosition operations.RenderPositi
 	return ""
 }
 
-func (m *Model) RenderToDisplayContext(_ *render.DisplayContext, _ *jj.Commit, _ operations.RenderPosition, _ layout.Rectangle, _ layout.Position) int {
-	return 0
-}
-
-func (m *Model) DesiredHeight(_ *jj.Commit, _ operations.RenderPosition) int {
-	return 0
-}
-
 func (m *Model) Name() string {
 	return "set parents"
 }

@@ -16,8 +16,9 @@ import (
 )
 
 var (
-	_ operations.Operation = (*Operation)(nil)
-	_ common.Editable      = (*Operation)(nil)
+	_ operations.Operation         = (*Operation)(nil)
+	_ operations.EmbeddedOperation = (*Operation)(nil)
+	_ common.Editable              = (*Operation)(nil)
 )
 
 var stashed *stashedDescription = nil
@@ -49,23 +50,15 @@ func (o *Operation) Render(commit *jj.Commit, pos operations.RenderPosition) str
 	return o.renderTextarea(80, 0).View()
 }
 
-func (o *Operation) RenderToDisplayContext(dl *render.DisplayContext, commit *jj.Commit, pos operations.RenderPosition, rect layout.Rectangle, screenOffset layout.Position) int {
-	if pos != operations.RenderOverDescription {
-		return 0
-	}
-
-	input := o.renderTextarea(rect.Dx(), rect.Dy())
-	height := input.Height()
-	drawRect := layout.Rect(rect.Min.X, rect.Min.Y, rect.Dx(), height)
-	dl.AddDraw(drawRect, input.View(), 0)
-	return height
+func (o *Operation) CanEmbed(_ *jj.Commit, pos operations.RenderPosition) bool {
+	return pos == operations.RenderOverDescription
 }
 
-func (o *Operation) DesiredHeight(_ *jj.Commit, pos operations.RenderPosition) int {
-	if pos != operations.RenderOverDescription {
+func (o *Operation) EmbeddedHeight(commit *jj.Commit, pos operations.RenderPosition, width int) int {
+	if !o.CanEmbed(commit, pos) {
 		return 0
 	}
-	return o.renderTextarea(80, 0).Height()
+	return o.renderTextarea(width, 0).Height()
 }
 
 func (o *Operation) Name() string {

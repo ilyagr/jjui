@@ -89,14 +89,6 @@ func (s *SetBookmarkOperation) Render(commit *jj.Commit, pos operations.RenderPo
 	return s.viewContent() + s.name.Styles().Focused.Text.Render(" ")
 }
 
-func (s *SetBookmarkOperation) RenderToDisplayContext(_ *render.DisplayContext, _ *jj.Commit, _ operations.RenderPosition, _ layout.Rectangle, _ layout.Position) int {
-	return 0
-}
-
-func (s *SetBookmarkOperation) DesiredHeight(_ *jj.Commit, _ operations.RenderPosition) int {
-	return 0
-}
-
 func (s *SetBookmarkOperation) Name() string {
 	return "set bookmark"
 }

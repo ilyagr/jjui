@@ -159,14 +159,6 @@ func (s *Operation) Render(commit *jj.Commit, pos operations.RenderPosition) str
 	return ""
 }
 
-func (s *Operation) RenderToDisplayContext(_ *render.DisplayContext, _ *jj.Commit, _ operations.RenderPosition, _ layout.Rectangle, _ layout.Position) int {
-	return 0
-}
-
-func (s *Operation) DesiredHeight(_ *jj.Commit, _ operations.RenderPosition) int {
-	return 0
-}
-
 func (s *Operation) Name() string {
 	return "squash"
 }

@@ -5,6 +5,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/idursun/jjui/internal/jj"
 	"github.com/idursun/jjui/internal/parser"
 	"github.com/idursun/jjui/internal/screen"
 	"github.com/idursun/jjui/internal/ui/common"
@@ -118,11 +119,8 @@ func (r *DisplayContextRenderer) Render(
 	measure := func(index int) int {
 		item := items[index]
 		isSelected := index == cursor
-		return r.calculateItemHeight(item, isSelected, operation)
+		return r.calculateItemHeight(item, isSelected, operation, viewRect.R.Dx())
 	}
-
-	// Screen offset for interactions (absolute screen position)
-	screenOffset := layout.Pos(viewRect.R.Min.X, viewRect.R.Min.Y)
 
 	// Render function - renders each visible item
 	renderItem := func(dl *render.DisplayContext, index int, rect layout.Rectangle) {
@@ -130,7 +128,7 @@ func (r *DisplayContextRenderer) Render(
 		isSelected := index == cursor
 
 		// Render the item content
-		r.renderItemToDisplayContext(dl, item, rect, isSelected, operation, quickSearch, screenOffset)
+		r.renderItemToDisplayContext(dl, item, rect, isSelected, operation, quickSearch)
 
 		// Add highlights for selected item (only for Highlightable lines)
 		if isSelected {
@@ -181,7 +179,7 @@ func (r *DisplayContextRenderer) addHighlights(
 		if before != "" {
 			y += strings.Count(before, "\n") + 1
 		}
-		overlayHeight = operation.DesiredHeight(item.Commit, operations.RenderOverDescription)
+		overlayHeight = r.overlayHeight(operation, item, rect.Dx())
 	}
 	overlayRendered := false
 
@@ -217,6 +215,7 @@ func (r *DisplayContextRenderer) calculateItemHeight(
 	item parser.Row,
 	isSelected bool,
 	operation operations.Operation,
+	viewWidth int,
 ) int {
 	// Base height from the item's lines
 	height := len(item.Lines)
@@ -224,43 +223,21 @@ func (r *DisplayContextRenderer) calculateItemHeight(
 	// Add operation height if item is selected and operation exists
 	if isSelected && operation != nil {
 		// Count lines in before section
-		// Use DesiredHeight if available for DisplayContext operations
-		desired := operation.DesiredHeight(item.Commit, operations.RenderPositionBefore)
-		if desired > 0 {
-			height += desired
-		} else {
-			before := operation.Render(item.Commit, operations.RenderPositionBefore)
-			if before != "" {
-				height += strings.Count(before, "\n") + 1
-			}
+		before := operation.Render(item.Commit, operations.RenderPositionBefore)
+		if before != "" {
+			height += renderedHeight(before)
 		}
 
-		// Count lines in overlay section (replaces description)
-		// Use DesiredHeight if available for DisplayContext operations
-		desiredOverlay := operation.DesiredHeight(item.Commit, operations.RenderOverDescription)
-		if desiredOverlay > 0 {
-			// Count how many description lines would be replaced
-			descLines := 0
-			for _, line := range item.Lines {
-				if line.Flags&parser.Highlightable == parser.Highlightable &&
-					line.Flags&parser.Revision != parser.Revision {
-					descLines++
-				}
-			}
-			// Adjust height: remove replaced description lines, add overlay lines
-			height = height - descLines + desiredOverlay
+		contentWidth := r.itemContentWidth(item, viewWidth)
+
+		overlayHeight := r.overlayHeight(operation, item, contentWidth)
+		if overlayHeight > 0 {
+			height = height - r.replacedLineCount(item, operations.RenderOverDescription) + overlayHeight
 		}
 
-		// Count lines in after section
-		// Use DesiredHeight if available for DisplayContext operations
-		desiredAfter := operation.DesiredHeight(item.Commit, operations.RenderPositionAfter)
-		if desiredAfter > 0 {
-			height += desiredAfter
-		} else {
-			after := operation.Render(item.Commit, operations.RenderPositionAfter)
-			if after != "" {
-				height += strings.Count(after, "\n") + 1
-			}
+		afterHeight := r.afterHeight(operation, item, contentWidth)
+		if afterHeight > 0 {
+			height += afterHeight
 		}
 	}
 
@@ -275,7 +252,6 @@ func (r *DisplayContextRenderer) renderItemToDisplayContext(
 	isSelected bool,
 	operation operations.Operation,
 	quickSearch string,
-	screenOffset layout.Position,
 ) {
 	y := rect.Min.Y
 
@@ -320,7 +296,7 @@ func (r *DisplayContextRenderer) renderItemToDisplayContext(
 	// the operation can be inserted before elided markers (keeping them "between" commits).
 	insertAfterBeforeElided := false
 	if isSelected && operation != nil {
-		if desiredAfter := operation.DesiredHeight(item.Commit, operations.RenderPositionAfter); desiredAfter > 0 {
+		if afterHeight := r.afterHeight(operation, item, rect.Dx()); afterHeight > 0 {
 			insertAfterBeforeElided = true
 		} else if after := operation.Render(item.Commit, operations.RenderPositionAfter); after != "" {
 			insertAfterBeforeElided = true
@@ -333,22 +309,8 @@ func (r *DisplayContextRenderer) renderItemToDisplayContext(
 			return
 		}
 
-		// Calculate extended gutter and its width for proper indentation
-		extended := item.Extend()
-		gutterWidth := 0
-		for _, segment := range extended.Segments {
-			gutterWidth += render.StringWidth(segment.Text)
-		}
-
-		// Create content rect offset by gutter width
-		contentRect := layout.Rect(rect.Min.X+gutterWidth, y, rect.Dx()-gutterWidth, rect.Max.Y-y)
-
-		// Screen offset for interactions - contentRect already includes the gutter offset
-		// and y position, so just pass the parent's screenOffset through
-		contentScreenOffset := screenOffset
-
-		// Render the operation content
-		height := operation.RenderToDisplayContext(dl, item.Commit, operations.RenderPositionAfter, contentRect, contentScreenOffset)
+		contentRect, extended, gutterWidth := r.itemContentRect(item, rect, y)
+		height := r.renderEmbeddedOperation(dl, operation, item.Commit, operations.RenderPositionAfter, contentRect)
 
 		if height > 0 {
 			// Render gutters for each line
@@ -401,19 +363,8 @@ func (r *DisplayContextRenderer) renderItemToDisplayContext(
 
 			// Calculate gutter width using extended gutter for consistency
 			// (same approach as RenderPositionAfter)
-			extended := item.Extend()
-			gutterWidth := 0
-			for _, segment := range extended.Segments {
-				gutterWidth += render.StringWidth(segment.Text)
-			}
-
-			// Create content rect with proper width (minus gutter)
-			contentRect := layout.Rect(rect.Min.X+gutterWidth, y, rect.Dx()-gutterWidth, rect.Max.Y-y)
-
-			// Try RenderToDisplayContext first
-			height := operation.RenderToDisplayContext(dl, item.Commit, operations.RenderOverDescription, contentRect, screenOffset)
-
-			if height > 0 {
+			contentRect, extended, gutterWidth := r.itemContentRect(item, rect, y)
+			if height, rendered := r.renderDescriptionOverlay(dl, operation, item, line.Gutter, contentRect, extended, gutterWidth); rendered {
 				// Render gutters for each line
 				for j := range height {
 					gutter := line.Gutter
@@ -452,17 +403,8 @@ func (r *DisplayContextRenderer) renderItemToDisplayContext(
 	// If we have a description overlay but haven't rendered it yet after looping through all commit lines,
 	// render it now. This handles the case where description is inline (no separate description line).
 	if !descriptionRendered && y < rect.Max.Y && isSelected && operation != nil {
-		extended := item.Extend()
-		gutterWidth := 0
-		for _, segment := range extended.Segments {
-			gutterWidth += render.StringWidth(segment.Text)
-		}
-
-		// Try RenderToDisplayContext first
-		contentRect := layout.Rect(rect.Min.X+gutterWidth, y, rect.Dx()-gutterWidth, rect.Max.Y-y)
-		height := operation.RenderToDisplayContext(dl, item.Commit, operations.RenderOverDescription, contentRect, screenOffset)
-
-		if height > 0 {
+		contentRect, extended, gutterWidth := r.itemContentRect(item, rect, y)
+		if height, rendered := r.renderDescriptionOverlay(dl, operation, item, extended, contentRect, extended, gutterWidth); rendered {
 			// Render gutters for each line
 			for j := range height {
 				gutterContent := r.renderGutter(extended)
@@ -477,6 +419,134 @@ func (r *DisplayContextRenderer) renderItemToDisplayContext(
 	if !afterRendered {
 		renderAfter()
 	}
+}
+
+func (r *DisplayContextRenderer) itemContentRect(
+	item parser.Row,
+	rect layout.Rectangle,
+	y int,
+) (layout.Rectangle, parser.GraphGutter, int) {
+	extended := item.Extend()
+	gutterWidth := 0
+	for _, segment := range extended.Segments {
+		gutterWidth += render.StringWidth(segment.Text)
+	}
+	return layout.Rect(rect.Min.X+gutterWidth, y, rect.Dx()-gutterWidth, rect.Max.Y-y), extended, gutterWidth
+}
+
+func (r *DisplayContextRenderer) itemContentWidth(item parser.Row, width int) int {
+	contentRect, _, _ := r.itemContentRect(item, layout.Rect(0, 0, width, 1), 0)
+	return contentRect.Dx()
+}
+
+func (r *DisplayContextRenderer) replacedLineCount(item parser.Row, pos operations.RenderPosition) int {
+	if pos != operations.RenderOverDescription {
+		return 0
+	}
+
+	count := 0
+	for _, line := range item.Lines {
+		if line.Flags&parser.Highlightable == parser.Highlightable &&
+			line.Flags&parser.Revision != parser.Revision {
+			count++
+		}
+	}
+	return count
+}
+
+func (r *DisplayContextRenderer) embeddedHeight(
+	operation operations.Operation,
+	commit *jj.Commit,
+	pos operations.RenderPosition,
+	width int,
+) int {
+	embedded, ok := operation.(operations.EmbeddedOperation)
+	if !ok || !embedded.CanEmbed(commit, pos) {
+		return 0
+	}
+	return embedded.EmbeddedHeight(commit, pos, width)
+}
+
+func (r *DisplayContextRenderer) overlayHeight(
+	operation operations.Operation,
+	item parser.Row,
+	width int,
+) int {
+	if embeddedHeight := r.embeddedHeight(operation, item.Commit, operations.RenderOverDescription, width); embeddedHeight > 0 {
+		return embeddedHeight
+	}
+	return renderedHeight(operation.Render(item.Commit, operations.RenderOverDescription))
+}
+
+func (r *DisplayContextRenderer) afterHeight(
+	operation operations.Operation,
+	item parser.Row,
+	width int,
+) int {
+	if embeddedHeight := r.embeddedHeight(operation, item.Commit, operations.RenderPositionAfter, width); embeddedHeight > 0 {
+		return embeddedHeight
+	}
+	return renderedHeight(operation.Render(item.Commit, operations.RenderPositionAfter))
+}
+
+func (r *DisplayContextRenderer) renderEmbeddedOperation(
+	dl *render.DisplayContext,
+	operation operations.Operation,
+	commit *jj.Commit,
+	pos operations.RenderPosition,
+	rect layout.Rectangle,
+) int {
+	embedded, ok := operation.(operations.EmbeddedOperation)
+	if !ok || !embedded.CanEmbed(commit, pos) {
+		return 0
+	}
+
+	height := min(embedded.EmbeddedHeight(commit, pos, rect.Dx()), rect.Dy())
+	if height <= 0 {
+		return 0
+	}
+
+	embedded.ViewRect(dl, layout.Box{R: layout.Rect(rect.Min.X, rect.Min.Y, rect.Dx(), height)})
+	return height
+}
+
+func (r *DisplayContextRenderer) renderDescriptionOverlay(
+	dl *render.DisplayContext,
+	operation operations.Operation,
+	item parser.Row,
+	firstGutter parser.GraphGutter,
+	contentRect layout.Rectangle,
+	extended parser.GraphGutter,
+	gutterWidth int,
+) (int, bool) {
+	height := r.renderEmbeddedOperation(dl, operation, item.Commit, operations.RenderOverDescription, contentRect)
+	if height == 0 {
+		overlay := operation.Render(item.Commit, operations.RenderOverDescription)
+		height = min(renderedHeight(overlay), contentRect.Dy())
+		if height == 0 {
+			return 0, false
+		}
+		drawRect := layout.Rect(contentRect.Min.X, contentRect.Min.Y, contentRect.Dx(), height)
+		dl.AddDraw(drawRect, overlay, 0)
+	}
+
+	for j := range height {
+		gutter := firstGutter
+		if j > 0 {
+			gutter = extended
+		}
+		gutterContent := r.renderGutter(gutter)
+		gutterRect := layout.Rect(contentRect.Min.X-gutterWidth, contentRect.Min.Y+j, gutterWidth, 1)
+		dl.AddDraw(gutterRect, gutterContent, 0)
+	}
+	return height, true
+}
+
+func renderedHeight(content string) int {
+	if content == "" {
+		return 0
+	}
+	return strings.Count(content, "\n") + 1
 }
 
 // renderLine writes a line into a TextBuilder (helper for itemRenderer)

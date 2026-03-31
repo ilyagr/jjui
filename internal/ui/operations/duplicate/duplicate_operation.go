@@ -194,14 +194,6 @@ func (r *Operation) Render(commit *jj.Commit, pos operations.RenderPosition) str
 	)
 }
 
-func (r *Operation) RenderToDisplayContext(_ *render.DisplayContext, _ *jj.Commit, _ operations.RenderPosition, _ layout.Rectangle, _ layout.Position) int {
-	return 0
-}
-
-func (r *Operation) DesiredHeight(_ *jj.Commit, _ operations.RenderPosition) int {
-	return 0
-}
-
 func (r *Operation) Name() string {
 	return "duplicate"
 }

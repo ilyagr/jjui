@@ -8,8 +8,6 @@ import (
 	"github.com/idursun/jjui/internal/screen"
 	keybindings "github.com/idursun/jjui/internal/ui/bindings"
 	"github.com/idursun/jjui/internal/ui/common"
-	"github.com/idursun/jjui/internal/ui/layout"
-	"github.com/idursun/jjui/internal/ui/render"
 )
 
 type RenderPosition int
@@ -26,9 +24,13 @@ const (
 type Operation interface {
 	common.ImmediateModel
 	Render(commit *jj.Commit, renderPosition RenderPosition) string
-	RenderToDisplayContext(dl *render.DisplayContext, commit *jj.Commit, pos RenderPosition, rect layout.Rectangle, screenOffset layout.Position) int
-	DesiredHeight(commit *jj.Commit, pos RenderPosition) int
 	Name() string
+}
+
+type EmbeddedOperation interface {
+	Operation
+	CanEmbed(commit *jj.Commit, pos RenderPosition) bool
+	EmbeddedHeight(commit *jj.Commit, pos RenderPosition, width int) int
 }
 
 type TracksSelectedRevision interface {
