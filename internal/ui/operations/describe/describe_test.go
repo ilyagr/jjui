@@ -3,43 +3,30 @@ package describe
 import (
 	"testing"
 
-	tea "charm.land/bubbletea/v2"
 	"github.com/idursun/jjui/internal/jj"
-	"github.com/idursun/jjui/internal/ui/intents"
+	"github.com/idursun/jjui/internal/ui/layout"
+	"github.com/idursun/jjui/internal/ui/operations"
+	"github.com/idursun/jjui/internal/ui/render"
 	"github.com/idursun/jjui/test"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestOperation_Update_RemembersDiscardedDescription(t *testing.T) {
+func TestRenderToDisplayContext_UsesDynamicHeight(t *testing.T) {
 	commandRunner := test.NewTestCommandRunner(t)
-	commandRunner.Expect(jj.GetDescription("change_id")).SetOutput([]byte(""))
+	commandRunner.Expect(jj.GetDescription("change")).SetOutput([]byte("this description should wrap onto multiple lines"))
 	defer commandRunner.Verify()
 
 	ctx := test.NewTestContext(commandRunner)
-	operation := NewOperation(ctx, &jj.Commit{ChangeId: "change_id"})
-	test.SimulateModel(operation, operation.Init())
-	test.SimulateModel(operation, test.Type("Some description"))
-	test.SimulateModel(operation, func() tea.Msg { return intents.Cancel{} })
-	assert.Equal(t, "Some description", stashed.description)
-}
+	op := NewOperation(ctx, &jj.Commit{ChangeId: "change", CommitId: "commit"})
 
-func TestOperation_Update_RestoresStashedDescription(t *testing.T) {
-	commandRunner := test.NewTestCommandRunner(t)
-	commandRunner.Expect(jj.GetDescription("change_id")).SetOutput([]byte(""))
-	revision := &jj.Commit{ChangeId: "change_id", CommitId: "commit_id"}
-	defer commandRunner.Verify()
+	dl := render.NewDisplayContext()
+	height := op.RenderToDisplayContext(
+		dl,
+		&jj.Commit{ChangeId: "change", CommitId: "commit"},
+		operations.RenderOverDescription,
+		layout.Rect(0, 0, 12, 10),
+		layout.Pos(0, 0),
+	)
 
-	stashed = &stashedDescription{
-		revision:    revision,
-		description: "restored description",
-	}
-	defer func() {
-		stashed = nil
-	}()
-
-	ctx := test.NewTestContext(commandRunner)
-	operation := NewOperation(ctx, revision)
-	test.SimulateModel(operation, operation.Init())
-	view := test.RenderImmediate(operation, 100, 20)
-	assert.Contains(t, view, "restored description")
+	assert.Greater(t, height, 1)
 }

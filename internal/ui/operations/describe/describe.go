@@ -4,7 +4,6 @@ import (
 	"charm.land/bubbles/v2/cursor"
 	"charm.land/bubbles/v2/textarea"
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	"github.com/idursun/jjui/internal/jj"
 	"github.com/idursun/jjui/internal/ui/actions"
 	keybindings "github.com/idursun/jjui/internal/ui/bindings"
@@ -47,22 +46,18 @@ func (o *Operation) Render(commit *jj.Commit, pos operations.RenderPosition) str
 	if pos != operations.RenderOverDescription {
 		return ""
 	}
-	return o.viewContent(80)
+	return o.renderTextarea(80, 0).View()
 }
 
 func (o *Operation) RenderToDisplayContext(dl *render.DisplayContext, commit *jj.Commit, pos operations.RenderPosition, rect layout.Rectangle, screenOffset layout.Position) int {
 	if pos != operations.RenderOverDescription {
 		return 0
 	}
-	width := rect.Dx()
-	height := o.DesiredHeight(commit, pos)
 
-	o.input.SetWidth(width)
-	o.input.SetHeight(height)
-	content := o.input.View()
-
-	drawRect := layout.Rect(rect.Min.X, rect.Min.Y, width, height)
-	dl.AddDraw(drawRect, content, 0)
+	input := o.renderTextarea(rect.Dx(), rect.Dy())
+	height := input.Height()
+	drawRect := layout.Rect(rect.Min.X, rect.Min.Y, rect.Dx(), height)
+	dl.AddDraw(drawRect, input.View(), 0)
 	return height
 }
 
@@ -70,11 +65,7 @@ func (o *Operation) DesiredHeight(_ *jj.Commit, pos operations.RenderPosition) i
 	if pos != operations.RenderOverDescription {
 		return 0
 	}
-	h := lipgloss.Height(o.input.Value())
-	if h <= 0 {
-		h = 1
-	}
-	return h + 1
+	return o.renderTextarea(80, 0).Height()
 }
 
 func (o *Operation) Name() string {
@@ -146,10 +137,9 @@ func (o *Operation) Init() tea.Cmd {
 }
 
 func (o *Operation) ViewRect(dl *render.DisplayContext, box layout.Box) {
-	content := o.viewContent(box.R.Dx())
-	w, h := lipgloss.Size(content)
-	rect := layout.Rect(box.R.Min.X, box.R.Min.Y, w, h)
-	dl.AddDraw(rect, content, 0)
+	input := o.renderTextarea(box.R.Dx(), box.R.Dy())
+	rect := layout.Rect(box.R.Min.X, box.R.Min.Y, box.R.Dx(), input.Height())
+	dl.AddDraw(rect, input.View(), 0)
 }
 
 func NewOperation(context *context.MainContext, revision *jj.Commit) *Operation {
@@ -169,6 +159,8 @@ func NewOperation(context *context.MainContext, revision *jj.Commit) *Operation 
 	input.CharLimit = 0
 	input.Prompt = ""
 	input.ShowLineNumbers = false
+	input.DynamicHeight = true
+	input.MinHeight = 1
 	ds := input.Styles()
 	ds.Focused.Base = selectedStyle.Underline(false).Strikethrough(false).Reverse(false).Blink(false)
 	ds.Focused.CursorLine = ds.Focused.Base
@@ -184,17 +176,15 @@ func NewOperation(context *context.MainContext, revision *jj.Commit) *Operation 
 	}
 }
 
-func (o *Operation) viewContent(width int) string {
+func (o *Operation) renderTextarea(width, maxHeight int) textarea.Model {
+	input := o.input
 	if width <= 0 {
 		width = 80
 	}
-	h := lipgloss.Height(o.input.Value())
-	if h <= 0 {
-		h = 1
+	input.MaxHeight = maxHeight
+	if maxHeight <= 0 {
+		input.MaxHeight = 0
 	}
-	height := h + 1
-
-	o.input.SetWidth(width)
-	o.input.SetHeight(height)
-	return o.input.View()
+	input.SetWidth(width)
+	return input
 }
