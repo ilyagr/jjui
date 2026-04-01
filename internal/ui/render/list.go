@@ -1,6 +1,8 @@
 package render
 
 import (
+	"strings"
+
 	tea "charm.land/bubbletea/v2"
 	"github.com/idursun/jjui/internal/ui/layout"
 )
@@ -115,7 +117,10 @@ func (r *ListRenderer) Render(
 		if span.Index >= itemCount {
 			continue
 		}
-		render(dl, span.Index, span.Rect)
+		itemHeight := span.ItemEnd - span.ItemStart
+		renderVisibleSpan(dl, span, itemHeight, r.Z, func(itemDL *DisplayContext, rect layout.Rectangle) {
+			render(itemDL, span.Index, rect)
+		})
 		idx := span.Index
 		dl.AddInteractionFn(span.Rect, func(mouseMsg tea.MouseMsg) tea.Msg {
 			return clickMsg(idx, mouseMsg.Mouse())
@@ -254,4 +259,48 @@ func ClampStartLine(startLine, viewHeight, totalLines int) int {
 		startLine = maxStart
 	}
 	return startLine
+}
+
+func renderVisibleSpan(
+	dl *DisplayContext,
+	span span,
+	itemHeight int,
+	z int,
+	render func(dl *DisplayContext, rect layout.Rectangle),
+) {
+	if span.Rect.Dx() <= 0 || span.Rect.Dy() <= 0 || itemHeight <= 0 {
+		return
+	}
+
+	if span.LineOffset == 0 && span.LineCount == itemHeight {
+		render(dl, span.Rect)
+		return
+	}
+
+	child := NewDisplayContext()
+	render(child, layout.Rect(0, 0, span.Rect.Dx(), itemHeight))
+
+	clipped := clipRenderedLines(
+		child.RenderToString(span.Rect.Dx(), itemHeight),
+		span.LineOffset,
+		span.LineCount,
+	)
+	if clipped == "" {
+		return
+	}
+	dl.AddDraw(span.Rect, clipped, z)
+}
+
+func clipRenderedLines(content string, start, count int) string {
+	if content == "" || count <= 0 || start < 0 {
+		return ""
+	}
+
+	lines := strings.Split(content, "\n")
+	if start >= len(lines) {
+		return ""
+	}
+
+	end := min(start+count, len(lines))
+	return strings.Join(lines[start:end], "\n")
 }
