@@ -129,8 +129,6 @@ func (o *Operation) Update(msg tea.Msg) tea.Cmd {
 		return nil
 	case intents.Intent:
 		return o.handleIntent(msg)
-	case tea.KeyMsg:
-		return nil
 	}
 	return nil
 }

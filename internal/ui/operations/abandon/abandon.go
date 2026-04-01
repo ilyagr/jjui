@@ -65,8 +65,6 @@ func (a *Operation) Update(msg tea.Msg) tea.Cmd {
 		return a.handleIntent(msg)
 	case addSelectionMsg:
 		a.selectedRevisions = msg.SelectedRevisions
-	case tea.KeyMsg:
-		return nil
 	}
 	return nil
 }

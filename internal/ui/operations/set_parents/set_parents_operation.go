@@ -43,8 +43,6 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case intents.Intent:
 		return m.handleIntent(msg)
-	case tea.KeyMsg:
-		return nil
 	}
 	return nil
 }

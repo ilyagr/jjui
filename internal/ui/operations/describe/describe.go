@@ -77,7 +77,6 @@ func (o *Operation) Update(msg tea.Msg) tea.Cmd {
 		// recalculations
 		o.input, cmd = o.input.Update(msg)
 		return cmd
-	case tea.KeyMsg:
 	case intents.Intent:
 		return o.handleIntent(msg)
 	}

@@ -45,8 +45,6 @@ func (s *SetBookmarkOperation) Update(msg tea.Msg) tea.Cmd {
 			s.cycleSuggestion(msg.Reverse)
 			return nil
 		}
-	case tea.KeyMsg:
-		_ = msg
 	}
 	var cmd tea.Cmd
 	s.name, cmd = s.name.Update(msg)
