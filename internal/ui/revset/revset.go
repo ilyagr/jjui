@@ -174,7 +174,6 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		if !m.Editing {
 			return nil
 		}
-		_ = msg
 	case common.UpdateRevSetMsg:
 		if m.Editing {
 			m.Editing = false

@@ -31,7 +31,6 @@ type itemRenderer struct {
 	isHighlighted bool
 	op            operations.Operation
 	SearchText    string
-	AceJumpPrefix *string
 	isChecked     bool
 }
 

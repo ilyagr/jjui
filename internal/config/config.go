@@ -160,25 +160,6 @@ type OpLogConfig struct {
 	Limit int `toml:"limit"`
 }
 
-type ShowOption string
-
-const (
-	ShowOptionDiff        ShowOption = "diff"
-	ShowOptionInteractive ShowOption = "interactive"
-)
-
-func (s *ShowOption) UnmarshalText(text []byte) error {
-	val := string(text)
-	switch val {
-	case string(ShowOptionDiff),
-		string(ShowOptionInteractive):
-		*s = ShowOption(val)
-		return nil
-	default:
-		return fmt.Errorf("invalid value for 'show': %q. Allowed: none, interactive and diff", val)
-	}
-}
-
 func GetDefaultEditor() string {
 	editor := os.Getenv("EDITOR")
 	if editor == "" {

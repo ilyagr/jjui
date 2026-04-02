@@ -91,10 +91,6 @@ func ParseFromReader(r io.Reader) <-chan *Segment {
 	return ch
 }
 
-func paramToStyle(param string) lipgloss.Style {
-	return applyParamsToStyle(lipgloss.NewStyle(), param)
-}
-
 func applyParamsToStyle(style lipgloss.Style, param string) lipgloss.Style {
 	if param == "" {
 		return style

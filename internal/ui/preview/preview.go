@@ -25,8 +25,6 @@ type Model struct {
 	previewAutoPosition bool
 	previewAtBottom     bool
 	content             string
-	contentLineCount    int
-	contentWidth        int
 	context             *context.MainContext
 }
 

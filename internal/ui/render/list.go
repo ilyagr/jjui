@@ -15,8 +15,7 @@ type viewPort struct {
 
 // measureRequest is passed to items to ask how many lines they want to render.
 type measureRequest struct {
-	Index         int
-	AvailableLine int // remaining viewport lines from the current item forward
+	Index int
 }
 
 // measureResult reports the desired line count for an item.
@@ -205,10 +204,8 @@ func layoutAll(
 	listY := 0
 
 	for i := range itemCount {
-		available := max(viewEnd-max(viewStart, listY), 0)
 		result := measure(measureRequest{
-			Index:         i,
-			AvailableLine: available,
+			Index: i,
 		})
 
 		height := max(result.DesiredLine, result.MinLine)
