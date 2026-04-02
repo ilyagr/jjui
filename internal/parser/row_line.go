@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/idursun/jjui/internal/jj"
@@ -25,7 +24,7 @@ func NewGraphRowLine(segments []*screen.Segment) GraphRowLine {
 	}
 }
 
-func (gr *GraphRowLine) ParseRowPrefixes() (int, string, string, bool) {
+func (gr *GraphRowLine) ParseRowPrefixes() (int, string, string) {
 	prefixesIdx := -1
 	for i, segment := range gr.Segments {
 		if strings.Contains(segment.Text, jj.JJUIPrefix) {
@@ -35,27 +34,21 @@ func (gr *GraphRowLine) ParseRowPrefixes() (int, string, string, bool) {
 	}
 
 	if prefixesIdx == -1 {
-		return -1, "", "", false
+		return -1, "", ""
 	}
 	prefixParts := strings.Split(gr.Segments[prefixesIdx].Text, jj.JJUIPrefix)
-	if len(prefixParts) != 4 {
-		return -1, "", "", false
+	if len(prefixParts) != 3 {
+		return -1, "", ""
 	}
 	beforePrefix := prefixParts[0]
-	changeID := prefixParts[1]
-	commitID := prefixParts[2]
-	isDivergentStr := prefixParts[3]
+	changeID := strings.TrimSpace(prefixParts[1])
+	commitID := strings.TrimSpace(prefixParts[2])
 
-	isDivergent, err := strconv.ParseBool(strings.TrimSpace(isDivergentStr))
-	if err != nil {
-		isDivergent = false
-	}
-
-	// Remove changeID, commitID, and isDivergent prefixes, while keeping
-	// everything before the prefixes
+	// Remove changeID and commitID prefixes, while keeping everything before the
+	// prefixes.
 	gr.Segments[prefixesIdx] = &screen.Segment{Text: beforePrefix}
 
-	return prefixesIdx + 1, changeID, commitID, isDivergent
+	return prefixesIdx + 1, changeID, commitID
 }
 
 func (gr *GraphRowLine) chop(indent int) {

@@ -19,7 +19,7 @@ type RowBatch struct {
 	HasMore bool
 }
 
-func ParseRowsStreaming(reader io.Reader, controlChannel <-chan ControlMsg, batchSize int, done <-chan struct{}) (<-chan RowBatch, error) {
+func ParseRowsStreaming(reader io.Reader, controlChannel <-chan ControlMsg, batchSize int, done <-chan struct{}) <-chan RowBatch {
 	rowsChan := make(chan RowBatch, 1)
 	go func() {
 		defer close(rowsChan)
@@ -28,9 +28,8 @@ func ParseRowsStreaming(reader io.Reader, controlChannel <-chan ControlMsg, batc
 		rawSegments := screen.ParseFromReader(reader)
 		for segmentedLine := range screen.BreakNewLinesIter(rawSegments) {
 			rowLine := NewGraphRowLine(segmentedLine)
-			changeIDIdx, changeID, commitID, _ := rowLine.ParseRowPrefixes()
+			changeIDIdx, changeID, commitID := rowLine.ParseRowPrefixes()
 			if changeIDIdx != -1 && changeIDIdx != len(rowLine.Segments)-1 {
-				rowLine.Flags = Revision | Highlightable
 				previousRow := row
 				if len(rows) > batchSize {
 					msg, ok := waitForControl(controlChannel, done)
@@ -79,7 +78,7 @@ func ParseRowsStreaming(reader io.Reader, controlChannel <-chan ControlMsg, batc
 			return
 		}
 	}()
-	return rowsChan, nil
+	return rowsChan
 }
 
 func waitForControl(controlChannel <-chan ControlMsg, done <-chan struct{}) (ControlMsg, bool) {

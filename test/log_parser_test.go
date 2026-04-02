@@ -10,7 +10,7 @@ import (
 )
 
 // In order to get a log output for testing, run the following command:
-// jj log -T "stringify('_PREFIX:' ++ separate('_PREFIX:', change_id.shortest(), commit_id.shortest(), divergent)) ++ ' ' ++ builtin_log_compact" --color always > test/testdata/your_test_case.log
+// jj log -T "stringify('_PREFIX:' ++ separate('_PREFIX:', change_id.shortest(), commit_id.shortest())) ++ ' ' ++ builtin_log_compact" --color always > test/testdata/your_test_case.log
 
 func TestParser_Parse(t *testing.T) {
 	file, _ := os.Open("testdata/output.log")
@@ -80,10 +80,10 @@ func TestParser_Parse_ConflictedLongIds(t *testing.T) {
 
 func TestParser_Parse_Disconnected(t *testing.T) {
 	var lb LogBuilder
-	lb.Write("*   _PREFIX:abcde_PREFIX:xyrq_PREFIX:false id=abcde author=some@author id=xyrq")
+	lb.Write("*   _PREFIX:abcde_PREFIX:xyrq id=abcde author=some@author id=xyrq")
 	lb.Write("│   some documentation")
 	lb.Write("~\n")
-	lb.Write("*   _PREFIX:abcde_PREFIX:xyrq_PREFIX:false id=abcde author=some@author id=xyrq")
+	lb.Write("*   _PREFIX:abcde_PREFIX:xyrq id=abcde author=some@author id=xyrq")
 	lb.Write("│   another commit")
 	lb.Write("~\n")
 	rows := parser.ParseRows(strings.NewReader(lb.String()))
@@ -93,7 +93,7 @@ func TestParser_Parse_Disconnected(t *testing.T) {
 
 func TestParser_Parse_Extend(t *testing.T) {
 	var lb LogBuilder
-	lb.Write("*   _PREFIX:abcde_PREFIX:xyrq_PREFIX:false id=abcde author=some@author id=xyrq")
+	lb.Write("*   _PREFIX:abcde_PREFIX:xyrq id=abcde author=some@author id=xyrq")
 	lb.Write("│   some documentation")
 
 	rows := parser.ParseRows(strings.NewReader(lb.String()))
@@ -106,9 +106,9 @@ func TestParser_Parse_Extend(t *testing.T) {
 
 func TestParser_Parse_WorkingCopy_1(t *testing.T) {
 	var lb LogBuilder
-	lb.Write("*   _PREFIX:abcde_PREFIX:xyrq_PREFIX:false id=abcde author=some@author id=xyrq")
+	lb.Write("*   _PREFIX:abcde_PREFIX:xyrq id=abcde author=some@author id=xyrq")
 	lb.Write("│   some documentation")
-	lb.Write("@   _PREFIX:kdys_PREFIX:12cd_PREFIX:false short_id=kdys author=some@author id=12cd")
+	lb.Write("@   _PREFIX:kdys_PREFIX:12cd short_id=kdys author=some@author id=12cd")
 	lb.Write("│   some documentation")
 
 	rows := parser.ParseRows(strings.NewReader(lb.String()))

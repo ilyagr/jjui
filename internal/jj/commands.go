@@ -53,7 +53,7 @@ func Log(revset string, limit int, jjTemplate string) CommandArgs {
 		template = jjTemplate
 	}
 	prefix := fmt.Sprintf(
-		"stringify('%s' ++ separate('%s', change_id.shortest() ++ if(divergent, \"/\" ++ change_offset), commit_id.shortest(), divergent))",
+		"stringify('%s' ++ separate('%s', change_id.shortest() ++ if(divergent, \"/\" ++ change_offset), commit_id.shortest()))",
 		JJUIPrefix, JJUIPrefix)
 	template = fmt.Sprintf("%s ++ ' ' ++ %s", prefix, template)
 	args = append(args, "-T", template)
@@ -352,7 +352,7 @@ func DuplicateInsert(from SelectedRevisions, insertAfter string, insertBefore st
 
 func Evolog(revision string) CommandArgs {
 	prefix := fmt.Sprintf(
-		"stringify('%s' ++ separate('%s', commit.change_id().shortest(), commit.commit_id().shortest(), commit.divergent()))",
+		"stringify('%s' ++ separate('%s', commit.change_id().shortest(), commit.commit_id().shortest()))",
 		JJUIPrefix, JJUIPrefix)
 	template := "builtin_evolog_compact"
 	template = fmt.Sprintf("%s ++ ' ' ++ %s", prefix, template)

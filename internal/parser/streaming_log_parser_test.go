@@ -12,16 +12,14 @@ import (
 func TestParseRowsStreaming_RequestMore(t *testing.T) {
 	var lb test.LogBuilder
 	for i := range 70 {
-		lb.Write("*   _PREFIX:abcde_PREFIX:xyrq_PREFIX:false id=abcde author=some@author id=xyrq")
+		lb.Write("*   _PREFIX:abcde_PREFIX:xyrq id=abcde author=some@author id=xyrq")
 		lb.Write("│   commit " + strconv.Itoa(i))
 		lb.Write("~\n")
 	}
 
 	reader := strings.NewReader(lb.String())
 	controlChannel := make(chan ControlMsg)
-	receiver, err := ParseRowsStreaming(reader, controlChannel, 50, nil)
-
-	assert.NoError(t, err)
+	receiver := ParseRowsStreaming(reader, controlChannel, 50, nil)
 	var batch RowBatch
 	controlChannel <- RequestMore
 	batch = <-receiver
@@ -37,15 +35,14 @@ func TestParseRowsStreaming_RequestMore(t *testing.T) {
 func TestParseRowsStreaming_Close(t *testing.T) {
 	var lb test.LogBuilder
 	for i := range 70 {
-		lb.Write("*   _PREFIX:abcde_PREFIX:xyrq_PREFIX:false id=abcde author=some@author id=xyrq")
+		lb.Write("*   _PREFIX:abcde_PREFIX:xyrq id=abcde author=some@author id=xyrq")
 		lb.Write("│   commit " + strconv.Itoa(i))
 		lb.Write("~\n")
 	}
 
 	reader := strings.NewReader(lb.String())
 	controlChannel := make(chan ControlMsg)
-	receiver, err := ParseRowsStreaming(reader, controlChannel, 50, nil)
-	assert.NoError(t, err)
+	receiver := ParseRowsStreaming(reader, controlChannel, 50, nil)
 	controlChannel <- Close
 	_, received := <-receiver
 	assert.False(t, received, "expected channel to be closed")
