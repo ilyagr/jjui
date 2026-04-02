@@ -1,6 +1,6 @@
 limit = 0
 
-binding_profile = ":builtin"
+bindings_profile = ":builtin"
 
 [ui]
   theme = ""
