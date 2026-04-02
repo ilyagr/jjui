@@ -47,12 +47,17 @@ func TestAliasSource(t *testing.T) {
 	}
 
 	names := map[string]bool{}
+	hasParameters := map[string]bool{}
 	for _, item := range items {
 		names[item.Name] = true
+		hasParameters[item.Name] = item.HasParameters
 	}
 	assert.True(t, names["my_alias"])
 	assert.True(t, names["param"])
 	assert.True(t, names["simple"])
+	assert.False(t, hasParameters["my_alias"])
+	assert.True(t, hasParameters["param"])
+	assert.False(t, hasParameters["simple"])
 }
 
 func TestHistorySource(t *testing.T) {

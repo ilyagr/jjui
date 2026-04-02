@@ -95,16 +95,19 @@ func (s AliasSource) Fetch(_ Runner) ([]Item, error) {
 		hasParameters := false
 		signatureHelp := fmt.Sprintf("%s: %s", alias, expansion)
 
-		if strings.Index(alias, "(") < strings.LastIndex(alias, ")") {
-			hasParameters = true
-			name = alias[:strings.Index(alias, "(")]
-		} else if strings.HasSuffix(alias, "()") {
-			hasParameters = false
-			name = alias[:len(alias)-2]
+		openParen := strings.Index(alias, "(")
+		closeParen := strings.LastIndex(alias, ")")
+		if openParen >= 0 && closeParen == len(alias)-1 && openParen < closeParen {
+			name = alias[:openParen]
+			hasParameters = strings.TrimSpace(alias[openParen+1:closeParen]) != ""
 		}
-		_ = hasParameters
 
-		items = append(items, Item{Name: name, Kind: KindAlias, SignatureHelp: signatureHelp})
+		items = append(items, Item{
+			Name:          name,
+			Kind:          KindAlias,
+			SignatureHelp: signatureHelp,
+			HasParameters: hasParameters,
+		})
 	}
 	return items, nil
 }
