@@ -107,7 +107,7 @@ func processMouseEvent(interactions []interactionOp, msg tea.MouseMsg, match int
 					if carrier, ok := interaction.Msg.(ScrollDeltaCarrier); ok {
 						return carrier.SetDelta(delta, true), true
 					}
-					return nil, true
+					return interaction.Msg, true
 				}
 			}
 		}
