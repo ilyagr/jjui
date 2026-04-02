@@ -18,9 +18,11 @@ const DefaultBatchSize = 50
 type GraphStreamer struct {
 	command     *appContext.StreamingCommand
 	cancel      context.CancelFunc
+	done        <-chan struct{}
 	controlChan chan parser.ControlMsg
 	rowsChan    <-chan parser.RowBatch
 	batchSize   int
+	mu          sync.Mutex
 }
 
 // NewGraphStreamer runs `jj log` command with given revset and jjTemplate and
@@ -90,12 +92,7 @@ func NewGraphStreamer(parentCtx context.Context, runner appContext.CommandRunner
 		batchSize = DefaultBatchSize
 	}
 
-	rowsChan, err := parser.ParseRowsStreaming(stdoutReader, controlChan, batchSize)
-	if err != nil {
-		cancel()
-		_ = command.Close()
-		return nil, err
-	}
+	rowsChan := parser.ParseRowsStreaming(stdoutReader, controlChan, batchSize, ctx.Done())
 	if warningMsg != "" {
 		err = errors.New(warningMsg)
 	}
@@ -103,6 +100,7 @@ func NewGraphStreamer(parentCtx context.Context, runner appContext.CommandRunner
 	return &GraphStreamer{
 		command:     command,
 		cancel:      cancel,
+		done:        ctx.Done(),
 		controlChan: controlChan,
 		rowsChan:    rowsChan,
 		batchSize:   batchSize,
@@ -110,11 +108,31 @@ func NewGraphStreamer(parentCtx context.Context, runner appContext.CommandRunner
 }
 
 func (g *GraphStreamer) RequestMore() parser.RowBatch {
-	if g.controlChan == nil {
+	g.mu.Lock()
+	controlChan := g.controlChan
+	rowsChan := g.rowsChan
+	done := g.done
+	g.mu.Unlock()
+
+	if controlChan == nil || rowsChan == nil {
 		return parser.RowBatch{}
 	}
-	g.controlChan <- parser.RequestMore
-	return <-g.rowsChan
+
+	select {
+	case <-done:
+		return parser.RowBatch{}
+	case controlChan <- parser.RequestMore:
+	}
+
+	select {
+	case <-done:
+		return parser.RowBatch{}
+	case batch, ok := <-rowsChan:
+		if !ok {
+			return parser.RowBatch{}
+		}
+		return batch
+	}
 }
 
 func (g *GraphStreamer) Close() {
@@ -122,18 +140,19 @@ func (g *GraphStreamer) Close() {
 		return
 	}
 
-	if g.controlChan != nil {
-		g.controlChan <- parser.Close
-		close(g.controlChan)
-		g.controlChan = nil
-	}
-
-	if g.cancel != nil {
-		g.cancel()
-		_ = g.command.Close()
-		g.cancel = nil
-	}
-
-	g.rowsChan = nil
+	g.mu.Lock()
+	cancel := g.cancel
+	command := g.command
+	g.cancel = nil
 	g.command = nil
+	g.controlChan = nil
+	g.rowsChan = nil
+	g.mu.Unlock()
+
+	if cancel != nil {
+		cancel()
+	}
+	if command != nil {
+		_ = command.Close()
+	}
 }

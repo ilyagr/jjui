@@ -103,9 +103,12 @@ type updateRevisionsMsg struct {
 	selectedRevision string
 }
 
-type startRowsStreamingMsg struct {
+type streamingReadyMsg struct {
+	streamer         *graph.GraphStreamer
 	selectedRevision string
 	tag              uint64
+	err              error
+	output           string
 }
 
 type appendRowsBatchMsg struct {
@@ -322,9 +325,36 @@ func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 		return tea.Batch(m.highlightChanges, m.updateSelection(), func() tea.Msg {
 			return common.UpdateRevisionsSuccessMsg{}
 		})
-	case startRowsStreamingMsg:
+	case streamingReadyMsg:
+		if msg.tag != m.tag.Load() {
+			if msg.streamer != nil {
+				msg.streamer.Close()
+			}
+			return nil
+		}
+
+		if m.streamer != nil {
+			m.streamer.Close()
+			m.streamer = nil
+		}
+
+		if msg.err != nil && msg.streamer == nil {
+			m.hasMore = false
+			m.isLoading = false
+			m.requestInFlight = false
+			return func() tea.Msg {
+				return common.UpdateRevisionsFailedMsg{
+					Err:    msg.err,
+					Output: msg.output,
+				}
+			}
+		}
+
+		m.streamer = msg.streamer
 		m.offScreenRows = nil
 		m.revisionToSelect = msg.selectedRevision
+		m.hasMore = true
+		m.requestInFlight = false
 
 		// If the revision to select is not set, use the currently selected item
 		if m.revisionToSelect == "" {
@@ -336,7 +366,12 @@ func (m *Model) internalUpdate(msg tea.Msg) tea.Cmd {
 			}
 		}
 		log.Println("Starting streaming revisions with tag:", msg.tag)
-		return m.requestMoreRows(msg.tag)
+
+		cmds := []tea.Cmd{m.requestMoreRows(msg.tag)}
+		if warning := streamingWarningCmd(msg.output, msg.err); warning != nil {
+			cmds = append(cmds, warning)
+		}
+		return tea.Batch(cmds...)
 	case appendRowsBatchMsg:
 		m.requestInFlight = false
 
@@ -939,37 +974,30 @@ func (m *Model) load(revset string, selectedRevision string) tea.Cmd {
 }
 
 func (m *Model) loadStreaming(revset string, selectedRevision string, tag uint64) tea.Cmd {
-	if m.tag.Load() != tag {
-		return nil
-	}
-
-	var cmds []tea.Cmd
-	streamer, err := graph.NewGraphStreamer(context.Background(), m.context, revset, m.context.JJConfig.Templates.Log)
-	if err != nil {
-		var errMsg string
-		if err == io.EOF {
-			errMsg = fmt.Sprintf("No revisions found for revset `%s`", revset)
-			err = errors.New(errMsg)
-		} else {
-			errMsg = fmt.Sprintf("%v", err)
+	return func() tea.Msg {
+		if m.tag.Load() != tag {
+			return nil
 		}
 
-		cmds = append(cmds, func() tea.Msg {
-			return common.UpdateRevisionsFailedMsg{
-				Err:    err,
-				Output: errMsg,
+		streamer, err := graph.NewGraphStreamer(context.Background(), m.context, revset, m.context.JJConfig.Templates.Log)
+		var errMsg string
+		if err != nil {
+			if err == io.EOF {
+				errMsg = fmt.Sprintf("No revisions found for revset `%s`", revset)
+				err = errors.New(errMsg)
+			} else {
+				errMsg = fmt.Sprintf("%v", err)
 			}
-		})
-	}
+		}
 
-	if m.streamer != nil {
-		m.streamer.Close()
-		m.streamer = nil
+		return streamingReadyMsg{
+			streamer:         streamer,
+			selectedRevision: selectedRevision,
+			tag:              tag,
+			err:              err,
+			output:           errMsg,
+		}
 	}
-	m.streamer = streamer
-	m.hasMore = true
-	cmds = append(cmds, m.Update(startRowsStreamingMsg{selectedRevision: selectedRevision, tag: tag}))
-	return tea.Batch(cmds...)
 }
 
 func (m *Model) requestMoreRows(tag uint64) tea.Cmd {
@@ -978,8 +1006,21 @@ func (m *Model) requestMoreRows(tag uint64) tea.Cmd {
 	}
 
 	m.requestInFlight = true
-	batch := m.streamer.RequestMore()
-	return m.Update(appendRowsBatchMsg{batch.Rows, batch.HasMore, tag})
+	streamer := m.streamer
+	return func() tea.Msg {
+		batch := streamer.RequestMore()
+		return appendRowsBatchMsg{batch.Rows, batch.HasMore, tag}
+	}
+}
+
+func streamingWarningCmd(output string, err error) tea.Cmd {
+	if err == nil {
+		return nil
+	}
+	if output == "" {
+		output = err.Error()
+	}
+	return intents.Invoke(intents.AddMessage{Text: output, Err: err})
 }
 
 func (m *Model) selectRevision(revision string) int {

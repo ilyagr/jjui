@@ -19,7 +19,7 @@ func TestParseRowsStreaming_RequestMore(t *testing.T) {
 
 	reader := strings.NewReader(lb.String())
 	controlChannel := make(chan ControlMsg)
-	receiver, err := ParseRowsStreaming(reader, controlChannel, 50)
+	receiver, err := ParseRowsStreaming(reader, controlChannel, 50, nil)
 
 	assert.NoError(t, err)
 	var batch RowBatch
@@ -44,7 +44,7 @@ func TestParseRowsStreaming_Close(t *testing.T) {
 
 	reader := strings.NewReader(lb.String())
 	controlChannel := make(chan ControlMsg)
-	receiver, err := ParseRowsStreaming(reader, controlChannel, 50)
+	receiver, err := ParseRowsStreaming(reader, controlChannel, 50, nil)
 	assert.NoError(t, err)
 	controlChannel <- Close
 	_, received := <-receiver

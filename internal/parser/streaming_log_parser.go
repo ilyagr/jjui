@@ -19,7 +19,7 @@ type RowBatch struct {
 	HasMore bool
 }
 
-func ParseRowsStreaming(reader io.Reader, controlChannel <-chan ControlMsg, batchSize int) (<-chan RowBatch, error) {
+func ParseRowsStreaming(reader io.Reader, controlChannel <-chan ControlMsg, batchSize int, done <-chan struct{}) (<-chan RowBatch, error) {
 	rowsChan := make(chan RowBatch, 1)
 	go func() {
 		defer close(rowsChan)
@@ -33,7 +33,11 @@ func ParseRowsStreaming(reader io.Reader, controlChannel <-chan ControlMsg, batc
 				rowLine.Flags = Revision | Highlightable
 				previousRow := row
 				if len(rows) > batchSize {
-					switch <-controlChannel {
+					msg, ok := waitForControl(controlChannel, done)
+					if !ok {
+						return
+					}
+					switch msg {
 					case Close:
 						return
 					case RequestMore:
@@ -58,14 +62,31 @@ func ParseRowsStreaming(reader io.Reader, controlChannel <-chan ControlMsg, batc
 			rows = append(rows, row)
 		}
 		if len(rows) > 0 {
-			switch <-controlChannel {
+			msg, ok := waitForControl(controlChannel, done)
+			if !ok {
+				return
+			}
+			switch msg {
 			case Close:
 				return
 			case RequestMore:
 				rowsChan <- RowBatch{Rows: rows, HasMore: false}
 			}
+			return
 		}
-		<-controlChannel
+
+		if _, ok := waitForControl(controlChannel, done); !ok {
+			return
+		}
 	}()
 	return rowsChan, nil
+}
+
+func waitForControl(controlChannel <-chan ControlMsg, done <-chan struct{}) (ControlMsg, bool) {
+	select {
+	case <-done:
+		return 0, false
+	case msg, ok := <-controlChannel:
+		return msg, ok
+	}
 }
