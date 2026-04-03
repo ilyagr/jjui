@@ -5,6 +5,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	uv "github.com/charmbracelet/ultraviolet"
+	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/intents"
 	"github.com/idursun/jjui/internal/ui/layout"
 	"github.com/idursun/jjui/internal/ui/render"
@@ -140,6 +141,8 @@ func (v *wrappedView) ViewRect(dl *render.DisplayContext, box layout.Box, scroll
 	}
 	dl.AddDraw(box.R, buf.Render(), 0)
 }
+
+var _ common.ImmediateModel = (*Model)(nil)
 
 type Model struct {
 	lines        []string

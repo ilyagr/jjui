@@ -29,7 +29,19 @@ type Resolver struct {
 }
 
 // NewResolver creates a Resolver that wraps the given dispatcher.
-func NewResolver(d *Dispatcher, configured map[keybindings.Action]config.ActionConfig) *Resolver {
+func NewResolver(d *Dispatcher) *Resolver {
+	return newResolverWithActions(d, config.Current.Actions)
+}
+
+func newResolverWithActions(d *Dispatcher, actions []config.ActionConfig) *Resolver {
+	configured := make(map[keybindings.Action]config.ActionConfig, len(actions))
+	for _, action := range actions {
+		name := keybindings.Action(strings.TrimSpace(action.Name))
+		if name == "" {
+			continue
+		}
+		configured[name] = action
+	}
 	return &Resolver{
 		dispatcher:        d,
 		configuredActions: configured,

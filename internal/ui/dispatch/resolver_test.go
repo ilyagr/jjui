@@ -24,10 +24,12 @@ func makeResolver(bindings []keybindings.Binding, configured map[keybindings.Act
 	if err != nil {
 		panic(err)
 	}
-	if configured == nil {
-		configured = make(map[keybindings.Action]config.ActionConfig)
+	actions := make([]config.ActionConfig, 0, len(configured))
+	for name, action := range configured {
+		action.Name = string(name)
+		actions = append(actions, action)
 	}
-	return NewResolver(d, configured)
+	return newResolverWithActions(d, actions)
 }
 
 func TestResolveKey_BuiltInAction(t *testing.T) {

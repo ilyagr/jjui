@@ -44,43 +44,32 @@ import (
 )
 
 type Model struct {
-	revisions         *revisions.Model
-	oplog             *oplog.Model
-	revsetModel       *revset.Model
-	previewModel      *preview.Model
-	diff              *diff.Model
-	flash             *flash.Model
-	state             common.State
-	status            *status.Model
-	password          *password.Model
-	context           *context.MainContext
-	scriptRunner      *scripting.Runner
-	configuredActions map[keybindings.Action]config.ActionConfig
-	paletteActions    map[string]keybindings.Action
-	sequenceHelp      []helpkeys.Entry
-	sequenceAutoOpen  bool
-	resolver          *dispatch.Resolver
-	stacked           common.StackedModel
-	displayContext    *render.DisplayContext
-	width             int
-	height            int
-	revisionsSplit    *split
-	activeSplit       *split
-	splitActive       bool
+	revisions        *revisions.Model
+	oplog            *oplog.Model
+	revsetModel      *revset.Model
+	previewModel     *preview.Model
+	diff             *diff.Model
+	flash            *flash.Model
+	state            common.State
+	status           *status.Model
+	password         *password.Model
+	context          *context.MainContext
+	scriptRunner     *scripting.Runner
+	sequenceHelp     []helpkeys.Entry
+	sequenceAutoOpen bool
+	resolver         *dispatch.Resolver
+	stacked          common.StackedModel
+	displayContext   *render.DisplayContext
+	width            int
+	height           int
+	revisionsSplit   *split
+	activeSplit      *split
 }
 
 type triggerAutoRefreshMsg struct{}
 
 const (
-	scopeUi               keybindings.Scope = "ui"
-	scopePreview          keybindings.Scope = "ui.preview"
-	scopeDiff             keybindings.Scope = "diff"
-	scopeRevset           keybindings.Scope = "revset"
-	scopeFileSearch       keybindings.Scope = "file_search"
-	scopeQuickSearchInput keybindings.Scope = "revisions.quick_search.input"
-	scopeOplogQuickSearch keybindings.Scope = "oplog.quick_search"
-	scopePassword         keybindings.Scope = "password"
-	scopeCommandHistory   keybindings.Scope = "command_history"
+	scopeUi keybindings.Scope = "ui"
 )
 
 func (m *Model) Init() tea.Cmd {
@@ -127,11 +116,9 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		}
 		return nil
 	case tea.MouseReleaseMsg:
-		if m.splitActive {
-			m.splitActive = false
-		}
+		m.activeSplit = nil
 	case tea.MouseMotionMsg:
-		if m.splitActive && m.activeSplit != nil {
+		if m.activeSplit != nil {
 			mouse := msg.Mouse()
 			m.activeSplit.DragTo(mouse.X, mouse.Y)
 			return nil
@@ -229,21 +216,8 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		return m.stacked.Init()
 	case choose.SelectedMsg:
 		m.stacked = nil
-		if action, ok := m.paletteActions[msg.Value]; ok {
-			m.paletteActions = nil
-			result := m.resolver.ResolveAction(action, nil)
-			if result.LuaScript != "" {
-				return luaCmd(result.LuaScript)
-			}
-			if result.Intent != nil {
-				return m.routeIntent(result.Owner, result.Intent)
-			}
-			return nil
-		}
-		m.paletteActions = nil
 	case choose.CancelledMsg:
 		m.stacked = nil
-		m.paletteActions = nil
 	case common.ShowInputMsg:
 		model := input.NewWithTitle(msg.Title, msg.Prompt)
 		m.stacked = model
@@ -269,7 +243,6 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		}
 	case SplitDragMsg:
 		m.activeSplit = msg.Split
-		m.splitActive = true
 		if m.activeSplit != nil {
 			m.activeSplit.DragTo(msg.X, msg.Y)
 		}
@@ -785,25 +758,25 @@ func (m *Model) handleUnmatched(msg tea.KeyMsg) tea.Cmd {
 
 func (m *Model) primaryScope() keybindings.Scope {
 	if m.password != nil {
-		return scopePassword
+		return keybindings.Scope(actions.OwnerPassword)
 	}
 
 	switch m.status.FocusKind() {
 	case status.FocusFileSearch:
-		return scopeFileSearch
+		return keybindings.Scope(actions.OwnerFileSearch)
 	case status.FocusInput:
 		return actions.OwnerStatusInput
 	case status.FocusQuickSearch:
-		return scopeQuickSearchInput
+		return keybindings.Scope(actions.OwnerQuickSearchInput)
 	default:
 	}
 
 	if m.revsetModel.Editing {
-		return scopeRevset
+		return keybindings.Scope(actions.OwnerRevset)
 	}
 
 	if m.diff != nil {
-		return scopeDiff
+		return keybindings.Scope(actions.OwnerDiff)
 	}
 
 	if m.stacked != nil {
@@ -839,14 +812,14 @@ func (m *Model) alwaysOnScopes() []keybindings.Scope {
 	}
 	scopes := []keybindings.Scope{scopeUi}
 	if m.previewModel.Visible() {
-		scopes = append(scopes, scopePreview)
+		scopes = append(scopes, keybindings.Scope(actions.OwnerUiPreview))
 	}
 	return scopes
 }
 
 func (m *Model) dispatchScopes() []keybindings.Scope {
 	if m.commandHistoryOpen() {
-		return []keybindings.Scope{scopeCommandHistory}
+		return []keybindings.Scope{keybindings.Scope(actions.OwnerCommandHistory)}
 	}
 	primary := m.primaryScope()
 	if primary == "" {
@@ -854,7 +827,7 @@ func (m *Model) dispatchScopes() []keybindings.Scope {
 	}
 	var scopes []keybindings.Scope
 	if m.oplog != nil && m.oplog.HasQuickSearch() {
-		scopes = append(scopes, scopeOplogQuickSearch)
+		scopes = append(scopes, keybindings.Scope(actions.OwnerOplogQuickSearch))
 	}
 	scopes = append(scopes, primary)
 	for _, scope := range m.alwaysOnScopes() {
@@ -923,29 +896,17 @@ func NewUI(c *context.MainContext) *Model {
 	revsetModel := revset.New(c)
 
 	ui := &Model{
-		context:           c,
-		state:             common.Loading,
-		revisions:         revisionsModel,
-		previewModel:      previewModel,
-		status:            statusModel,
-		revsetModel:       revsetModel,
-		flash:             flashView,
-		configuredActions: make(map[keybindings.Action]config.ActionConfig),
+		context:      c,
+		state:        common.Loading,
+		revisions:    revisionsModel,
+		previewModel: previewModel,
+		status:       statusModel,
+		revsetModel:  revsetModel,
+		flash:        flashView,
 	}
-	ui.initConfiguredActions()
 	ui.initResolver()
 	ui.initSplit()
 	return ui
-}
-
-func (m *Model) initConfiguredActions() {
-	for _, action := range config.Current.Actions {
-		name := keybindings.Action(strings.TrimSpace(action.Name))
-		if name == "" {
-			continue
-		}
-		m.configuredActions[name] = action
-	}
 }
 
 func (m *Model) bindingStatusHelp() []helpkeys.Entry {
@@ -990,7 +951,7 @@ func (m *Model) initResolver() {
 	if err != nil {
 		return
 	}
-	m.resolver = dispatch.NewResolver(dispatcher, m.configuredActions)
+	m.resolver = dispatch.NewResolver(dispatcher)
 }
 
 func New(c *context.MainContext) tea.Model {

@@ -197,7 +197,7 @@ func Test_PrimaryScope_UsesFlashScopeWhenVisible(t *testing.T) {
 
 	model.Update(intents.CommandHistoryToggle{})
 
-	assert.Equal(t, scopeCommandHistory, model.primaryScope())
+	assert.Equal(t, keybindings.Scope(actions.OwnerCommandHistory), model.primaryScope())
 }
 
 func Test_HandleDispatchedAction_UsesFlashScopeWhenVisible(t *testing.T) {
