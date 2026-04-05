@@ -269,7 +269,7 @@ func renderVisibleSpan(
 		return
 	}
 
-	if span.LineOffset == 0 && span.LineCount == itemHeight {
+	if span.LineOffset == 0 {
 		render(dl, span.Rect)
 		return
 	}

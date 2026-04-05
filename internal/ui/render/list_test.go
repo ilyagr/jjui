@@ -101,3 +101,26 @@ func TestListRendererRenderClipsBottomOfTallItem(t *testing.T) {
 	assert.NotContains(t, out, "line 4")
 	assert.NotContains(t, out, "line 5")
 }
+
+func TestListRendererRenderUsesVisibleHeightForBottomClippedItem(t *testing.T) {
+	renderer := NewListRenderer(nil)
+
+	var seenHeight int
+	dl := NewDisplayContext()
+	renderer.Render(
+		dl,
+		layout.NewBox(layout.Rect(0, 0, 8, 3)),
+		1,
+		-1,
+		false,
+		func(_ int) int { return 5 },
+		func(_ *DisplayContext, _ int, rect layout.Rectangle) {
+			seenHeight = rect.Dy()
+		},
+		func(index int, _ tea.Mouse) ClickMessage {
+			return index
+		},
+	)
+
+	assert.Equal(t, 3, seenHeight)
+}
