@@ -13,6 +13,9 @@ const (
 	// ZPreview is for preview panels and split views
 	ZPreview = 10
 
+	// ZFuzzyOverlay is for floating fuzzy overlays that should appear above preview
+	ZFuzzyOverlay = 12
+
 	// ZRevsetOverlay is for revset overlay content (above preview)
 	ZRevsetOverlay = 15
 

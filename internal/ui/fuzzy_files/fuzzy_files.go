@@ -197,7 +197,7 @@ func (fzf *fuzzyFiles) ViewRect(dl *render.DisplayContext, box layout.Box) {
 	}
 	_, h := lipgloss.Size(content)
 	rect := layout.Rect(box.R.Min.X, box.R.Max.Y-h, box.R.Dx(), h)
-	dl.AddDraw(rect, content, render.ZFuzzyInput)
+	dl.AddDraw(rect, content, render.ZFuzzyOverlay)
 }
 
 func (fzf *fuzzyFiles) viewContent() string {
