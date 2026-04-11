@@ -18,7 +18,7 @@ type Continuation struct {
 // ResolveResult is the outcome of resolving a key press.
 type ResolveResult struct {
 	Action        bindings.Action
-	Scope         bindings.Scope
+	Scope         bindings.ScopeName
 	Args          map[string]any
 	Pending       bool
 	Consumed      bool
@@ -26,13 +26,13 @@ type ResolveResult struct {
 }
 
 type candidate struct {
-	scope   bindings.Scope
+	scope   bindings.ScopeName
 	binding bindings.Binding
 }
 
 // Dispatcher resolves key presses against active scopes and bindings.
 type Dispatcher struct {
-	bindings map[bindings.Scope][]bindings.Binding
+	bindings map[bindings.ScopeName][]bindings.Binding
 
 	buffered   []tea.Key
 	candidates []candidate
@@ -43,7 +43,7 @@ func NewDispatcher(availableBindings []bindings.Binding) (*Dispatcher, error) {
 		return nil, err
 	}
 
-	d := &Dispatcher{bindings: make(map[bindings.Scope][]bindings.Binding)}
+	d := &Dispatcher{bindings: make(map[bindings.ScopeName][]bindings.Binding)}
 	for _, binding := range availableBindings {
 		d.bindings[binding.Scope] = append(d.bindings[binding.Scope], binding)
 	}
@@ -55,9 +55,9 @@ func (d *Dispatcher) ResetSequence() {
 	d.candidates = nil
 }
 
-// Resolve applies dispatch rules for a key in the provided scope chain.
+// Resolve applies dispatch rules for a key in the provided layer chain.
 // Scopes must be ordered from innermost to outermost.
-func (d *Dispatcher) Resolve(msg tea.KeyMsg, scopes []bindings.Scope) ResolveResult {
+func (d *Dispatcher) Resolve(msg tea.KeyMsg, scopes []Scope) ResolveResult {
 	if msg.String() == "" {
 		return ResolveResult{}
 	}
@@ -78,8 +78,8 @@ func (d *Dispatcher) Resolve(msg tea.KeyMsg, scopes []bindings.Scope) ResolveRes
 		}
 	}
 
-	for _, scope := range scopes {
-		scopeBindings := d.bindings[scope]
+	for _, scope := range VisibleScopes(scopes) {
+		scopeBindings := d.bindings[scope.Name]
 		for i := len(scopeBindings) - 1; i >= 0; i-- {
 			binding := scopeBindings[i]
 			if len(binding.Key) == 0 {
@@ -87,7 +87,7 @@ func (d *Dispatcher) Resolve(msg tea.KeyMsg, scopes []bindings.Scope) ResolveRes
 			}
 			for _, candidateKey := range binding.Key {
 				if keyMatches(candidateKey, key) {
-					return ResolveResult{Action: binding.Action, Scope: scope, Args: bindings.CloneArgs(binding.Args), Consumed: true}
+					return ResolveResult{Action: binding.Action, Scope: scope.Name, Args: bindings.CloneArgs(binding.Args), Consumed: true}
 				}
 			}
 		}
@@ -120,7 +120,7 @@ func (d *Dispatcher) resolveSequenceKey(key tea.Key) ResolveResult {
 	d.candidates = filtered
 
 	// Inner scope wins; within the same scope, last-added binding wins.
-	var matchScope bindings.Scope
+	var matchScope bindings.ScopeName
 	var matchAction bindings.Action
 	var matchArgs map[string]any
 	found := false
@@ -150,12 +150,12 @@ func (d *Dispatcher) resolveSequenceKey(key tea.Key) ResolveResult {
 	}
 }
 
-func (d *Dispatcher) initialSequenceCandidates(key tea.Key, scopes []bindings.Scope) []candidate {
+func (d *Dispatcher) initialSequenceCandidates(key tea.Key, scopes []Scope) []candidate {
 	var candidates []candidate
-	for _, scope := range scopes {
-		for _, binding := range d.bindings[scope] {
+	for _, scope := range VisibleScopes(scopes) {
+		for _, binding := range d.bindings[scope.Name] {
 			if len(binding.Seq) > 0 && keyMatches(binding.Seq[0], key) {
-				candidates = append(candidates, candidate{scope: scope, binding: binding})
+				candidates = append(candidates, candidate{scope: scope.Name, binding: binding})
 			}
 		}
 	}

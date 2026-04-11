@@ -1,4 +1,4 @@
-package helpkeys
+package help
 
 import (
 	"sort"
@@ -11,66 +11,103 @@ import (
 
 // Entry is a status-help key entry rendered as "key description".
 type Entry struct {
-	Label string
-	Desc  string
+	Label      string
+	Desc       string
+	Overridden bool
 }
 
-// BuildFromBindings returns short-help entries for the provided scope chain.
-// Scopes are expected from innermost to outermost.
+// ScopeGroup is a named group of help entries for a single scope.
+type ScopeGroup struct {
+	Name    string
+	Entries []Entry
+}
+
+// FlatEntries returns all entries from a slice of groups in order.
+func FlatEntries(groups []ScopeGroup) []Entry {
+	var entries []Entry
+	for _, g := range groups {
+		entries = append(entries, g.Entries...)
+	}
+	return entries
+}
+
+// BuildFromBindings returns short-help entries for the given scope.
 func BuildFromBindings(
-	scopes []keybindings.Scope,
+	scope keybindings.ScopeName,
 	bindings []config.BindingConfig,
 ) []Entry {
-	bindingsByScope := make(map[keybindings.Scope][]config.BindingConfig)
-	for _, binding := range bindings {
-		scope := keybindings.Scope(strings.TrimSpace(binding.Scope))
-		bindingsByScope[scope] = append(bindingsByScope[scope], binding)
+	entries := make([]Entry, 0)
+	seenActions := map[keybindings.Action]struct{}{}
+
+	for i := len(bindings) - 1; i >= 0; i-- {
+		b := bindings[i]
+		if keybindings.ScopeName(strings.TrimSpace(b.Scope)) != scope {
+			continue
+		}
+		action := keybindings.Action(strings.TrimSpace(b.Action))
+		if action == "" {
+			continue
+		}
+		if _, seen := seenActions[action]; seen {
+			continue
+		}
+
+		label := BindingLabel(b)
+		if label == "" {
+			continue
+		}
+
+		entries = append(entries, Entry{
+			Label: label,
+			Desc:  bindingDesc(b),
+		})
+		seenActions[action] = struct{}{}
 	}
 
-	seenLeaves := map[keybindings.Action]struct{}{}
-	entries := make([]Entry, 0)
-
-	for _, scope := range scopes {
-		scopeBindings := bindingsByScope[scope]
-		scopeEntries := make([]Entry, 0, len(scopeBindings))
-		seenInScope := map[keybindings.Action]struct{}{}
-		for i := len(scopeBindings) - 1; i >= 0; i-- {
-			b := scopeBindings[i]
-			action := keybindings.Action(strings.TrimSpace(b.Action))
-			if action == "" {
-				continue
-			}
-			leaf := actionLeaf(action)
-			if _, seen := seenInScope[action]; seen {
-				continue
-			}
-			if _, seen := seenLeaves[leaf]; seen {
-				continue
-			}
-
-			label := BindingLabel(b)
-			if label == "" {
-				continue
-			}
-
-			scopeEntries = append(scopeEntries, Entry{
-				Label: label,
-				Desc:  bindingDesc(b),
-			})
-			seenInScope[action] = struct{}{}
-		}
-		// Mark leaves as seen after processing the entire scope,
-		// so that different actions with the same leaf within one scope
-		// are all shown, while outer scopes are still shadowed.
-		for i := len(scopeEntries) - 1; i >= 0; i-- {
-			entries = append(entries, scopeEntries[i])
-		}
-		for action := range seenInScope {
-			seenLeaves[actionLeaf(action)] = struct{}{}
-		}
+	// Reverse to restore original order
+	for i, j := 0, len(entries)-1; i < j; i, j = i+1, j-1 {
+		entries[i], entries[j] = entries[j], entries[i]
 	}
 
 	return entries
+}
+
+// BuildGroupedFromBindings returns help entries grouped by scope.
+func BuildGroupedFromBindings(
+	scopes []keybindings.ScopeName,
+	bindings []config.BindingConfig,
+) []ScopeGroup {
+	var groups []ScopeGroup
+	for _, scope := range scopes {
+		entries := BuildFromBindings(scope, bindings)
+		if len(entries) > 0 {
+			groups = append(groups, ScopeGroup{
+				Name:    scopeDisplayName(string(scope)),
+				Entries: entries,
+			})
+		}
+	}
+	return groups
+}
+
+// MarkOverriddenKeys marks entries in outer groups as overridden when an inner
+// group binds the same key label.
+func MarkOverriddenKeys(groups []ScopeGroup) {
+	seenKeys := make(map[string]struct{})
+	for i := range groups {
+		for j := range groups[i].Entries {
+			label := groups[i].Entries[j].Label
+			if _, seen := seenKeys[label]; seen {
+				groups[i].Entries[j].Overridden = true
+			}
+		}
+		// After processing the group, add all its keys to seenKeys
+		for _, e := range groups[i].Entries {
+			if !e.Overridden {
+				seenKeys[e.Label] = struct{}{}
+			}
+		}
+	}
 }
 
 // BuildFromContinuations returns sequence continuation entries, sorted for stable display.
@@ -155,14 +192,6 @@ func descFromAction(action string) string {
 		return ""
 	}
 	return strings.ReplaceAll(token, "_", " ")
-}
-
-func actionLeaf(action keybindings.Action) keybindings.Action {
-	name := strings.TrimSpace(string(action))
-	if name == "" {
-		return action
-	}
-	return keybindings.Action(actionToken(name))
 }
 
 // actionToken extracts the last segment after '.' from a canonical action ID.

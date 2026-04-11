@@ -9,6 +9,7 @@ import (
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/confirmation"
 	"github.com/idursun/jjui/internal/ui/context"
+	"github.com/idursun/jjui/internal/ui/dispatch"
 	"github.com/idursun/jjui/internal/ui/intents"
 	"github.com/idursun/jjui/internal/ui/layout"
 	"github.com/idursun/jjui/internal/ui/render"
@@ -20,8 +21,24 @@ type Model struct {
 	confirmation *confirmation.Model
 }
 
-func (m *Model) StackedActionOwner() string {
-	return actions.OwnerRedo
+func (m *Model) Scopes() []dispatch.Scope {
+	return []dispatch.Scope{
+		{
+			Name:    actions.ScopeRedo,
+			Leak:    dispatch.LeakAll,
+			Handler: m,
+		},
+	}
+}
+
+func (m *Model) HandleIntent(intent intents.Intent) (tea.Cmd, bool) {
+	switch intent.(type) {
+	case intents.Apply:
+		return m.confirmation.Update(confirmation.SelectOptionMsg{Index: 0}), true
+	case intents.Cancel:
+		return m.confirmation.Update(confirmation.SelectOptionMsg{Index: 1}), true
+	}
+	return nil, false
 }
 
 func (m *Model) Init() tea.Cmd {

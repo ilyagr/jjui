@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-var builtInActionOwners = map[string][]string{
+var builtInActionScopes = map[string][]string{
 	"bookmarks.apply":                            {"bookmarks"},
 	"bookmarks.bookmark_delete":                  {"bookmarks"},
 	"bookmarks.bookmark_forget":                  {"bookmarks"},
@@ -83,9 +83,9 @@ var builtInActionOwners = map[string][]string{
 	"oplog.move_up":                              {"oplog"},
 	"oplog.page_down":                            {"oplog"},
 	"oplog.page_up":                              {"oplog"},
-	"oplog.quick_search.quick_search_clear":      {"oplog.quick_search"},
-	"oplog.quick_search.quick_search_next":       {"oplog.quick_search"},
-	"oplog.quick_search.quick_search_prev":       {"oplog.quick_search"},
+	"oplog.quick_search.clear":                   {"oplog.quick_search"},
+	"oplog.quick_search.next":                    {"oplog.quick_search"},
+	"oplog.quick_search.prev":                    {"oplog.quick_search"},
 	"oplog.quit":                                 {"oplog"},
 	"oplog.restore":                              {"oplog"},
 	"oplog.revert":                               {"oplog"},
@@ -173,11 +173,11 @@ var builtInActionOwners = map[string][]string{
 	"revisions.open_squash":                      {"revisions"},
 	"revisions.page_down":                        {"revisions"},
 	"revisions.page_up":                          {"revisions"},
+	"revisions.quick_search.clear":               {"revisions.quick_search"},
 	"revisions.quick_search.input.apply":         {"revisions.quick_search.input"},
 	"revisions.quick_search.input.cancel":        {"revisions.quick_search.input"},
-	"revisions.quick_search_clear":               {"revisions"},
-	"revisions.quick_search_next":                {"revisions"},
-	"revisions.quick_search_prev":                {"revisions"},
+	"revisions.quick_search.next":                {"revisions.quick_search"},
+	"revisions.quick_search.prev":                {"revisions.quick_search"},
 	"revisions.rebase.ace_jump":                  {"revisions.rebase"},
 	"revisions.rebase.apply":                     {"revisions.rebase"},
 	"revisions.rebase.cancel":                    {"revisions.rebase"},
@@ -339,13 +339,13 @@ var builtInActionRequiredArgs = map[string][]string{
 	"ui.preview.show":                {"content"},
 }
 
-func ActionOwners(action string) []string {
+func ActionScopes(action string) []string {
 	action = strings.TrimSpace(action)
-	owners, ok := builtInActionOwners[action]
+	scopes, ok := builtInActionScopes[action]
 	if !ok {
 		return nil
 	}
-	return append([]string(nil), owners...)
+	return append([]string(nil), scopes...)
 }
 
 func ActionArgSchema(action string) map[string]string {
@@ -357,8 +357,8 @@ func ActionRequiredArgs(action string) []string {
 }
 
 func BuiltInActions() []string {
-	out := make([]string, 0, len(builtInActionOwners))
-	for action := range builtInActionOwners {
+	out := make([]string, 0, len(builtInActionScopes))
+	for action := range builtInActionScopes {
 		out = append(out, action)
 	}
 	sort.Strings(out)
@@ -367,7 +367,7 @@ func BuiltInActions() []string {
 
 func IsBuiltInAction(action string) bool {
 	action = strings.TrimSpace(action)
-	_, ok := builtInActionOwners[action]
+	_, ok := builtInActionScopes[action]
 	return ok
 }
 

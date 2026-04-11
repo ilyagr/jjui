@@ -7,9 +7,9 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/idursun/jjui/internal/jj"
 	"github.com/idursun/jjui/internal/ui/actions"
-	keybindings "github.com/idursun/jjui/internal/ui/bindings"
 	"github.com/idursun/jjui/internal/ui/common"
 	appContext "github.com/idursun/jjui/internal/ui/context"
+	"github.com/idursun/jjui/internal/ui/dispatch"
 	"github.com/idursun/jjui/internal/ui/intents"
 	"github.com/idursun/jjui/internal/ui/layout"
 	"github.com/idursun/jjui/internal/ui/operations"
@@ -35,30 +35,30 @@ type styles struct {
 
 var _ operations.Operation = (*Operation)(nil)
 var _ common.Focusable = (*Operation)(nil)
-var _ common.Overlay = (*Operation)(nil)
-var _ common.Editable = (*Operation)(nil)
+var _ dispatch.ScopeProvider = (*Operation)(nil)
 
 type Operation struct {
-	context      *appContext.MainContext
-	From         jj.SelectedRevisions
-	InsertStart  *jj.Commit
-	To           *jj.Commit
-	Target       intents.ModeTarget
-	targetName   string
-	targetPicker *target_picker.Model
-	styles       styles
+	context     *appContext.MainContext
+	From        jj.SelectedRevisions
+	InsertStart *jj.Commit
+	To          *jj.Commit
+	Target      intents.ModeTarget
+	targetName  string
+	styles      styles
 }
 
 func (r *Operation) IsFocused() bool {
 	return true
 }
 
-func (r *Operation) IsEditing() bool {
-	return r.targetPicker != nil
-}
-
-func (r *Operation) IsOverlay() bool {
-	return r.targetPicker != nil
+func (r *Operation) Scopes() []dispatch.Scope {
+	return []dispatch.Scope{
+		{
+			Name:    actions.ScopeDuplicate,
+			Leak:    dispatch.LeakAll,
+			Handler: r,
+		},
+	}
 }
 
 func (r *Operation) Init() tea.Cmd {
@@ -68,59 +68,40 @@ func (r *Operation) Init() tea.Cmd {
 func (r *Operation) Update(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case target_picker.TargetSelectedMsg:
-		r.targetPicker = nil
 		r.targetName = strings.TrimSpace(msg.Target)
-		return r.handleIntent(intents.Apply{Force: msg.Force})
-	case target_picker.TargetPickerCancelMsg:
-		r.targetPicker = nil
-		return nil
+		cmd, _ := r.HandleIntent(intents.Apply{Force: msg.Force})
+		return cmd
 	case intents.Intent:
-		if r.targetPicker != nil {
-			switch msg.(type) {
-			case intents.TargetPickerNavigate, intents.TargetPickerApply, intents.TargetPickerCancel:
-				return r.targetPicker.Update(msg)
-			}
-		}
-		return r.handleIntent(msg)
-	case tea.KeyMsg:
-		if r.targetPicker != nil {
-			return r.targetPicker.Update(msg)
-		}
-		return nil
-	default:
-		if r.targetPicker != nil {
-			return r.targetPicker.Update(msg)
-		}
-		return nil
+		cmd, _ := r.HandleIntent(msg)
+		return cmd
 	}
+	return nil
 }
 
-func (r *Operation) handleIntent(intent intents.Intent) tea.Cmd {
-	switch msg := intent.(type) {
+func (r *Operation) HandleIntent(intent intents.Intent) (tea.Cmd, bool) {
+	switch intent := intent.(type) {
 	case intents.StartAceJump:
-		return common.StartAceJump()
+		return common.StartAceJump(), true
 	case intents.DuplicateSetTarget:
-		r.Target = msg.Target
+		r.Target = intent.Target
 		if r.Target == intents.ModeTargetInsert {
 			r.InsertStart = r.To
 		}
+		return nil, true
 	case intents.DuplicateOpenTargetPicker:
-		r.targetPicker = target_picker.NewModel(r.context)
-		return r.targetPicker.Init()
+		return common.OpenTargetPicker(), true
 	case intents.Apply:
 		if r.Target == intents.ModeTargetInsert {
 			insertAfter := r.InsertStart.GetChangeId()
 			insertBefore := r.targetArg()
-			return r.context.RunCommand(jj.DuplicateInsert(r.From, insertAfter, insertBefore), common.RefreshAndSelect(r.From.Last()), common.CloseApplied)
+			return r.context.RunCommand(jj.DuplicateInsert(r.From, insertAfter, insertBefore), common.RefreshAndSelect(r.From.Last()), common.CloseApplied), true
 		}
 		target := targetToFlags[r.Target]
-		return r.context.RunCommand(jj.Duplicate(r.From, r.targetArg(), target), common.RefreshAndSelect(r.From.Last()), common.CloseApplied)
+		return r.context.RunCommand(jj.Duplicate(r.From, r.targetArg(), target), common.RefreshAndSelect(r.From.Last()), common.CloseApplied), true
 	case intents.Cancel:
-		return common.Close
-	default:
-		return nil
+		return common.Close, true
 	}
-	return nil
+	return nil, false
 }
 
 func (r *Operation) SetSelectedRevision(commit *jj.Commit) tea.Cmd {
@@ -198,18 +179,7 @@ func (r *Operation) Name() string {
 	return "duplicate"
 }
 
-func (r *Operation) Scope() keybindings.Scope {
-	if r.targetPicker != nil {
-		return keybindings.Scope(actions.OwnerTargetPicker)
-	}
-	return keybindings.Scope(actions.OwnerDuplicate)
-}
-
-func (r *Operation) ViewRect(dl *render.DisplayContext, box layout.Box) {
-	if r.targetPicker != nil {
-		r.targetPicker.ViewRect(dl, box)
-	}
-}
+func (r *Operation) ViewRect(_ *render.DisplayContext, _ layout.Box) {}
 
 func (r *Operation) targetArg() string {
 	if strings.TrimSpace(r.targetName) != "" {

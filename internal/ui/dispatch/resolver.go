@@ -13,7 +13,7 @@ import (
 // Result is the outcome of full dispatch resolution.
 type Result struct {
 	Intent        intents.Intent
-	Owner         string
+	Scope         string
 	Args          map[string]any
 	LuaScript     string
 	Pending       bool
@@ -22,7 +22,7 @@ type Result struct {
 }
 
 // Resolver wraps a Dispatcher and extends the pipeline to resolve
-// keys all the way to intents and owners.
+// keys all the way to intents and scopes.
 type Resolver struct {
 	dispatcher        *Dispatcher
 	configuredActions map[keybindings.Action]config.ActionConfig
@@ -49,7 +49,7 @@ func newResolverWithActions(d *Dispatcher, actions []config.ActionConfig) *Resol
 }
 
 // ResolveKey resolves a key press through the full pipeline: key → binding → action → intent.
-func (r *Resolver) ResolveKey(msg tea.KeyMsg, scopes []keybindings.Scope) Result {
+func (r *Resolver) ResolveKey(msg tea.KeyMsg, scopes []Scope) Result {
 	if r.dispatcher == nil {
 		return Result{}
 	}
@@ -63,7 +63,11 @@ func (r *Resolver) ResolveKey(msg tea.KeyMsg, scopes []keybindings.Scope) Result
 		}
 	}
 	if bindResult.Action != "" {
-		return r.resolveAction(bindResult.Action, bindResult.Args, false)
+		result := r.resolveAction(bindResult.Action, bindResult.Args, false)
+		if bindResult.Scope != "" {
+			result.Scope = string(bindResult.Scope)
+		}
+		return result
 	}
 	if bindResult.Consumed {
 		return Result{Consumed: true}
@@ -102,8 +106,8 @@ func (r *Resolver) resolveAction(action keybindings.Action, args map[string]any,
 	}
 
 	// try catalog resolution
-	if intent, owner, ok := r.resolveFromCatalog(action, args); ok {
-		return Result{Intent: intent, Owner: owner, Args: args, Consumed: true}
+	if intent, scope, ok := r.resolveFromCatalog(action, args); ok {
+		return Result{Intent: intent, Scope: scope, Args: args, Consumed: true}
 	}
 
 	// 4. Unresolved — action was matched by binding but has no handler
@@ -116,6 +120,6 @@ func (r *Resolver) resolveFromCatalog(action keybindings.Action, args map[string
 		return nil, "", false
 	}
 
-	owner := DeriveOwner(action)
-	return intent, owner, true
+	scope := DeriveScope(action)
+	return intent, scope, true
 }

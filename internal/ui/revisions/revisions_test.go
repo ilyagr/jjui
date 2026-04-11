@@ -3,13 +3,15 @@ package revisions
 import (
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/idursun/jjui/internal/jj"
 	"github.com/idursun/jjui/internal/parser"
 	"github.com/idursun/jjui/internal/screen"
-	"github.com/idursun/jjui/internal/ui/actions"
-	keybindings "github.com/idursun/jjui/internal/ui/bindings"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/intents"
+	"github.com/idursun/jjui/internal/ui/layout"
+	"github.com/idursun/jjui/internal/ui/operations"
+	"github.com/idursun/jjui/internal/ui/render"
 	"github.com/idursun/jjui/test"
 	"github.com/stretchr/testify/assert"
 )
@@ -55,6 +57,23 @@ var rows = []parser.Row{
 	},
 }
 
+type viewRectTrackingOp struct {
+	name          string
+	viewRectCalls int
+}
+
+func (o *viewRectTrackingOp) Init() tea.Cmd { return nil }
+
+func (o *viewRectTrackingOp) Update(tea.Msg) tea.Cmd { return nil }
+
+func (o *viewRectTrackingOp) ViewRect(_ *render.DisplayContext, _ layout.Box) {
+	o.viewRectCalls++
+}
+
+func (o *viewRectTrackingOp) Render(*jj.Commit, operations.RenderPosition) string { return "" }
+
+func (o *viewRectTrackingOp) Name() string { return o.name }
+
 func TestModel_Navigate(t *testing.T) {
 	ctx := test.NewTestContext(test.NewTestCommandRunner(t))
 	model := New(ctx)
@@ -64,6 +83,33 @@ func TestModel_Navigate(t *testing.T) {
 	assert.Equal(t, "b", model.SelectedRevision().ChangeId)
 	test.SimulateModel(model, model.Update(intents.Navigate{Delta: -1}))
 	assert.Equal(t, "a", model.SelectedRevision().ChangeId)
+}
+
+func TestModel_RenderImmediateInNormalMode(t *testing.T) {
+	ctx := test.NewTestContext(test.NewTestCommandRunner(t))
+	model := New(ctx)
+	model.updateGraphRows(rows, "a")
+
+	assert.NotPanics(t, func() {
+		rendered := test.RenderImmediate(model, 100, 20)
+		assert.Contains(t, rendered, "a")
+	})
+}
+
+func TestModel_ViewRectOnlyRendersStackedChildren(t *testing.T) {
+	ctx := test.NewTestContext(test.NewTestCommandRunner(t))
+	model := New(ctx)
+	model.updateGraphRows(rows, "a")
+
+	base := &viewRectTrackingOp{name: "base"}
+	child := &viewRectTrackingOp{name: "child"}
+	model.baseOp = base
+	model.layers = []common.ImmediateModel{child}
+
+	_ = test.RenderImmediate(model, 100, 20)
+
+	assert.Zero(t, base.viewRectCalls)
+	assert.Equal(t, 1, child.viewRectCalls)
 }
 
 func TestModel_OperationIntents(t *testing.T) {
@@ -136,19 +182,4 @@ func TestModel_TargetPickerCancelClosesEditing(t *testing.T) {
 
 	test.SimulateModel(model, model.Update(intents.TargetPickerCancel{}))
 	assert.False(t, model.IsEditing(), "target picker cancel should exit editing mode")
-}
-
-func TestModel_StartAceJumpMsg_OpensAceJumpOperation(t *testing.T) {
-	ctx := test.NewTestContext(test.NewTestCommandRunner(t))
-	model := New(ctx)
-	model.updateGraphRows(rows, "a")
-
-	test.SimulateModel(model, model.Update(intents.OpenAbandon{}))
-	assert.Equal(t, "abandon", model.CurrentOperation().Name())
-
-	test.SimulateModel(model, model.Update(common.StartAceJumpMsg{}))
-	scopes := model.ScopeChain()
-	assert.NotEmpty(t, scopes)
-	assert.Equal(t, keybindings.Scope(actions.OwnerAceJump), scopes[0])
-	assert.Len(t, scopes, 1)
 }

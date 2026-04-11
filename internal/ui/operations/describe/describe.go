@@ -6,9 +6,9 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/idursun/jjui/internal/jj"
 	"github.com/idursun/jjui/internal/ui/actions"
-	keybindings "github.com/idursun/jjui/internal/ui/bindings"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/context"
+	"github.com/idursun/jjui/internal/ui/dispatch"
 	"github.com/idursun/jjui/internal/ui/intents"
 	"github.com/idursun/jjui/internal/ui/layout"
 	"github.com/idursun/jjui/internal/ui/operations"
@@ -19,6 +19,7 @@ var (
 	_ operations.Operation         = (*Operation)(nil)
 	_ operations.EmbeddedOperation = (*Operation)(nil)
 	_ common.Editable              = (*Operation)(nil)
+	_ dispatch.ScopeProvider       = (*Operation)(nil)
 )
 
 var stashed *stashedDescription = nil
@@ -43,6 +44,16 @@ func (o *Operation) IsFocused() bool {
 	return true
 }
 
+func (o *Operation) Scopes() []dispatch.Scope {
+	return []dispatch.Scope{
+		{
+			Name:    actions.ScopeInlineDescribe,
+			Leak:    dispatch.LeakNone,
+			Handler: o,
+		},
+	}
+}
+
 func (o *Operation) Render(commit *jj.Commit, pos operations.RenderPosition) string {
 	if pos != operations.RenderOverDescription {
 		return ""
@@ -65,10 +76,6 @@ func (o *Operation) Name() string {
 	return "inline_describe"
 }
 
-func (o *Operation) Scope() keybindings.Scope {
-	return keybindings.Scope(actions.OwnerInlineDescribe)
-}
-
 func (o *Operation) Update(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
@@ -78,7 +85,8 @@ func (o *Operation) Update(msg tea.Msg) tea.Cmd {
 		o.input, cmd = o.input.Update(msg)
 		return cmd
 	case intents.Intent:
-		return o.handleIntent(msg)
+		cmd, _ := o.HandleIntent(msg)
+		return cmd
 	}
 
 	o.input, cmd = o.input.Update(msg)
@@ -86,7 +94,7 @@ func (o *Operation) Update(msg tea.Msg) tea.Cmd {
 	return cmd
 }
 
-func (o *Operation) handleIntent(intent intents.Intent) tea.Cmd {
+func (o *Operation) HandleIntent(intent intents.Intent) (tea.Cmd, bool) {
 	switch intent := intent.(type) {
 	case intents.Cancel:
 		unsavedDescription := o.input.Value()
@@ -97,16 +105,15 @@ func (o *Operation) handleIntent(intent intents.Intent) tea.Cmd {
 			}
 			return tea.Batch(common.Close, func() tea.Msg {
 				return intents.AddMessage{Text: "Unsaved description is stashed. Edit again to restore."}
-			})
+			}), true
 		}
-		return common.Close
+		return common.Close, true
 	case intents.InlineDescribeEditor:
-		return o.runInlineDescribeEditor()
+		return o.runInlineDescribeEditor(), true
 	case intents.InlineDescribeAccept:
-		return o.runInlineDescribeAccept(intent.Force)
-	default:
-		return nil
+		return o.runInlineDescribeAccept(intent.Force), true
 	}
+	return nil, false
 }
 
 func (o *Operation) runInlineDescribeEditor() tea.Cmd {

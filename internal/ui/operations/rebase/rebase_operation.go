@@ -10,9 +10,9 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/idursun/jjui/internal/jj"
 	"github.com/idursun/jjui/internal/ui/actions"
-	keybindings "github.com/idursun/jjui/internal/ui/bindings"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/context"
+	"github.com/idursun/jjui/internal/ui/dispatch"
 	"github.com/idursun/jjui/internal/ui/intents"
 	"github.com/idursun/jjui/internal/ui/layout"
 	"github.com/idursun/jjui/internal/ui/operations"
@@ -51,10 +51,9 @@ type styles struct {
 }
 
 var (
-	_ operations.Operation = (*Operation)(nil)
-	_ common.Focusable     = (*Operation)(nil)
-	_ common.Overlay       = (*Operation)(nil)
-	_ common.Editable      = (*Operation)(nil)
+	_ operations.Operation   = (*Operation)(nil)
+	_ common.Focusable       = (*Operation)(nil)
+	_ dispatch.ScopeProvider = (*Operation)(nil)
 )
 
 type Operation struct {
@@ -65,7 +64,6 @@ type Operation struct {
 	Source         Source
 	Target         intents.ModeTarget
 	targetName     string
-	targetPicker   *target_picker.Model
 	highlightedIds []string
 	styles         styles
 	SkipEmptied    bool
@@ -81,12 +79,14 @@ func (r *Operation) IsFocused() bool {
 	return true
 }
 
-func (r *Operation) IsEditing() bool {
-	return r.targetPicker != nil
-}
-
-func (r *Operation) IsOverlay() bool {
-	return r.targetPicker != nil
+func (r *Operation) Scopes() []dispatch.Scope {
+	return []dispatch.Scope{
+		{
+			Name:    actions.ScopeRebase,
+			Leak:    dispatch.LeakAll,
+			Handler: r,
+		},
+	}
 }
 
 func (r *Operation) Init() tea.Cmd {
@@ -96,68 +96,51 @@ func (r *Operation) Init() tea.Cmd {
 func (r *Operation) Update(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case target_picker.TargetSelectedMsg:
-		r.targetPicker = nil
 		r.targetName = strings.TrimSpace(msg.Target)
-		return r.handleIntent(intents.Apply{Force: msg.Force})
-	case target_picker.TargetPickerCancelMsg:
-		r.targetPicker = nil
-		return nil
+		cmd, _ := r.HandleIntent(intents.Apply{Force: msg.Force})
+		return cmd
 	case updateHighlightedIdsMsg:
 		r.highlightedIds = msg.ids
 		return nil
 	case intents.Intent:
-		if r.targetPicker != nil {
-			switch msg.(type) {
-			case intents.TargetPickerNavigate, intents.TargetPickerApply, intents.TargetPickerCancel:
-				return r.targetPicker.Update(msg)
-			}
-		}
-		return r.handleIntent(msg)
-	case tea.KeyMsg:
-		if r.targetPicker != nil {
-			return r.targetPicker.Update(msg)
-		}
-		return nil
-	default:
-		if r.targetPicker != nil {
-			return r.targetPicker.Update(msg)
-		}
-		return nil
+		cmd, _ := r.HandleIntent(msg)
+		return cmd
 	}
+	return nil
 }
 
-func (r *Operation) handleIntent(intent intents.Intent) tea.Cmd {
+func (r *Operation) HandleIntent(intent intents.Intent) (tea.Cmd, bool) {
 	switch msg := intent.(type) {
 	case intents.StartAceJump:
-		return common.StartAceJump()
+		return common.StartAceJump(), true
 	case intents.RebaseSetSource:
 		r.Source = rebaseSourceFromIntent(msg.Source)
+		return nil, true
 	case intents.RebaseSetTarget:
 		r.Target = msg.Target
 		if r.Target == intents.ModeTargetInsert {
 			r.InsertStart = r.To
 		}
+		return nil, true
 	case intents.RebaseOpenTargetPicker:
-		r.targetPicker = target_picker.NewModel(r.context)
-		return r.targetPicker.Init()
+		return common.OpenTargetPicker(), true
 	case intents.RebaseToggleSkipEmptied:
 		r.SkipEmptied = !r.SkipEmptied
+		return nil, true
 	case intents.Apply:
 		skipEmptied := r.SkipEmptied
 		source := sourceToFlags[r.Source]
 		if r.Target == intents.ModeTargetInsert {
 			insertAfter := r.InsertStart.GetChangeId()
 			insertBefore := r.targetArg()
-			return r.context.RunCommand(jj.RebaseInsert(r.From, source, insertAfter, insertBefore, skipEmptied, msg.Force), common.RefreshAndSelect(r.From.Last()), common.CloseApplied)
+			return r.context.RunCommand(jj.RebaseInsert(r.From, source, insertAfter, insertBefore, skipEmptied, msg.Force), common.RefreshAndSelect(r.From.Last()), common.CloseApplied), true
 		}
 		target := targetToFlags[r.Target]
-		return r.context.RunCommand(jj.Rebase(r.From, source, r.targetArg(), target, skipEmptied, msg.Force), common.RefreshAndSelect(r.From.Last()), common.CloseApplied)
+		return r.context.RunCommand(jj.Rebase(r.From, source, r.targetArg(), target, skipEmptied, msg.Force), common.RefreshAndSelect(r.From.Last()), common.CloseApplied), true
 	case intents.Cancel:
-		return common.Close
-	default:
-		return nil
+		return common.Close, true
 	}
-	return nil
+	return nil, false
 }
 
 func rebaseSourceFromIntent(source intents.RebaseSource) Source {
@@ -294,18 +277,7 @@ func (r *Operation) Name() string {
 	return "rebase"
 }
 
-func (r *Operation) Scope() keybindings.Scope {
-	if r.targetPicker != nil {
-		return keybindings.Scope(actions.OwnerTargetPicker)
-	}
-	return keybindings.Scope(actions.OwnerRebase)
-}
-
-func (r *Operation) ViewRect(dl *render.DisplayContext, box layout.Box) {
-	if r.targetPicker != nil {
-		r.targetPicker.ViewRect(dl, box)
-	}
-}
+func (r *Operation) ViewRect(_ *render.DisplayContext, _ layout.Box) {}
 
 func (r *Operation) targetArg() string {
 	if strings.TrimSpace(r.targetName) != "" {

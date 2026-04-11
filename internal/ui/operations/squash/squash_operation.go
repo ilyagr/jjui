@@ -8,9 +8,9 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/idursun/jjui/internal/jj"
 	"github.com/idursun/jjui/internal/ui/actions"
-	keybindings "github.com/idursun/jjui/internal/ui/bindings"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/context"
+	"github.com/idursun/jjui/internal/ui/dispatch"
 	"github.com/idursun/jjui/internal/ui/intents"
 	"github.com/idursun/jjui/internal/ui/layout"
 	"github.com/idursun/jjui/internal/ui/operations"
@@ -19,10 +19,9 @@ import (
 )
 
 var (
-	_ operations.Operation = (*Operation)(nil)
-	_ common.Focusable     = (*Operation)(nil)
-	_ common.Overlay       = (*Operation)(nil)
-	_ common.Editable      = (*Operation)(nil)
+	_ operations.Operation   = (*Operation)(nil)
+	_ common.Focusable       = (*Operation)(nil)
+	_ dispatch.ScopeProvider = (*Operation)(nil)
 )
 
 type Operation struct {
@@ -31,7 +30,6 @@ type Operation struct {
 	files                 []string
 	current               *jj.Commit
 	targetName            string
-	targetPicker          *target_picker.Model
 	keepEmptied           bool
 	useDestinationMessage bool
 	interactive           bool
@@ -42,12 +40,14 @@ func (s *Operation) IsFocused() bool {
 	return true
 }
 
-func (s *Operation) IsEditing() bool {
-	return s.targetPicker != nil
-}
-
-func (s *Operation) IsOverlay() bool {
-	return s.targetPicker != nil
+func (s *Operation) Scopes() []dispatch.Scope {
+	return []dispatch.Scope{
+		{
+			Name:    actions.ScopeSquash,
+			Leak:    dispatch.LeakAll,
+			Handler: s,
+		},
+	}
 }
 
 type styles struct {
@@ -63,49 +63,31 @@ func (s *Operation) Init() tea.Cmd {
 func (s *Operation) Update(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case target_picker.TargetSelectedMsg:
-		s.targetPicker = nil
 		s.targetName = strings.TrimSpace(msg.Target)
-		return s.handleIntent(intents.Apply{Force: msg.Force})
-	case target_picker.TargetPickerCancelMsg:
-		s.targetPicker = nil
-		return nil
+		cmd, _ := s.HandleIntent(intents.Apply{Force: msg.Force})
+		return cmd
 	case intents.Intent:
-		if s.targetPicker != nil {
-			switch msg.(type) {
-			case intents.TargetPickerNavigate, intents.TargetPickerApply, intents.TargetPickerCancel:
-				return s.targetPicker.Update(msg)
-			}
-		}
-		return s.handleIntent(msg)
-	case tea.KeyMsg:
-		if s.targetPicker != nil {
-			return s.targetPicker.Update(msg)
-		}
-		return nil
-	default:
-		if s.targetPicker != nil {
-			return s.targetPicker.Update(msg)
-		}
-		return nil
+		cmd, _ := s.HandleIntent(msg)
+		return cmd
 	}
+	return nil
 }
 
-func (s *Operation) handleIntent(intent intents.Intent) tea.Cmd {
+func (s *Operation) HandleIntent(intent intents.Intent) (tea.Cmd, bool) {
 	switch intent := intent.(type) {
 	case intents.StartAceJump:
-		return common.StartAceJump()
+		return common.StartAceJump(), true
 	case intents.Apply:
 		args := jj.Squash(s.from, s.targetArg(), s.files, s.keepEmptied, s.useDestinationMessage, s.interactive, intent.Force)
 		continuation := common.RefreshAndSelect(s.current.GetChangeId())
 		if s.interactive || !s.useDestinationMessage {
-			return tea.Batch(common.CloseApplied, s.context.RunInteractiveCommand(args, continuation))
+			return tea.Batch(common.CloseApplied, s.context.RunInteractiveCommand(args, continuation)), true
 		}
-		return tea.Batch(common.CloseApplied, s.context.RunCommand(args, continuation))
+		return tea.Batch(common.CloseApplied, s.context.RunCommand(args, continuation)), true
 	case intents.SquashOpenTargetPicker:
-		s.targetPicker = target_picker.NewModel(s.context)
-		return s.targetPicker.Init()
+		return common.OpenTargetPicker(), true
 	case intents.Cancel:
-		return common.Close
+		return common.Close, true
 	case intents.SquashToggleOption:
 		switch intent.Option {
 		case intents.SquashOptionKeepEmptied:
@@ -115,17 +97,12 @@ func (s *Operation) handleIntent(intent intents.Intent) tea.Cmd {
 		case intents.SquashOptionInteractive:
 			s.interactive = !s.interactive
 		}
-	default:
-		return nil
+		return nil, true
 	}
-	return nil
+	return nil, false
 }
 
-func (s *Operation) ViewRect(dl *render.DisplayContext, box layout.Box) {
-	if s.targetPicker != nil {
-		s.targetPicker.ViewRect(dl, box)
-	}
-}
+func (s *Operation) ViewRect(_ *render.DisplayContext, _ layout.Box) {}
 
 func (s *Operation) SetSelectedRevision(commit *jj.Commit) tea.Cmd {
 	s.current = commit
@@ -161,13 +138,6 @@ func (s *Operation) Render(commit *jj.Commit, pos operations.RenderPosition) str
 
 func (s *Operation) Name() string {
 	return "squash"
-}
-
-func (s *Operation) Scope() keybindings.Scope {
-	if s.targetPicker != nil {
-		return keybindings.Scope(actions.OwnerTargetPicker)
-	}
-	return keybindings.Scope(actions.OwnerSquash)
 }
 
 func (s *Operation) targetArg() string {

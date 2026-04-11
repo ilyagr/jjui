@@ -9,7 +9,7 @@ import (
 	"github.com/idursun/jjui/internal/config"
 	"github.com/idursun/jjui/internal/ui/actions"
 	"github.com/idursun/jjui/internal/ui/common"
-	"github.com/idursun/jjui/internal/ui/helpkeys"
+	"github.com/idursun/jjui/internal/ui/dispatch"
 	"github.com/idursun/jjui/internal/ui/intents"
 	"github.com/idursun/jjui/internal/ui/layout"
 	"github.com/idursun/jjui/internal/ui/render"
@@ -94,11 +94,6 @@ var scopeOrder = []string{
 	"ui.preview",
 }
 
-type scopeGroup struct {
-	name    string
-	entries []helpkeys.Entry
-}
-
 type styles struct {
 	border   lipgloss.Style
 	title    lipgloss.Style
@@ -109,12 +104,12 @@ type styles struct {
 }
 
 type Model struct {
-	groups    []scopeGroup
+	groups    []ScopeGroup
 	scroll    int
 	styles    styles
 	input     textinput.Model
 	filtering bool
-	filtered  []scopeGroup
+	filtered  []ScopeGroup
 }
 
 type helpScrollMsg struct{}
@@ -126,10 +121,6 @@ func (helpScrollMsg) SetDelta(delta int, horizontal bool) tea.Msg {
 	return intents.HelpScroll{Delta: delta}
 }
 
-func (m *Model) StackedActionOwner() string {
-	return actions.OwnerHelp
-}
-
 func (m *Model) IsEditing() bool {
 	return m.filtering
 }
@@ -138,12 +129,32 @@ func (m *Model) IsFocused() bool {
 	return m.filtering
 }
 
-func (m *Model) Init() tea.Cmd {
-	return nil
+func (m *Model) Scopes() []dispatch.Scope {
+	if m.IsEditing() {
+		return []dispatch.Scope{
+			{
+				Name:    actions.ScopeHelp + ".filter",
+				Leak:    dispatch.LeakNone,
+				Handler: m,
+			},
+			{
+				Name:    actions.ScopeHelp,
+				Leak:    dispatch.LeakNone,
+				Handler: m,
+			},
+		}
+	}
+	return []dispatch.Scope{
+		{
+			Name:    actions.ScopeHelp,
+			Leak:    dispatch.LeakAll,
+			Handler: m,
+		},
+	}
 }
 
-func (m *Model) Update(msg tea.Msg) tea.Cmd {
-	switch msg := msg.(type) {
+func (m *Model) HandleIntent(intent intents.Intent) (tea.Cmd, bool) {
+	switch msg := intent.(type) {
 	case intents.Cancel:
 		if m.filtering {
 			m.filtering = false
@@ -151,28 +162,41 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			m.input.Blur()
 			m.filtered = nil
 			m.scroll = 0
-			return nil
+			return nil, true
 		}
-		return common.Close
+		return common.Close, true
 	case intents.Apply:
 		if m.filtering {
 			m.filtering = false
 			m.input.Blur()
-			return nil
+			return nil, true
 		}
+		return nil, false
 	case intents.HelpClose:
-		return common.Close
+		return common.Close, true
 	case intents.HelpFilter:
 		m.filtering = true
-		return m.input.Focus()
+		return m.input.Focus(), true
 	case intents.HelpScroll:
 		if msg.Delta == 0 {
 			m.scroll = 0
-		} else if msg.Delta >= 999999 {
-			m.scroll = m.totalLines()
 		} else {
 			m.scroll = max(0, m.scroll+msg.Delta)
 		}
+		return nil, true
+	}
+	return nil, false
+}
+
+func (m *Model) Init() tea.Cmd {
+	return nil
+}
+
+func (m *Model) Update(msg tea.Msg) tea.Cmd {
+	switch msg := msg.(type) {
+	case intents.Intent:
+		cmd, _ := m.HandleIntent(msg)
+		return cmd
 	case tea.KeyMsg, tea.PasteMsg:
 		if m.filtering {
 			prev := m.input.Value()
@@ -194,18 +218,18 @@ func (m *Model) applyFilter() {
 		m.filtered = nil
 		return
 	}
-	var result []scopeGroup
+	var result []ScopeGroup
 	for _, group := range m.groups {
-		var matched []helpkeys.Entry
-		for _, e := range group.entries {
+		var matched []Entry
+		for _, e := range group.Entries {
 			if strings.Contains(strings.ToLower(e.Desc), query) ||
 				strings.Contains(strings.ToLower(e.Label), query) ||
-				strings.Contains(strings.ToLower(group.name), query) {
+				strings.Contains(strings.ToLower(group.Name), query) {
 				matched = append(matched, e)
 			}
 		}
 		if len(matched) > 0 {
-			result = append(result, scopeGroup{name: group.name, entries: matched})
+			result = append(result, ScopeGroup{Name: group.Name, Entries: matched})
 		}
 	}
 	m.filtered = result
@@ -267,22 +291,22 @@ func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
 	}
 }
 
-func (m *Model) renderGroups(groups []scopeGroup, width int) []string {
+func (m *Model) renderGroups(groups []ScopeGroup, width int) []string {
 	var lines []string
 	for i, group := range groups {
 		if i > 0 {
 			lines = append(lines, "")
 		}
-		header := m.styles.heading.Width(width).Render("  " + group.name + " ")
+		header := m.styles.heading.Width(width).Render("  " + group.Name + " ")
 		lines = append(lines, header)
 
-		entryLines := m.renderEntries(group.entries, width)
+		entryLines := m.renderEntries(group.Entries, width)
 		lines = append(lines, entryLines...)
 	}
 	return lines
 }
 
-func (m *Model) renderEntries(entries []helpkeys.Entry, width int) []string {
+func (m *Model) renderEntries(entries []Entry, width int) []string {
 	maxLabelWidth := 0
 	for _, e := range entries {
 		if w := render.StringWidth(e.Label); w > maxLabelWidth {
@@ -316,25 +340,6 @@ func (m *Model) renderEntries(entries []helpkeys.Entry, width int) []string {
 		lines = append(lines, line.String())
 	}
 	return lines
-}
-
-func (m *Model) totalLines() int {
-	total := 0
-	for i, group := range m.groups {
-		if i > 0 {
-			total++ // blank line
-		}
-		total++ // header
-		maxLabelWidth := 0
-		for _, e := range group.entries {
-			if w := render.StringWidth(e.Label); w > maxLabelWidth {
-				maxLabelWidth = w
-			}
-		}
-		numRows := (len(group.entries) + 2) / 3 // rough estimate with 3 cols
-		total += numRows
-	}
-	return total
 }
 
 func New() *Model {
@@ -376,7 +381,7 @@ var skipScopes = map[string]bool{
 	"choose.filter": true,
 }
 
-func buildGroups(bindings []config.BindingConfig) []scopeGroup {
+func buildGroups(bindings []config.BindingConfig) []ScopeGroup {
 	byScope := make(map[string][]config.BindingConfig)
 	for _, b := range bindings {
 		scope := strings.TrimSpace(b.Scope)
@@ -386,7 +391,7 @@ func buildGroups(bindings []config.BindingConfig) []scopeGroup {
 		byScope[scope] = append(byScope[scope], b)
 	}
 
-	var groups []scopeGroup
+	var groups []ScopeGroup
 	seen := make(map[string]bool)
 
 	for _, scope := range scopeOrder {
@@ -400,7 +405,7 @@ func buildGroups(bindings []config.BindingConfig) []scopeGroup {
 			continue
 		}
 		name := scopeDisplayName(scope)
-		groups = append(groups, scopeGroup{name: name, entries: entries})
+		groups = append(groups, ScopeGroup{Name: name, Entries: entries})
 	}
 
 	// Any scopes not in scopeOrder
@@ -413,32 +418,27 @@ func buildGroups(bindings []config.BindingConfig) []scopeGroup {
 			continue
 		}
 		name := scopeDisplayName(scope)
-		groups = append(groups, scopeGroup{name: name, entries: entries})
+		groups = append(groups, ScopeGroup{Name: name, Entries: entries})
 	}
 
 	return groups
 }
 
-func bindingsToEntries(bindings []config.BindingConfig) []helpkeys.Entry {
-	var entries []helpkeys.Entry
+func bindingsToEntries(bindings []config.BindingConfig) []Entry {
+	var entries []Entry
 	seenActions := make(map[string]bool)
 	for _, b := range bindings {
 		action := strings.TrimSpace(b.Action)
 		if action == "" {
 			continue
 		}
-		label := helpkeys.BindingLabel(b)
+		label := BindingLabel(b)
 		if label == "" {
 			continue
 		}
 		desc := strings.TrimSpace(b.Desc)
 		if desc == "" {
-			// derive from action name
-			if idx := strings.LastIndexByte(action, '.'); idx >= 0 && idx < len(action)-1 {
-				desc = strings.ReplaceAll(action[idx+1:], "_", " ")
-			} else {
-				desc = strings.ReplaceAll(action, "_", " ")
-			}
+			desc = descFromAction(action)
 		}
 
 		key := action + "|" + desc
@@ -447,7 +447,7 @@ func bindingsToEntries(bindings []config.BindingConfig) []helpkeys.Entry {
 		}
 		seenActions[key] = true
 
-		entries = append(entries, helpkeys.Entry{Label: label, Desc: desc})
+		entries = append(entries, Entry{Label: label, Desc: desc})
 	}
 	return entries
 }

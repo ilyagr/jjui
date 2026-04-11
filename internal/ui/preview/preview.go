@@ -10,8 +10,10 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/idursun/jjui/internal/config"
 	"github.com/idursun/jjui/internal/jj"
+	"github.com/idursun/jjui/internal/ui/actions"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/context"
+	"github.com/idursun/jjui/internal/ui/dispatch"
 	"github.com/idursun/jjui/internal/ui/intents"
 	"github.com/idursun/jjui/internal/ui/layout"
 	"github.com/idursun/jjui/internal/ui/render"
@@ -50,6 +52,42 @@ func (s ScrollMsg) SetDelta(delta int, horizontal bool) tea.Msg {
 	s.Delta = delta
 	s.Horizontal = horizontal
 	return s
+}
+
+func (m *Model) Scopes() []dispatch.Scope {
+	if !m.Visible() {
+		return nil
+	}
+	return []dispatch.Scope{
+		{
+			Name:    actions.ScopeUiPreview,
+			Leak:    dispatch.LeakAll,
+			Global:  true,
+			Handler: m,
+		},
+	}
+}
+
+func (m *Model) HandleIntent(intent intents.Intent) (tea.Cmd, bool) {
+	switch msg := intent.(type) {
+	case intents.PreviewScroll:
+		switch msg.Kind {
+		case intents.PreviewScrollUp:
+			return m.Scroll(-1), true
+		case intents.PreviewScrollDown:
+			return m.Scroll(1), true
+		case intents.PreviewPageUp:
+			return m.PageUp(), true
+		case intents.PreviewPageDown:
+			return m.PageDown(), true
+		case intents.PreviewHalfPageUp:
+			return m.HalfPageUp(), true
+		case intents.PreviewHalfPageDown:
+			return m.HalfPageDown(), true
+		}
+		return nil, true
+	}
+	return nil, false
 }
 
 func (m *Model) Init() tea.Cmd {

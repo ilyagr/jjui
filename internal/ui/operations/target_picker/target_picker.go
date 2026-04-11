@@ -6,12 +6,16 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/idursun/jjui/internal/jj"
 	"github.com/idursun/jjui/internal/jj/source"
+	"github.com/idursun/jjui/internal/ui/actions"
 	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/context"
+	"github.com/idursun/jjui/internal/ui/dispatch"
 	"github.com/idursun/jjui/internal/ui/fuzzy_search"
 	"github.com/idursun/jjui/internal/ui/intents"
 	"github.com/idursun/jjui/internal/ui/layout"
+	"github.com/idursun/jjui/internal/ui/operations"
 	"github.com/idursun/jjui/internal/ui/render"
 	"github.com/sahilm/fuzzy"
 )
@@ -33,6 +37,15 @@ type Item struct {
 	Name string
 	Kind ItemKind
 }
+
+var (
+	_ operations.Operation   = (*Model)(nil)
+	_ dispatch.ScopeProvider = (*Model)(nil)
+	_ dispatch.ScopeHandler  = (*Model)(nil)
+	_ common.Focusable       = (*Model)(nil)
+	_ common.Editable        = (*Model)(nil)
+	_ common.Overlay         = (*Model)(nil)
+)
 
 type Model struct {
 	context             *context.MainContext
@@ -80,7 +93,23 @@ type TargetSelectedMsg struct {
 
 type TargetPickerCancelMsg struct{}
 
-var _ common.ImmediateModel = (*Model)(nil)
+func (m *Model) IsFocused() bool { return true }
+func (m *Model) IsEditing() bool { return true }
+func (m *Model) IsOverlay() bool { return true }
+
+func (m *Model) Name() string { return "target_picker" }
+
+func (m *Model) Render(_ *jj.Commit, _ operations.RenderPosition) string { return "" }
+
+func (m *Model) Scopes() []dispatch.Scope {
+	return []dispatch.Scope{
+		{
+			Name:    actions.ScopeTargetPicker,
+			Leak:    dispatch.LeakNone,
+			Handler: m,
+		},
+	}
+}
 
 func NewModel(ctx *context.MainContext) *Model {
 	palette := common.DefaultPalette
@@ -141,26 +170,8 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			m.listRenderer.StartLine = 0
 		}
 	case intents.Intent:
-		switch msg := msg.(type) {
-		case intents.TargetPickerCancel:
-			return TargetPickerCancelCmd()
-		case intents.TargetPickerApply:
-			return m.accept(msg.Force)
-		case intents.TargetPickerNavigate:
-			if msg.Delta < 0 {
-				m.cursorUp()
-			} else if msg.Delta > 0 {
-				m.cursorDown()
-			}
-			return nil
-		case intents.AutocompleteCycle:
-			if msg.Reverse {
-				m.cursorUp()
-			} else {
-				m.cursorDown()
-			}
-			return nil
-		}
+		var cmd, _ = m.HandleIntent(msg)
+		return cmd
 	case tea.KeyMsg, tea.PasteMsg:
 		var cmd tea.Cmd
 		m.input, cmd = m.input.Update(msg)
@@ -168,6 +179,30 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		return cmd
 	}
 	return nil
+}
+
+func (m *Model) HandleIntent(intent intents.Intent) (tea.Cmd, bool) {
+	switch intent := intent.(type) {
+	case intents.TargetPickerCancel:
+		return TargetPickerCancelCmd(), true
+	case intents.TargetPickerApply:
+		return m.accept(intent.Force), true
+	case intents.TargetPickerNavigate:
+		if intent.Delta < 0 {
+			m.cursorUp()
+		} else if intent.Delta > 0 {
+			m.cursorDown()
+		}
+		return nil, true
+	case intents.AutocompleteCycle:
+		if intent.Reverse {
+			m.cursorUp()
+		} else {
+			m.cursorDown()
+		}
+		return nil, true
+	}
+	return nil, false
 }
 
 func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {

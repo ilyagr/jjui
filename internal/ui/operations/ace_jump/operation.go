@@ -9,8 +9,8 @@ import (
 	"github.com/idursun/jjui/internal/parser"
 	"github.com/idursun/jjui/internal/screen"
 	"github.com/idursun/jjui/internal/ui/actions"
-	keybindings "github.com/idursun/jjui/internal/ui/bindings"
 	"github.com/idursun/jjui/internal/ui/common"
+	"github.com/idursun/jjui/internal/ui/dispatch"
 	"github.com/idursun/jjui/internal/ui/intents"
 	"github.com/idursun/jjui/internal/ui/layout"
 	"github.com/idursun/jjui/internal/ui/operations"
@@ -22,6 +22,7 @@ var (
 	_ operations.SegmentRenderer = (*Operation)(nil)
 	_ common.Focusable           = (*Operation)(nil)
 	_ common.Editable            = (*Operation)(nil)
+	_ dispatch.ScopeProvider     = (*Operation)(nil)
 )
 
 type Operation struct {
@@ -29,7 +30,6 @@ type Operation struct {
 	aceJump     *AceJump
 	getItemFn   func(index int) parser.Row
 	first, last int
-	parentOp    any // parent operation to return to after completion
 }
 
 func (o *Operation) IsEditing() bool {
@@ -40,22 +40,27 @@ func (o *Operation) IsFocused() bool {
 	return true
 }
 
+func (o *Operation) Scopes() []dispatch.Scope {
+	return []dispatch.Scope{
+		{
+			Name:    actions.ScopeAceJump,
+			Leak:    dispatch.LeakNone,
+			Handler: o,
+		},
+	}
+}
+
 func (o *Operation) Name() string {
 	return "ace jump"
 }
 
-func (o *Operation) Scope() keybindings.Scope {
-	return keybindings.Scope(actions.OwnerAceJump)
-}
-
-func NewOperation(setCursor func(int), getItemFn func(index int) parser.Row, first, last int, parentOp any) *Operation {
+func NewOperation(setCursor func(int), getItemFn func(index int) parser.Row, first, last int) *Operation {
 	return &Operation{
 		setCursor: setCursor,
 		aceJump:   NewAceJump(),
 		first:     first,
 		last:      last,
 		getItemFn: getItemFn,
-		parentOp:  parentOp,
 	}
 }
 
@@ -97,35 +102,32 @@ func (o *Operation) HandleKey(msg tea.KeyMsg) tea.Cmd {
 	if found := o.aceJump.Narrow(msg); found != nil {
 		o.setCursor(found.RowIdx)
 		o.aceJump = nil
-		if o.parentOp != nil {
-			return common.RestoreOperation(o.parentOp)
-		}
 		return common.Close
 	}
 	return nil
 }
 
+func (o *Operation) HandleIntent(intent intents.Intent) (tea.Cmd, bool) {
+	switch intent.(type) {
+	case intents.Cancel:
+		o.aceJump = nil
+		return common.Close, true
+	case intents.Apply:
+		if o.aceJump == nil || o.aceJump.First() == nil {
+			return nil, true
+		}
+		o.setCursor(o.aceJump.First().RowIdx)
+		o.aceJump = nil
+		return common.Close, true
+	}
+	return nil, false
+}
+
 func (o *Operation) Update(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
 	case intents.Intent:
-		switch msg.(type) {
-		case intents.Cancel:
-			o.aceJump = nil
-			if o.parentOp != nil {
-				return common.RestoreOperation(o.parentOp)
-			}
-			return common.Close
-		case intents.Apply:
-			if o.aceJump == nil || o.aceJump.First() == nil {
-				return nil
-			}
-			o.setCursor(o.aceJump.First().RowIdx)
-			o.aceJump = nil
-			if o.parentOp != nil {
-				return common.RestoreOperation(o.parentOp)
-			}
-			return common.Close
-		}
+		cmd, _ := o.HandleIntent(msg)
+		return cmd
 	case tea.KeyMsg:
 		return o.HandleKey(msg)
 	}
