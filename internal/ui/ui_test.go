@@ -227,6 +227,48 @@ func Test_HandleDispatchedAction_UsesFlashScopeWhenVisible(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func TestUndoDialogRawConfirmationKeysStillWork(t *testing.T) {
+	commandRunner := test.NewTestCommandRunner(t)
+	commandRunner.Expect(jj.OpLog(1))
+	defer commandRunner.Verify()
+
+	ctx := test.NewTestContext(commandRunner)
+	model := NewUI(ctx)
+
+	test.SimulateModel(model, func() tea.Msg { return intents.Undo{} })
+	scope, ok := model.stackedScope()
+	require.True(t, ok)
+	assert.Equal(t, keybindings.ScopeName(actions.ScopeUndo), scope)
+
+	test.SimulateModel(model, func() tea.Msg {
+		return tea.KeyPressMsg{Text: "n", Code: 'n'}
+	})
+
+	_, ok = model.stackedScope()
+	assert.False(t, ok, "pressing n should close the undo confirmation")
+}
+
+func TestRedoDialogRawConfirmationKeysStillWork(t *testing.T) {
+	commandRunner := test.NewTestCommandRunner(t)
+	commandRunner.Expect(jj.OpLog(1))
+	defer commandRunner.Verify()
+
+	ctx := test.NewTestContext(commandRunner)
+	model := NewUI(ctx)
+
+	test.SimulateModel(model, func() tea.Msg { return intents.Redo{} })
+	scope, ok := model.stackedScope()
+	require.True(t, ok)
+	assert.Equal(t, keybindings.ScopeName(actions.ScopeRedo), scope)
+
+	test.SimulateModel(model, func() tea.Msg {
+		return tea.KeyPressMsg{Text: "n", Code: 'n'}
+	})
+
+	_, ok = model.stackedScope()
+	assert.False(t, ok, "pressing n should close the redo confirmation")
+}
+
 // this test verifies that when `git` is activated and `status` is expanded,
 // pressing `esc` closes expanded `status`
 func Test_GitWithExpandedStatus_EscClosesStackedFirst(t *testing.T) {

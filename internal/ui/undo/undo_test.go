@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/idursun/jjui/internal/jj"
+	"github.com/idursun/jjui/internal/ui/common"
 	"github.com/idursun/jjui/internal/ui/intents"
 	"github.com/idursun/jjui/internal/ui/layout"
 	"github.com/idursun/jjui/internal/ui/render"
@@ -36,6 +37,29 @@ func TestCancel(t *testing.T) {
 	assert.Contains(t, test.RenderImmediate(model, 100, 20), "undo")
 
 	test.SimulateModel(model, func() tea.Msg { return intents.Cancel{} })
+}
+
+func TestOptionSelectMovesSelection(t *testing.T) {
+	commandRunner := test.NewTestCommandRunner(t)
+	commandRunner.Expect(jj.OpLog(1))
+	defer commandRunner.Verify()
+
+	model := NewModel(test.NewTestContext(commandRunner))
+	test.SimulateModel(model, model.Init())
+
+	var msgs []tea.Msg
+	test.SimulateModel(
+		model,
+		tea.Sequence(
+			func() tea.Msg { return intents.OptionSelect{Delta: 1} },
+			func() tea.Msg { return intents.Apply{} },
+		),
+		func(msg tea.Msg) {
+			msgs = append(msgs, msg)
+		},
+	)
+
+	assert.Contains(t, msgs, common.CloseViewMsg{}, "moving to the second option should close without running undo")
 }
 
 func TestUndo_ZIndex_RendersAbovePreview(t *testing.T) {

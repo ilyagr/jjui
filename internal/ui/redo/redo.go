@@ -25,7 +25,7 @@ func (m *Model) Scopes() []dispatch.Scope {
 	return []dispatch.Scope{
 		{
 			Name:    actions.ScopeRedo,
-			Leak:    dispatch.LeakAll,
+			Leak:    dispatch.LeakNone,
 			Handler: m,
 		},
 	}
@@ -34,9 +34,9 @@ func (m *Model) Scopes() []dispatch.Scope {
 func (m *Model) HandleIntent(intent intents.Intent) (tea.Cmd, bool) {
 	switch intent.(type) {
 	case intents.Apply:
-		return m.confirmation.Update(confirmation.SelectOptionMsg{Index: 0}), true
 	case intents.Cancel:
-		return m.confirmation.Update(confirmation.SelectOptionMsg{Index: 1}), true
+	case intents.OptionSelect:
+		return m.confirmation.Update(intent), true
 	}
 	return nil, false
 }
@@ -48,9 +48,9 @@ func (m *Model) Init() tea.Cmd {
 func (m *Model) Update(msg tea.Msg) tea.Cmd {
 	switch msg.(type) {
 	case intents.Apply:
-		return m.confirmation.Update(confirmation.SelectOptionMsg{Index: 0})
 	case intents.Cancel:
-		return m.confirmation.Update(confirmation.SelectOptionMsg{Index: 1})
+	case intents.OptionSelect:
+		return m.confirmation.Update(msg)
 	}
 	return m.confirmation.Update(msg)
 }
