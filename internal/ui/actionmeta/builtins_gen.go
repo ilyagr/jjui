@@ -155,6 +155,7 @@ var builtInActionScopes = map[string][]string{
 	"revisions.inline_describe.cancel":           {"revisions.inline_describe"},
 	"revisions.inline_describe.editor":           {"revisions.inline_describe"},
 	"revisions.inline_describe.force_accept":     {"revisions.inline_describe"},
+	"revisions.inline_describe.new_line":         {"revisions.inline_describe"},
 	"revisions.jump_to_children":                 {"revisions"},
 	"revisions.jump_to_parent":                   {"revisions"},
 	"revisions.jump_to_working_copy":             {"revisions"},

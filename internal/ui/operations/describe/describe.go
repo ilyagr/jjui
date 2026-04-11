@@ -110,6 +110,9 @@ func (o *Operation) HandleIntent(intent intents.Intent) (tea.Cmd, bool) {
 		return common.Close, true
 	case intents.InlineDescribeEditor:
 		return o.runInlineDescribeEditor(), true
+	case intents.InlineDescribeNewLine:
+		o.input.InsertString("\n")
+		return nil, true
 	case intents.InlineDescribeAccept:
 		return o.runInlineDescribeAccept(intent.Force), true
 	}

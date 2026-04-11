@@ -212,6 +212,7 @@ bindings = [
     { key = "alt+e", action = "revisions.inline_describe.editor", scope = "revisions.inline_describe", desc = "editor" },
     { key = ["alt+enter", "ctrl+s"], action = "revisions.inline_describe.accept", scope = "revisions.inline_describe", desc = "accept" },
     { key = "alt+shift+enter", action = "revisions.inline_describe.force_accept", scope = "revisions.inline_describe", desc = "force accept" },
+    { key = "enter", action = "revisions.inline_describe.new_line", scope = "revisions.inline_describe", desc = "new line" },
 
     # revisions.set_bookmark
     { key = "esc", action = "revisions.set_bookmark.cancel", scope = "revisions.set_bookmark", desc = "cancel" },

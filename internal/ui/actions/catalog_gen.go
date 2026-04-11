@@ -442,6 +442,8 @@ func ResolveIntent(scope string, action keybindings.Action, args map[string]any)
 			return intents.InlineDescribeEditor{}, true
 		case keybindings.Action("revisions.inline_describe.force_accept"):
 			return intents.InlineDescribeAccept{Force: true}, true
+		case keybindings.Action("revisions.inline_describe.new_line"):
+			return intents.InlineDescribeNewLine{}, true
 		}
 	case ScopeQuickSearch:
 		switch action {
