@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
+	"golang.org/x/tools/go/packages"
 )
 
 type bindRule struct {
@@ -36,6 +38,11 @@ type enumValueMeta struct {
 type parsedRule struct {
 	Rule bindRule
 	Errs []error
+}
+
+type parsedFile struct {
+	path string
+	file *ast.File
 }
 
 var (
@@ -338,30 +345,62 @@ func generateActionMetaSource(actionArgSchemas map[string]map[string]string, act
 	return src, nil
 }
 
-func collectBindRules(dir string) ([]bindRule, error) {
-	fset := token.NewFileSet()
-	pkgs, err := parser.ParseDir(fset, dir, nil, parser.ParseComments)
+func loadIntentsFiles(dir string) ([]parsedFile, error) {
+	cfg := &packages.Config{
+		Dir:  dir,
+		Mode: packages.NeedName | packages.NeedSyntax | packages.NeedCompiledGoFiles,
+		ParseFile: func(fset *token.FileSet, filename string, src []byte) (*ast.File, error) {
+			return parser.ParseFile(fset, filename, src, parser.ParseComments)
+		},
+	}
+
+	pkgs, err := packages.Load(cfg, ".")
 	if err != nil {
 		return nil, err
 	}
-	pkg, ok := pkgs["intents"]
-	if !ok {
+	if len(pkgs) != 1 {
+		return nil, fmt.Errorf("expected 1 package in %s, got %d", dir, len(pkgs))
+	}
+
+	pkg := pkgs[0]
+	if len(pkg.Errors) > 0 {
+		errs := make([]string, 0, len(pkg.Errors))
+		for _, err := range pkg.Errors {
+			errs = append(errs, err.Msg)
+		}
+		return nil, fmt.Errorf("load %s: %s", dir, strings.Join(errs, "; "))
+	}
+	if pkg.Name != "intents" {
 		return nil, fmt.Errorf("intents package not found in %s", dir)
 	}
 
-	var paths []string
-	for path := range pkg.Files {
-		paths = append(paths, path)
+	files := make([]parsedFile, 0, len(pkg.Syntax))
+	for i, file := range pkg.Syntax {
+		files = append(files, parsedFile{
+			path: pkg.CompiledGoFiles[i],
+			file: file,
+		})
 	}
-	sort.Strings(paths)
+
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].path < files[j].path
+	})
+
+	return files, nil
+}
+
+func collectBindRules(dir string) ([]bindRule, error) {
+	files, err := loadIntentsFiles(dir)
+	if err != nil {
+		return nil, err
+	}
 
 	var out []bindRule
 	seen := map[string]struct{}{}
 	var errs []string
 
-	for _, path := range paths {
-		file := pkg.Files[path]
-		for _, decl := range file.Decls {
+	for _, pf := range files {
+		for _, decl := range pf.file.Decls {
 			gen, ok := decl.(*ast.GenDecl)
 			if !ok || gen.Tok != token.TYPE {
 				continue
@@ -381,14 +420,14 @@ func collectBindRules(dir string) ([]bindRule, error) {
 				parsed := parseBindDirectives(doc, ts.Name.Name)
 				for _, pr := range parsed {
 					for _, e := range pr.Errs {
-						errs = append(errs, fmt.Sprintf("%s: %v", filepath.Base(path), e))
+						errs = append(errs, fmt.Sprintf("%s: %v", filepath.Base(pf.path), e))
 					}
 					if pr.Rule.Scope == "" || pr.Rule.Action == "" {
 						continue
 					}
 					key := pr.Rule.Scope + "|" + pr.Rule.Action
 					if _, ok := seen[key]; ok {
-						errs = append(errs, fmt.Sprintf("%s: duplicate binding for scope=%q action=%q", filepath.Base(path), pr.Rule.Scope, pr.Rule.Action))
+						errs = append(errs, fmt.Sprintf("%s: duplicate binding for scope=%q action=%q", filepath.Base(pf.path), pr.Rule.Scope, pr.Rule.Action))
 						continue
 					}
 					seen[key] = struct{}{}
@@ -476,19 +515,14 @@ func parseBindDirectives(doc *ast.CommentGroup, intentType string) []parsedRule 
 }
 
 func collectIntentTypeMeta(dir string) (map[string]intentTypeMeta, error) {
-	fset := token.NewFileSet()
-	pkgs, err := parser.ParseDir(fset, dir, nil, parser.ParseComments)
+	files, err := loadIntentsFiles(dir)
 	if err != nil {
 		return nil, err
 	}
-	pkg, ok := pkgs["intents"]
-	if !ok {
-		return nil, fmt.Errorf("intents package not found in %s", dir)
-	}
 
 	meta := map[string]intentTypeMeta{}
-	for _, file := range pkg.Files {
-		for _, decl := range file.Decls {
+	for _, pf := range files {
+		for _, decl := range pf.file.Decls {
 			gen, ok := decl.(*ast.GenDecl)
 			if !ok || gen.Tok != token.TYPE {
 				continue
@@ -515,19 +549,14 @@ func collectIntentTypeMeta(dir string) (map[string]intentTypeMeta, error) {
 }
 
 func collectEnumTypeMeta(dir string) (map[string][]enumValueMeta, error) {
-	fset := token.NewFileSet()
-	pkgs, err := parser.ParseDir(fset, dir, nil, parser.ParseComments)
+	files, err := loadIntentsFiles(dir)
 	if err != nil {
 		return nil, err
 	}
-	pkg, ok := pkgs["intents"]
-	if !ok {
-		return nil, fmt.Errorf("intents package not found in %s", dir)
-	}
 
 	out := map[string][]enumValueMeta{}
-	for _, file := range pkg.Files {
-		for _, decl := range file.Decls {
+	for _, pf := range files {
+		for _, decl := range pf.file.Decls {
 			gen, ok := decl.(*ast.GenDecl)
 			if !ok || gen.Tok != token.CONST {
 				continue
