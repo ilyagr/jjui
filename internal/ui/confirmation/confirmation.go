@@ -131,6 +131,9 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 		}
 		return nil
 	case tea.KeyPressMsg:
+		if msg.Code == tea.KeyEnter {
+			return m.Update(ApplySelectionMsg{Alt: msg.Mod&tea.ModAlt != 0})
+		}
 		for _, option := range m.options {
 			if key.Matches(msg, option.keyBinding) {
 				if msg.Mod&tea.ModAlt != 0 {

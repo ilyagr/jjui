@@ -117,6 +117,37 @@ func TestDispatcherIntentFlow(t *testing.T) {
 	assert.Equal(t, "no", selected)
 }
 
+func TestRawEnterAppliesSelectedOption(t *testing.T) {
+	var selected string
+	model := New(
+		[]string{"Test message"},
+		WithOption("Yes", func() tea.Msg {
+			selected = "yes"
+			return nil
+		}, key.NewBinding(key.WithKeys("y"), key.WithHelp("y", "yes"))),
+		WithAltOption("No", func() tea.Msg {
+			selected = "no"
+			return nil
+		}, func() tea.Msg {
+			selected = "no-alt"
+			return nil
+		}, key.NewBinding(key.WithKeys("n", "esc"), key.WithHelp("n/esc", "no"))),
+	)
+
+	cmd := model.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd != nil {
+		cmd()
+	}
+	assert.Equal(t, "yes", selected)
+
+	_ = model.Update(intents.OptionSelect{Delta: 1})
+	cmd = model.Update(tea.KeyPressMsg{Code: tea.KeyEnter, Mod: tea.ModAlt})
+	if cmd != nil {
+		cmd()
+	}
+	assert.Equal(t, "no-alt", selected)
+}
+
 func TestViewRect_DefaultRendersAtZBase(t *testing.T) {
 	model := New([]string{"Test message"})
 
