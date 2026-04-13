@@ -82,7 +82,7 @@ func TestCommandHistory_ViewUsesAvailableHeightInsteadOfFixedWindow(t *testing.T
 	assert.Contains(t, rendered, "jj cmd 11")
 }
 
-func TestCommandHistory_ViewDoesNotClipTopBorderOnExactFit(t *testing.T) {
+func TestCommandHistory_ViewDoesNotClipTopBorderOnExactFitBelowStatusBar(t *testing.T) {
 	source := New()
 	source.AddWithCommand("older-output", "jj older", nil)
 	source.AddWithCommand("newer-output", "jj newer", nil)
@@ -97,7 +97,7 @@ func TestCommandHistory_ViewDoesNotClipTopBorderOnExactFit(t *testing.T) {
 	}
 
 	dl := render.NewDisplayContext()
-	box := layout.NewBox(layout.Rect(0, 0, 60, totalHeight))
+	box := layout.NewBox(layout.Rect(0, 0, 60, totalHeight+1))
 	history.ViewRect(dl, box)
 	rendered := dl.RenderToString(box.R.Dx(), box.R.Dy())
 
