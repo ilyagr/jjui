@@ -320,6 +320,28 @@ func Test_GitWithExpandedStatus_EscClosesStackedFirst(t *testing.T) {
 	assert.Nil(t, model.stacked, "stacked (git) should close before expanded status")
 }
 
+func Test_Update_GitFilteredShortcutKeysDoNotLeakToRevisions(t *testing.T) {
+	commandRunner := test.NewTestCommandRunner(t)
+	commandRunner.Expect(jj.GitRemoteList()).SetOutput([]byte(""))
+	defer commandRunner.Verify()
+
+	ctx := test.NewTestContext(commandRunner)
+	model := NewUI(ctx)
+
+	gitModel := git.NewModel(ctx, jj.NewSelectedRevisions())
+	test.SimulateModel(gitModel, gitModel.Init())
+	test.SimulateModel(gitModel, func() tea.Msg { return intents.GitFilter{Kind: intents.GitFilterFetch} })
+	model.stacked = gitModel
+
+	key := tea.KeyPressMsg{Text: "a", Code: 'a'}
+	result := model.resolver.ResolveKey(key, model.dispatchScopes())
+	assert.Nil(t, result.Intent, "git shortcut keys should bypass bound outer scopes and fall through as raw input")
+	assert.False(t, result.Consumed, "git shortcut key should remain unbound at resolver level")
+
+	cmd := model.Update(key)
+	assert.NotNil(t, cmd, "git model should receive raw shortcut key and produce command")
+}
+
 func Test_Update_GlobalBindingsFromConfigOverrideLegacyGlobalKeys(t *testing.T) {
 	origBindings := config.Current.Bindings
 	defer func() {

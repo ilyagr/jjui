@@ -143,7 +143,7 @@ func (m *Model) Scopes() []dispatch.Scope {
 	return []dispatch.Scope{
 		{
 			Name:    actions.ScopeGit,
-			Leak:    dispatch.LeakAll,
+			Leak:    dispatch.LeakGlobal,
 			Handler: m,
 		},
 	}
