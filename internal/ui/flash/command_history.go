@@ -99,6 +99,7 @@ func (m *CommandHistoryModel) Update(msg tea.Msg) tea.Cmd {
 }
 
 func (m *CommandHistoryModel) ViewRect(dl *render.DisplayContext, box layout.Box) {
+	box, _ = box.CutBottom(1)
 	area := box.R
 	y := area.Max.Y
 	maxWidth := area.Dx() - 4

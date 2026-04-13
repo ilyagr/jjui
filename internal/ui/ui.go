@@ -386,7 +386,8 @@ func (m *Model) View() string {
 	}
 
 	if scope, ok := m.stackedScope(); !ok || scope != actions.ScopeCommandHistory {
-		m.flash.ViewRect(m.displayContext, box)
+		flashBox, _ := box.CutBottom(1)
+		m.flash.ViewRect(m.displayContext, flashBox)
 	}
 
 	if m.password != nil {
