@@ -70,13 +70,14 @@ func (m itemScrollMsg) SetDelta(delta int, horizontal bool) tea.Msg {
 }
 
 type menuStyles struct {
-	title    lipgloss.Style
-	shortcut lipgloss.Style
-	dimmed   lipgloss.Style
-	selected lipgloss.Style
-	matched  lipgloss.Style
-	text     lipgloss.Style
-	border   lipgloss.Style
+	title            lipgloss.Style
+	shortcut         lipgloss.Style
+	shortcutSelected lipgloss.Style
+	dimmed           lipgloss.Style
+	selected         lipgloss.Style
+	matched          lipgloss.Style
+	text             lipgloss.Style
+	border           lipgloss.Style
 }
 
 type remoteStyles struct {
@@ -453,13 +454,14 @@ func createMenuStyles(prefix string) menuStyles {
 		prefix += " "
 	}
 	return menuStyles{
-		title:    common.DefaultPalette.Get(prefix+"menu title").Padding(0, 1, 0, 1),
-		selected: common.DefaultPalette.Get(prefix + "menu selected"),
-		matched:  common.DefaultPalette.Get(prefix + "menu matched"),
-		dimmed:   common.DefaultPalette.Get(prefix + "menu dimmed"),
-		shortcut: common.DefaultPalette.Get(prefix + "menu shortcut"),
-		text:     common.DefaultPalette.Get(prefix + "menu text"),
-		border:   common.DefaultPalette.GetBorder(prefix+"menu border", lipgloss.NormalBorder()),
+		title:            common.DefaultPalette.Get(prefix+"menu title").Padding(0, 1, 0, 1),
+		selected:         common.DefaultPalette.Get(prefix + "menu selected"),
+		matched:          common.DefaultPalette.Get(prefix + "menu matched"),
+		dimmed:           common.DefaultPalette.Get(prefix + "menu dimmed"),
+		shortcut:         common.DefaultPalette.Get(prefix + "menu shortcut"),
+		shortcutSelected: common.DefaultPalette.Get(prefix + "menu selected shortcut"),
+		text:             common.DefaultPalette.Get(prefix + "menu text"),
+		border:           common.DefaultPalette.GetBorder(prefix+"menu border", lipgloss.NormalBorder()),
 	}
 }
 
@@ -629,7 +631,7 @@ func renderItem(dl *render.DisplayContext, rect layout.Rectangle, width int, sty
 	if index == cursor {
 		titleStyle = styles.selected
 		descStyle = styles.selected
-		shortcutStyle = shortcutStyle.Background(styles.selected.GetBackground())
+		shortcutStyle = styles.shortcutSelected
 	}
 
 	titleLine := ""

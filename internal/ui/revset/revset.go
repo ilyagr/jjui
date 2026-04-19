@@ -66,6 +66,9 @@ type styles struct {
 	completionText       lipgloss.Style
 	completionMatched    lipgloss.Style
 	completionSelected   lipgloss.Style
+	completionTextSel    lipgloss.Style
+	completionMatchedSel lipgloss.Style
+	completionDimmedSel  lipgloss.Style
 	completionDimmed     lipgloss.Style
 	completionBackground lipgloss.Style
 }
@@ -99,6 +102,9 @@ func New(context *appContext.MainContext) *Model {
 		completionText:       palette.Get("revset completion text"),
 		completionMatched:    palette.Get("revset completion matched"),
 		completionSelected:   palette.Get("revset completion selected"),
+		completionTextSel:    palette.Get("revset completion selected text"),
+		completionMatchedSel: palette.Get("revset completion selected matched"),
+		completionDimmedSel:  palette.Get("revset completion selected dimmed"),
 		completionDimmed:     palette.Get("revset completion dimmed"),
 		completionBackground: palette.Get("revset completion"),
 	}
@@ -407,21 +413,27 @@ func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
 			isSelected := index == m.selectedIndex
 
 			item := items[index]
+			completionText := m.styles.completionText
+			completionMatched := m.styles.completionMatched
+			completionDimmed := m.styles.completionDimmed
+			if isSelected {
+				completionText = m.styles.completionTextSel
+				completionMatched = m.styles.completionMatchedSel
+				completionDimmed = m.styles.completionDimmedSel
+				dl.AddFill(rect, ' ', m.styles.completionSelected.Inherit(m.styles.completionBackground), render.ZRevsetOverlay-1)
+			}
+
 			tb := dl.Text(rect.Min.X, rect.Min.Y, render.ZRevsetOverlay)
-			pillStyle := m.styles.completionDimmed.Width(pillWidth).Align(lipgloss.Right)
+			pillStyle := completionDimmed.Width(pillWidth).Align(lipgloss.Right)
 			tb.Styled(pillLabel(item.Kind), pillStyle)
-			tb.Styled(" ", m.styles.completionText)
-			tb.Styled(item.MatchedPart, m.styles.completionMatched)
-			tb.Styled(item.RestPart, m.styles.completionText)
-			tb.Styled(" ", m.styles.completionText)
+			tb.Styled(" ", completionText)
+			tb.Styled(item.MatchedPart, completionMatched)
+			tb.Styled(item.RestPart, completionText)
+			tb.Styled(" ", completionText)
 
 			if item.SignatureHelp != "" && item.Kind != KindHistory {
 				sigDisplay := m.formatSignature(item)
-				tb.Styled(sigDisplay, m.styles.completionDimmed)
-			}
-
-			if isSelected {
-				dl.AddPaint(rect, m.styles.completionSelected, render.ZRevsetOverlay+1)
+				tb.Styled(sigDisplay, completionDimmed)
 			}
 			tb.Done()
 		},

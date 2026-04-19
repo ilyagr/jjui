@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/idursun/jjui/internal/ui/common"
-	"github.com/rivo/uniseg"
 	"github.com/sahilm/fuzzy"
 )
 
@@ -142,19 +142,32 @@ func (fzf *RefinedSource) String(i int) string {
 
 // Adapted from gum/filter.go
 func HighlightMatched(line string, match fuzzy.Match, lineStyle lipgloss.Style, matchStyle lipgloss.Style) string {
-	var ranges []lipgloss.Range
-	for _, rng := range matchedRanges(match.MatchedIndexes) {
-		start, stop := bytePosToVisibleCharPos(match.Str, rng)
-		ranges = append(ranges, lipgloss.NewRange(start, stop+1, matchStyle))
+	if len(match.MatchedIndexes) == 0 {
+		return lineStyle.Render(line)
 	}
-	return lineStyle.Render(lipgloss.StyleRanges(line, ranges...))
+
+	var b strings.Builder
+	last := 0
+	for _, rng := range matchedRanges(match.MatchedIndexes) {
+		start := min(rng[0], len(line))
+		if start > last {
+			b.WriteString(lineStyle.Render(line[last:start]))
+		}
+
+		_, size := utf8.DecodeRuneInString(line[start:])
+		end := min(rng[1]+size, len(line))
+		if end > start {
+			b.WriteString(matchStyle.Render(line[start:end]))
+		}
+		last = end
+	}
+	if last < len(line) {
+		b.WriteString(lineStyle.Render(line[last:]))
+	}
+	return b.String()
 }
 
-// copied from gum/filter.go (MIT Licensed)
 func matchedRanges(in []int) [][2]int {
-	if len(in) == 0 {
-		return [][2]int{}
-	}
 	current := [2]int{in[0], in[0]}
 	if len(in) == 1 {
 		return [][2]int{current}
@@ -170,28 +183,4 @@ func matchedRanges(in []int) [][2]int {
 	}
 	out = append(out, current)
 	return out
-}
-
-// copied from gum/filter.go (MIT Licensed)
-func bytePosToVisibleCharPos(str string, rng [2]int) (int, int) {
-	bytePos, byteStart, byteStop := 0, rng[0], rng[1]
-	pos, start, stop := 0, 0, 0
-	gr := uniseg.NewGraphemes(str)
-	for byteStart > bytePos {
-		if !gr.Next() {
-			break
-		}
-		bytePos += len(gr.Str())
-		pos += max(1, gr.Width())
-	}
-	start = pos
-	for byteStop > bytePos {
-		if !gr.Next() {
-			break
-		}
-		bytePos += len(gr.Str())
-		pos += max(1, gr.Width())
-	}
-	stop = pos
-	return start, stop
 }

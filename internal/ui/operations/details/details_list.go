@@ -118,7 +118,7 @@ func (d *DetailsList) RenderFileList(dl *render.DisplayContext, viewRect layout.
 
 		baseStyle := d.getStatusStyle(item.status)
 		if isSelected {
-			baseStyle = baseStyle.Bold(true).Background(d.styles.Selected.GetBackground())
+			baseStyle = d.styles.Selected.Inherit(baseStyle)
 		} else {
 			baseStyle = baseStyle.Background(d.styles.Text.GetBackground())
 		}
@@ -126,14 +126,8 @@ func (d *DetailsList) RenderFileList(dl *render.DisplayContext, viewRect layout.
 		dl.AddFill(rect, ' ', background, 0)
 
 		tb := dl.Text(rect.Min.X, rect.Min.Y, 0)
-		d.renderItemContent(tb, item, index, baseStyle)
+		d.renderItemContent(tb, item, index, baseStyle, isSelected)
 		tb.Done()
-
-		// Add highlight for selected item
-		if isSelected {
-			style := d.getStatusStyle(item.status).Bold(true).Background(d.styles.Selected.GetBackground())
-			dl.AddHighlight(rect, style, 1)
-		}
 	}
 
 	clickMsg := func(index int, mouse tea.Mouse) render.ClickMessage {
@@ -158,7 +152,7 @@ func (d *DetailsList) RenderFileList(dl *render.DisplayContext, viewRect layout.
 }
 
 // renderItemContent renders a single item to a string
-func (d *DetailsList) renderItemContent(tb *render.TextBuilder, item *item, index int, style lipgloss.Style) {
+func (d *DetailsList) renderItemContent(tb *render.TextBuilder, item *item, index int, style lipgloss.Style, selected bool) {
 	// Build title with checkbox
 	title := item.Title()
 	if item.selected {
@@ -171,7 +165,11 @@ func (d *DetailsList) renderItemContent(tb *render.TextBuilder, item *item, inde
 
 	// Add conflict marker
 	if item.conflict {
-		tb.Styled("conflict ", d.styles.Conflict)
+		conflictStyle := d.styles.Conflict
+		if selected {
+			conflictStyle = d.styles.Selected.Inherit(conflictStyle)
+		}
+		tb.Styled("conflict ", conflictStyle)
 	}
 
 	// Add hint
@@ -183,7 +181,11 @@ func (d *DetailsList) renderItemContent(tb *render.TextBuilder, item *item, inde
 		}
 	}
 	if hint != "" {
-		tb.Styled(hint, d.styles.Dimmed)
+		hintStyle := d.styles.Dimmed
+		if selected {
+			hintStyle = d.styles.Selected.Inherit(hintStyle)
+		}
+		tb.Styled(hint, hintStyle)
 	}
 }
 

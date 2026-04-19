@@ -60,11 +60,14 @@ type Model struct {
 }
 
 type styles struct {
-	bookmarkPill lipgloss.Style
-	selected     lipgloss.Style
-	dimmed       lipgloss.Style
-	matchStyle   lipgloss.Style
-	border       lipgloss.Style
+	bookmarkPill       lipgloss.Style
+	selected           lipgloss.Style
+	selectedDimmed     lipgloss.Style
+	selectedText       lipgloss.Style
+	selectedMatchStyle lipgloss.Style
+	dimmed             lipgloss.Style
+	matchStyle         lipgloss.Style
+	border             lipgloss.Style
 }
 
 type itemsLoadedMsg struct {
@@ -131,11 +134,14 @@ func NewModel(ctx *context.MainContext) *Model {
 		input:   ti,
 		cursor:  0,
 		styles: styles{
-			bookmarkPill: palette.Get("picker bookmark"),
-			selected:     palette.Get("picker selected"),
-			dimmed:       dimmed,
-			matchStyle:   palette.Get("picker matched"),
-			border:       palette.GetBorder("picker border", lipgloss.NormalBorder()),
+			bookmarkPill:       palette.Get("picker bookmark"),
+			selected:           palette.Get("picker selected"),
+			selectedDimmed:     palette.Get("picker selected dimmed"),
+			selectedText:       palette.Get("picker selected text"),
+			selectedMatchStyle: palette.Get("picker selected matched"),
+			dimmed:             dimmed,
+			matchStyle:         palette.Get("picker matched"),
+			border:             palette.GetBorder("picker border", lipgloss.NormalBorder()),
 		},
 		listRenderer:        render.NewListRenderer(itemScrollMsg{}),
 		ensureCursorVisible: true,
@@ -240,22 +246,29 @@ func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
 			item := m.items[match.Index]
 			y := rect.Min.Y
 
-			pillText := m.renderPill(item.Kind)
-			pillRect := layout.Rect(rect.Min.X, y, pillWidth, 1)
-			dl.AddDraw(pillRect, pillText, render.ZMenuContent)
-
 			isSelected := index == m.cursor
+			pillStyle := m.styles.dimmed
 			lineStyle := m.styles.bookmarkPill
 			matchStyle := m.styles.matchStyle
 			if isSelected {
-				dl.AddHighlight(rect, m.styles.selected, render.ZMenuContent+1)
+				pillStyle = m.styles.selectedDimmed
+				lineStyle = m.styles.selectedText
+				matchStyle = m.styles.selectedMatchStyle
+				dl.AddFill(rect, ' ', m.styles.selected, render.ZMenuContent-1)
 			} else {
 				matchStyle = matchStyle.Inherit(lineStyle)
 			}
+			pillText := m.renderPill(item.Kind, pillStyle)
+			pillRect := layout.Rect(rect.Min.X, y, pillWidth, 1)
+			dl.AddDraw(pillRect, pillText, render.ZMenuContent)
+
 			nameContent := fuzzy_search.HighlightMatched(item.Name, match, lineStyle, matchStyle)
 			nameX := rect.Min.X + pillWidth + 1
-			nameRect := layout.Rect(nameX, y, rect.Dx()-pillWidth-1, 1)
-			dl.AddDraw(nameRect, nameContent, render.ZMenuContent)
+			nameWidth := min(lipgloss.Width(nameContent), rect.Dx()-pillWidth-1)
+			if nameWidth > 0 {
+				nameRect := layout.Rect(nameX, y, nameWidth, 1)
+				dl.AddDraw(nameRect, nameContent, render.ZMenuContent)
+			}
 		},
 		func(index int, _ tea.Mouse) tea.Msg { return itemClickedMsg{index: index} },
 	)
@@ -263,12 +276,12 @@ func (m *Model) ViewRect(dl *render.DisplayContext, box layout.Box) {
 	m.ensureCursorVisible = false
 }
 
-func (m *Model) renderPill(kind ItemKind) string {
+func (m *Model) renderPill(kind ItemKind, style lipgloss.Style) string {
 	switch kind {
 	case KindBookmark:
-		return m.styles.dimmed.Width(pillWidth).Align(lipgloss.Right).Render("bookmark")
+		return style.Width(pillWidth).Align(lipgloss.Right).Render("bookmark")
 	case KindTag:
-		return m.styles.dimmed.Width(pillWidth).Align(lipgloss.Right).Render("tag")
+		return style.Width(pillWidth).Align(lipgloss.Right).Render("tag")
 	default:
 		return strings.Repeat(" ", pillWidth)
 	}
