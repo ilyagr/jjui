@@ -35,7 +35,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.23 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/rivo/uniseg v0.4.7
+	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/tailscale/peercred v0.0.0-20250107143737-35a0c7bd7edc
 	golang.org/x/crypto v0.46.0
 	golang.org/x/sys v0.43.0
