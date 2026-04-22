@@ -224,6 +224,9 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 			return luaCmd(result.LuaScript)
 		}
 		if result.Intent != nil {
+			if result.Scope == actions.ScopeRevset {
+				return m.revsetModel.Update(result.Intent)
+			}
 			scopes := m.dispatchScopes()
 			cmd, _ := dispatch.RouteIntent(scopes, result.Intent)
 			return cmd

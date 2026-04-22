@@ -760,6 +760,36 @@ func Test_Update_LuaActionDispatchesBuiltInAction(t *testing.T) {
 	assert.True(t, model.revsetModel.Editing, "lua-dispatched revset.edit should enter revset editing")
 }
 
+func Test_Update_LuaRevsetSetWorksOutsideRevsetScope(t *testing.T) {
+	commandRunner := test.NewTestCommandRunner(t)
+	defer commandRunner.Verify()
+
+	ctx := test.NewTestContext(commandRunner)
+	ctx.CurrentRevset = "old"
+	model := NewUI(ctx)
+
+	cmd := model.Update(common.DispatchActionMsg{
+		Action: "revset.set",
+		Args:   map[string]any{"value": "new"},
+	})
+	require.NotNil(t, cmd)
+
+	batch, ok := cmd().(tea.BatchMsg)
+	require.True(t, ok)
+
+	applied := false
+	for _, batchCmd := range batch {
+		msg := batchCmd()
+		if revsetMsg, ok := msg.(common.UpdateRevSetMsg); ok {
+			applied = true
+			model.Update(revsetMsg)
+		}
+	}
+
+	require.True(t, applied, "revset.set should emit an UpdateRevSetMsg")
+	assert.Equal(t, "new", ctx.CurrentRevset)
+}
+
 func Test_Update_LuaBuiltinActionBypassesConfiguredOverride(t *testing.T) {
 	origActions := config.Current.Actions
 	defer func() {
