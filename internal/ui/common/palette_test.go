@@ -264,6 +264,43 @@ func TestPaletteUpdate_InheritsWhenAttributeOmitted(t *testing.T) {
 	assert.True(t, got.GetUnderline())
 }
 
+func TestPaletteUpdate_ClearsCachedStyles(t *testing.T) {
+	p := NewPalette()
+	p.Update(map[string]config.Color{
+		"text": {Fg: Red},
+	})
+
+	// Populate the cache.
+	got := p.Get("text")
+	assert.Equal(t, lipgloss.Color("1"), got.GetForeground())
+
+	// A second Update with different colors should invalidate the cache.
+	p.Update(map[string]config.Color{
+		"text": {Fg: Blue},
+	})
+
+	got = p.Get("text")
+	assert.Equal(t, lipgloss.Color("4"), got.GetForeground())
+}
+
+func TestPaletteUpdate_ClearsStaleKeysFromPreviousTheme(t *testing.T) {
+	p := NewPalette()
+	p.Update(map[string]config.Color{
+		"text":      {Fg: Red},
+		"dark only": {Fg: Green},
+	})
+
+	assert.Equal(t, lipgloss.Color("2"), p.Get("dark only").GetForeground())
+
+	// Switch to a theme that lacks the "dark only" key.
+	p.Update(map[string]config.Color{
+		"text": {Fg: Blue},
+	})
+
+	got := p.Get("dark only")
+	assert.Equal(t, lipgloss.NewStyle().GetForeground(), got.GetForeground())
+}
+
 func TestPaletteUpdate_ExplicitFalseOverridesInheritedAttribute(t *testing.T) {
 	p := NewPalette()
 	p.Update(map[string]config.Color{

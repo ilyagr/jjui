@@ -2,10 +2,12 @@ package ui
 
 import (
 	"fmt"
+	"log"
 	"slices"
 	"strings"
 	"time"
 
+	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/idursun/jjui/internal/scripting"
 	"github.com/idursun/jjui/internal/ui/actionmeta"
@@ -61,13 +63,19 @@ type Model struct {
 	height           int
 	revisionsSplit   *split
 	activeSplit      *split
+
+	// mode2031Supported is set when the terminal confirms it supports
+	// mode 2031 push. Once true, the OSC 11 polling loop stops.
+	mode2031Supported bool
 }
 
 type triggerAutoRefreshMsg struct{}
 
-const (
-	scopeUi keybindings.ScopeName = "ui"
-)
+const scopeUi keybindings.ScopeName = "ui"
+
+// colorSchemePollInterval is how often to poll the terminal for its
+// current light/dark mode.
+var colorSchemePollInterval = time.Second
 
 func (m *Model) Init() tea.Cmd {
 	return tea.Batch(m.revisions.Init(), m.scheduleAutoRefresh())
@@ -106,12 +114,34 @@ func (m *Model) Update(msg tea.Msg) tea.Cmd {
 				render.SetWidthMethod(ansi.GraphemeWidth)
 			}
 		}
+		// reply from initial ansi.RequestModeLightDark check
+		if msg.Mode == ansi.ModeLightDark && !msg.Value.IsNotRecognized() {
+			m.mode2031Supported = true
+		}
 		return nil
 	case tea.FocusMsg:
 		if m.state == common.Ready {
 			return common.RefreshAndKeepSelections
 		}
 		return nil
+	case tea.ResumeMsg:
+		// common.Suspend disables mode 2031 on the way out, reenable it on resume.
+		// Also re-query the background color in case the theme changed while suspended.
+		return tea.Batch(
+			tea.Raw(ansi.SetModeLightDark),
+			tea.RequestBackgroundColor,
+		)
+	case uv.DarkColorSchemeEvent:
+		return m.applyColorScheme(true)
+	case uv.LightColorSchemeEvent:
+		return m.applyColorScheme(false)
+	case tea.BackgroundColorMsg:
+		return m.applyColorScheme(msg.IsDark())
+	case colorSchemePollTickMsg:
+		if m.mode2031Supported {
+			return nil
+		}
+		return tea.Batch(tea.RequestBackgroundColor, scheduleColorSchemePoll())
 	case tea.MouseReleaseMsg:
 		m.activeSplit = nil
 	case tea.MouseMotionMsg:
@@ -506,9 +536,9 @@ func (m *Model) HandleIntent(intent intents.Intent) (tea.Cmd, bool) {
 
 	// --- Quit / Suspend ---
 	case intents.Quit:
-		return tea.Quit, true
+		return common.Quit(), true
 	case intents.Suspend:
-		return tea.Suspend, true
+		return common.Suspend(), true
 
 	// --- Cancel fallback (only reached if no inner scope handled it) ---
 	case intents.Cancel:
@@ -681,8 +711,9 @@ func (m *Model) updateBlockingScope(scope dispatch.Scope, msg tea.KeyMsg) tea.Cm
 var _ tea.Model = (*wrapper)(nil)
 
 type (
-	frameTickMsg struct{}
-	wrapper      struct {
+	frameTickMsg           struct{}
+	colorSchemePollTickMsg struct{}
+	wrapper                struct {
 		ui                 *Model
 		scheduledNextFrame bool
 		render             bool
@@ -691,7 +722,25 @@ type (
 )
 
 func (w *wrapper) Init() tea.Cmd {
-	return w.ui.Init()
+	return tea.Batch(
+		w.ui.Init(),
+		// Enable mode 2031 push notifications and probe whether the terminal
+		// supports it. If supported, the mode request returns a tea.ModeReportMsg
+		// with ansi.ModeLightDark, and uv.Light/DarkColorSchemeEvent are delivered
+		// on OS theme change.
+		tea.Raw(ansi.SetModeLightDark),
+		tea.Raw(ansi.RequestModeLightDark),
+		// Start OSC 11 polling as a baseline for light/dark mode detection
+		scheduleColorSchemePoll(),
+	)
+}
+
+// scheduleColorSchemePoll returns a Cmd that fires a colorSchemePollTickMsg
+// after colorSchemePollInterval.
+func scheduleColorSchemePoll() tea.Cmd {
+	return tea.Tick(colorSchemePollInterval, func(time.Time) tea.Msg {
+		return colorSchemePollTickMsg{}
+	})
 }
 
 func (w *wrapper) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -780,6 +829,27 @@ func (m *Model) initResolver() {
 		return
 	}
 	m.resolver = dispatch.NewResolver(dispatcher)
+}
+
+// applyColorScheme reloads the palette when the terminal's color scheme
+// changes (that is, the OS switched between light and dark mode).
+func (m *Model) applyColorScheme(isDark bool) tea.Cmd {
+	if isDark == m.context.TerminalHasDarkBackground {
+		return nil
+	}
+	scheme := "light"
+	if isDark {
+		scheme = "dark"
+	}
+	log.Printf("color scheme changed to %s", scheme)
+	m.context.TerminalHasDarkBackground = isDark
+	theme, err := config.ResolveTheme(isDark, m.context.JJConfig.GetApplicableColors())
+	if err != nil {
+		log.Printf("failed to resolve %s theme: %v", scheme, err)
+		return nil
+	}
+	common.DefaultPalette.Update(theme)
+	return func() tea.Msg { return common.ThemeChangedMsg{} }
 }
 
 func New(c *context.MainContext) tea.Model {
